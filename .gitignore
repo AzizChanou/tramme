@@ -1,0 +1,41 @@
+# Dependencies
+node_modules/
+
+# Build output
+out/
+dist/
+*.tsbuildinfo
+
+# Tests
+coverage/
+
+# Logs and caches
+*.log
+.eslintcache
+.cache/
+
+# Example renders and local project state
+examples/*/renders/
+examples/*/.tramme/
+
+# Cloudflare
+.wrangler/
+
+# Secrets (the *.example models stay in git)
+.dev.vars
+.env
+.env.*
+!.env.example
+!.dev.vars.example
+
+# Editors and OS
+.vscode/
+.idea/
+*.swp
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Local agent tooling
+.kilo/
+.claude/
