@@ -1,0 +1,13 @@
+{
+  "name": "@tramme/project",
+  "version": "0.1.0",
+  "license": "MIT",
+  "private": true,
+  "type": "module",
+  "exports": { ".": "./src/index.ts" },
+  "dependencies": {
+    "@tramme/core": "*",
+    "fflate": "^0.8.3",
+    "zod": "^4.6.5"
+  }
+}
