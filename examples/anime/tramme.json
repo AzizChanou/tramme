@@ -1,0 +1,11 @@
+{
+  "format": "tramme-project/1",
+  "id": "example-anime",
+  "name": "Evening Breeze",
+  "created": "2026-10-01T13:36:50.063Z",
+  "modified": "2026-10-02T10:11:34.918Z",
+  "width": 1920,
+  "height": 1080,
+  "duration": 9,
+  "thumbnail": "thumbnail.webp"
+}

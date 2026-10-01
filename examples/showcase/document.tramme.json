@@ -1,0 +1,242 @@
+{
+  "$schema": "../../schema/tramme-1.schema.json",
+  "schema": "tramme/1",
+  "meta": {
+    "title": "Showcase",
+    "description": "Engine demo: shader, particles, nested compositions, layer effects, modifiers."
+  },
+  "tokens": {
+    "night": {"type":"color","value":"#0B0D14"},
+    "indigo": {"type":"color","value":"#28306B"},
+    "sky": {"type":"color","value":"#7390FF"},
+    "lilac": {"type":"color","value":"#B590FF"},
+    "amber": {"type":"color","value":"#F2B54D"},
+    "white": {"type":"color","value":"#F4F5FB"},
+    "swift": {"type":"ease","value":[0.16,1,0.3,1]},
+    "snap": {"type":"ease","value":[0.7,0,0.2,1]}
+  },
+  "assets": {},
+  "root": "main",
+  "compositions": {
+    "badge": {
+      "name": "Badge",
+      "width": 400,
+      "height": 400,
+      "fps": 30,
+      "duration": 3,
+      "background": null,
+      "layers": {
+        "disc": {
+          "type": "shape.ellipse",
+          "name": "Disc",
+          "transform": {
+            "position": [200,200],
+            "scale": {
+              "$k": [{"t":0,"v":[0,0]},{"t":0.4,"v":[1,1]}],
+              "$mod": [{"type":"spring","freq":2.2,"damping":0.38}]
+            }
+          },
+          "props": {
+            "size": [300,300],
+            "fill": {
+              "type": "radial",
+              "center": [-60,-70],
+              "radius": 260,
+              "stops": [[0,"@sky"],[1,"@indigo"]]
+            }
+          }
+        },
+        "ring": {
+          "type": "shape.ellipse",
+          "name": "Ring",
+          "in": 0.15,
+          "transform": {"position":[200,200],"opacity":{"$k":[{"t":0.15,"v":0.9},{"t":1.2,"v":0}]}},
+          "props": {
+            "size": {"$k":[{"t":0.15,"v":[300,300],"ease":"@swift"},{"t":1.2,"v":[390,390]}]},
+            "fill": null,
+            "stroke": "@amber",
+            "strokeWidth": 6
+          }
+        },
+        "dot": {
+          "type": "shape.rect",
+          "name": "Dot",
+          "transform": {
+            "position": [200,200],
+            "rotation": {"$expr":"t * 90"},
+            "scale": {"$k":[{"t":0.2,"v":[0,0]},{"t":0.6,"v":[1,1],"ease":"@swift"}]}
+          },
+          "props": {"size":[90,90],"radius":18,"fill":"@white"}
+        }
+      },
+      "order": ["disc","ring","dot"]
+    },
+    "main": {
+      "name": "Showcase 16:9",
+      "width": 1920,
+      "height": 1080,
+      "fps": 30,
+      "duration": 6,
+      "background": "@night",
+      "motionBlur": {"samples":8,"shutter":0.5},
+      "markers": [
+        {"id":"intro","t":0,"label":"Opening","kind":"scene"},
+        {"id":"badges","t":1.2,"label":"Badges","kind":"scene"},
+        {"id":"title","t":2.4,"label":"Title","kind":"scene"}
+      ],
+      "effects": [
+        {"id":"vignette","type":"look.vignette","props":{"amount":0.3}},
+        {"id":"bloom","type":"look.bloom","props":{"amount":0.25,"threshold":0.7}},
+        {"id":"grain","type":"look.grain","props":{"amount":0.015,"seed":{"$expr":"frame + 1"}}}
+      ],
+      "layers": {
+        "sky": {
+          "type": "shader",
+          "name": "Sky (shader)",
+          "transform": {"position":[960,540],"opacity":{"$k":[{"t":0,"v":0},{"t":1,"v":1}]}},
+          "props": {
+            "size": [1920,1080],
+            "resolution": 0.5,
+            "colorA": "@night",
+            "colorB": "@indigo",
+            "p1": 1.2,
+            "p2": 0.8,
+            "code": "// uv: 0..1, y pointing down; uTime: layer time (s)\nvec4 shade(vec2 uv) {\n  float w = sin(uv.x * 6.2832 * uParams.x + uTime * uParams.y) + 0.5 * sin(uv.x * 13.0 - uTime * 0.7);\n  float k = smoothstep(0.15, 1.1, uv.y + 0.08 * w);\n  vec3 c = mix(uColorA.rgb, uColorB.rgb, k);\n  c += 0.06 * vec3(0.45, 0.56, 1.0) * exp(-8.0 * pow(uv.y - 0.62 - 0.05 * w, 2.0));\n  return vec4(c, 1.0);\n}"
+          }
+        },
+        "sparks": {
+          "type": "particles",
+          "name": "Sparks",
+          "transform": {"position":[960,1110]},
+          "props": {
+            "rate": 70,
+            "life": 2.4,
+            "preroll": 1.5,
+            "emitter": "line",
+            "emitterSize": [1500,0],
+            "direction": -90,
+            "spread": 26,
+            "speed": 520,
+            "speedVar": 0.45,
+            "gravity": [0,120],
+            "drag": 0.5,
+            "size": 7,
+            "sizeEnd": 1,
+            "color": "@amber",
+            "colorEnd": "@lilac",
+            "opacity": 0.85,
+            "seed": 7
+          },
+          "effects": [
+            {"id":"glow","type":"fx.glow","props":{"color":"@amber","radius":10,"strength":1}}
+          ]
+        },
+        "lens": {
+          "type": "shape.ellipse",
+          "name": "Bokeh",
+          "in": 0,
+          "out": 3.2,
+          "transform": {
+            "position": {"$v":[1500,280],"$mod":[{"type":"wiggle","freq":0.4,"amp":40,"seed":3}]},
+            "opacity": {"$k":[{"t":0,"v":0},{"t":0.6,"v":0.55},{"t":2.6,"v":0.55},{"t":3.2,"v":0}]}
+          },
+          "props": {"size":[360,360],"fill":"@lilac"},
+          "effects": [
+            {
+              "id": "blur",
+              "type": "fx.blur",
+              "props": {"radius":{"$k":[{"t":0,"v":60,"ease":"@swift"},{"t":1.5,"v":18}]}}
+            }
+          ]
+        },
+        "badges": {"type":"group","name":"Badges","in":1.2,"children":["b1","b2","b3"]},
+        "b1": {
+          "type": "comp",
+          "name": "Badge 1",
+          "in": 1.2,
+          "transform": {
+            "position": [560,470],
+            "rotation": {
+              "$k": [{"t":1.2,"v":-20},{"t":2.2,"v":0,"ease":"@swift"}],
+              "$mod": [{"type":"stagger","delay":0.18}]
+            }
+          },
+          "props": {"comp":"badge"},
+          "effects": [
+            {
+              "id": "shadow",
+              "type": "fx.shadow",
+              "props": {"color":"rgba(0,0,0,0.5)","blur":30,"offset":[0,24]}
+            }
+          ]
+        },
+        "b2": {
+          "type": "comp",
+          "name": "Badge 2",
+          "in": 1.38,
+          "transform": {
+            "position": [960,470],
+            "rotation": {
+              "$k": [{"t":1.2,"v":-20},{"t":2.2,"v":0,"ease":"@swift"}],
+              "$mod": [{"type":"stagger","delay":0.18}]
+            }
+          },
+          "props": {"comp":"badge"},
+          "effects": [
+            {
+              "id": "shadow",
+              "type": "fx.shadow",
+              "props": {"color":"rgba(0,0,0,0.5)","blur":30,"offset":[0,24]}
+            }
+          ]
+        },
+        "b3": {
+          "type": "comp",
+          "name": "Badge 3",
+          "in": 1.56,
+          "transform": {
+            "position": [1360,470],
+            "rotation": {
+              "$k": [{"t":1.2,"v":-20},{"t":2.2,"v":0,"ease":"@swift"}],
+              "$mod": [{"type":"stagger","delay":0.18}]
+            }
+          },
+          "props": {"comp":"badge"},
+          "effects": [
+            {
+              "id": "shadow",
+              "type": "fx.shadow",
+              "props": {"color":"rgba(0,0,0,0.5)","blur":30,"offset":[0,24]}
+            }
+          ]
+        },
+        "title": {
+          "type": "text",
+          "name": "Title",
+          "in": 2.4,
+          "transform": {
+            "position": {"$k":[{"t":2.4,"v":[960,990],"ease":"@swift"},{"t":3,"v":[960,880]}]},
+            "rotation": {"$v":0,"$mod":[{"type":"wiggle","freq":0.6,"amp":0.6}]},
+            "opacity": {"$k":[{"t":2.4,"v":0},{"t":2.8,"v":1}]}
+          },
+          "props": {
+            "text": "Motion, as a document.",
+            "size": 96,
+            "weight": {"$k":[{"t":2.45,"v":300,"ease":"@swift"},{"t":2.9,"v":800}]},
+            "tracking": -0.02,
+            "color": "@white",
+            "align": "center"
+          },
+          "effects": [
+            {
+              "id": "shadow",
+              "type": "fx.shadow",
+              "props": {"color":"rgba(115,144,255,0.55)","blur":40,"offset":[0,0]}
+            }
+          ]
+        }
+      },
+      "order": ["sky","lens","sparks","badges","title"]
+    }
+  }
+}

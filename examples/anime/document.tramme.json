@@ -1,0 +1,680 @@
+{
+  "$schema": "../../schema/tramme-1.schema.json",
+  "schema": "tramme/1",
+  "meta": {
+    "title": "Evening Breeze",
+    "description": "Example anime: frame-by-frame drawings in sequences (grass, eye, scarf, speed lines), exposure sheet, three shots."
+  },
+  "tokens": {
+    "night": {"type":"color","value":"#1E2A5C"},
+    "dusk": {"type":"color","value":"#8E5B9A"},
+    "dawn": {"type":"color","value":"#F6A86B"},
+    "sun": {"type":"color","value":"#FFE3A3"},
+    "haze": {"type":"color","value":"#6E5F92"},
+    "mountain": {"type":"color","value":"#3A3866"},
+    "hill": {"type":"color","value":"#1F2B45"},
+    "ink": {"type":"color","value":"#1A1424"},
+    "petal": {"type":"color","value":"#F9C3D3"},
+    "skin": {"type":"color","value":"#F7D9C4"},
+    "hair": {"type":"color","value":"#2B2140"},
+    "white": {"type":"color","value":"#FFFFFF"},
+    "day-high": {"type":"color","value":"#7FB2EE"},
+    "day-low": {"type":"color","value":"#F6E3C4"},
+    "smooth": {"type":"ease","value":[0.42,0,0.58,1]},
+    "snappy": {"type":"ease","value":[0.16,1,0.3,1]}
+  },
+  "assets": {
+    "grass-01": {"type":"image","src":"assets/grass/grass-01.png","name":"grass-01"},
+    "grass-02": {"type":"image","src":"assets/grass/grass-02.png","name":"grass-02"},
+    "grass-03": {"type":"image","src":"assets/grass/grass-03.png","name":"grass-03"},
+    "grass-04": {"type":"image","src":"assets/grass/grass-04.png","name":"grass-04"},
+    "grass-05": {"type":"image","src":"assets/grass/grass-05.png","name":"grass-05"},
+    "grass-06": {"type":"image","src":"assets/grass/grass-06.png","name":"grass-06"},
+    "grass-07": {"type":"image","src":"assets/grass/grass-07.png","name":"grass-07"},
+    "grass-08": {"type":"image","src":"assets/grass/grass-08.png","name":"grass-08"},
+    "eye-01": {"type":"image","src":"assets/eye/eye-01.png","name":"eye-01"},
+    "eye-02": {"type":"image","src":"assets/eye/eye-02.png","name":"eye-02"},
+    "eye-03": {"type":"image","src":"assets/eye/eye-03.png","name":"eye-03"},
+    "eye-04": {"type":"image","src":"assets/eye/eye-04.png","name":"eye-04"},
+    "eye-05": {"type":"image","src":"assets/eye/eye-05.png","name":"eye-05"},
+    "eye-06": {"type":"image","src":"assets/eye/eye-06.png","name":"eye-06"},
+    "scarf-01": {"type":"image","src":"assets/scarf/scarf-01.png","name":"scarf-01"},
+    "scarf-02": {"type":"image","src":"assets/scarf/scarf-02.png","name":"scarf-02"},
+    "scarf-03": {"type":"image","src":"assets/scarf/scarf-03.png","name":"scarf-03"},
+    "scarf-04": {"type":"image","src":"assets/scarf/scarf-04.png","name":"scarf-04"},
+    "scarf-05": {"type":"image","src":"assets/scarf/scarf-05.png","name":"scarf-05"},
+    "scarf-06": {"type":"image","src":"assets/scarf/scarf-06.png","name":"scarf-06"},
+    "scarf-07": {"type":"image","src":"assets/scarf/scarf-07.png","name":"scarf-07"},
+    "scarf-08": {"type":"image","src":"assets/scarf/scarf-08.png","name":"scarf-08"},
+    "speed-lines-01": {
+      "type": "image",
+      "src": "assets/speed-lines/speed-lines-01.png",
+      "name": "speed-lines-01"
+    },
+    "speed-lines-02": {
+      "type": "image",
+      "src": "assets/speed-lines/speed-lines-02.png",
+      "name": "speed-lines-02"
+    },
+    "speed-lines-03": {
+      "type": "image",
+      "src": "assets/speed-lines/speed-lines-03.png",
+      "name": "speed-lines-03"
+    },
+    "speed-lines-04": {
+      "type": "image",
+      "src": "assets/speed-lines/speed-lines-04.png",
+      "name": "speed-lines-04"
+    },
+    "speed-lines-05": {
+      "type": "image",
+      "src": "assets/speed-lines/speed-lines-05.png",
+      "name": "speed-lines-05"
+    },
+    "speed-lines-06": {
+      "type": "image",
+      "src": "assets/speed-lines/speed-lines-06.png",
+      "name": "speed-lines-06"
+    }
+  },
+  "root": "anime",
+  "compositions": {
+    "anime": {
+      "name": "Evening Breeze",
+      "width": 1920,
+      "height": 1080,
+      "fps": 24,
+      "duration": 9,
+      "background": "@night",
+      "motionBlur": {"samples":4,"shutter":0.5},
+      "markers": [
+        {"id":"hill","t":0,"label":"The hill","kind":"scene"},
+        {"id":"gaze","t":3.5,"label":"The gaze","kind":"cut"},
+        {"id":"wind","t":6,"label":"The wind","kind":"cut"}
+      ],
+      "effects": [
+        {"id":"vignette","type":"look.vignette","props":{"amount":0.28}},
+        {"id":"bloom","type":"look.bloom","props":{"amount":0.18,"threshold":0.75}},
+        {"id":"grain","type":"look.grain","props":{"amount":0.025,"seed":{"$expr":"frame + 1"}}}
+      ],
+      "layers": {
+        "shot1": {
+          "type": "comp",
+          "name": "Shot 1 · The hill",
+          "in": 0,
+          "out": 3.5,
+          "transform": {"position":[960,540]},
+          "props": {"comp":"hill"}
+        },
+        "shot2": {
+          "type": "comp",
+          "name": "Shot 2 · The gaze",
+          "in": 3.5,
+          "out": 6,
+          "transform": {"position":[960,540]},
+          "props": {"comp":"gaze"}
+        },
+        "shot3": {
+          "type": "comp",
+          "name": "Shot 3 · The wind",
+          "in": 6,
+          "out": 9,
+          "transform": {"position":[960,540]},
+          "props": {"comp":"wind"}
+        },
+        "fade": {
+          "type": "shape.rect",
+          "name": "Fade",
+          "transform": {
+            "position": [960,540],
+            "opacity": {"$k":[{"t":0,"v":1},{"t":0.6,"v":0},{"t":8.4,"v":0},{"t":9,"v":1}]}
+          },
+          "props": {"size":[1920,1080],"fill":"#000000"}
+        }
+      },
+      "order": ["shot1","shot2","shot3","fade"]
+    },
+    "hill": {
+      "name": "Shot 1 · The hill",
+      "width": 1920,
+      "height": 1080,
+      "fps": 24,
+      "duration": 3.5,
+      "background": "@night",
+      "layers": {
+        "sky": {
+          "type": "shape.rect",
+          "name": "Sky",
+          "transform": {"position":[960,540]},
+          "props": {
+            "size": [2496,1404],
+            "fill": {
+              "type": "linear",
+              "from": [0,-700],
+              "to": [0,700],
+              "stops": [[0,"@night"],[0.55,"@dusk"],[1,"@dawn"]]
+            }
+          }
+        },
+        "sun": {
+          "type": "shape.ellipse",
+          "name": "Sun",
+          "transform": {"position":[1360,700]},
+          "props": {"size":[300,300],"fill":"@sun"},
+          "effects": [
+            {"id":"glow","type":"fx.glow","props":{"color":"@sun","radius":46,"strength":2}}
+          ]
+        },
+        "camera": {
+          "type": "group",
+          "name": "Camera",
+          "transform": {
+            "anchor": [960,540],
+            "position": {"$k":[{"t":0,"v":[960,540],"ease":"@smooth"},{"t":3.5,"v":[920,550]}]},
+            "scale": {"$k":[{"t":0,"v":[1,1],"ease":"@smooth"},{"t":3.5,"v":[1.07,1.07]}]}
+          },
+          "children": [
+            "far",
+            "mountains",
+            "hill",
+            "grass1",
+            "grass2",
+            "grass3",
+            "grass4",
+            "grass5",
+            "grass6",
+            "front1",
+            "front2"
+          ]
+        },
+        "far": {
+          "type": "shape.path",
+          "name": "Distant mountains",
+          "props": {
+            "path": {
+              "v": [
+                [-200,690],
+                [120,520],
+                [330,600],
+                [560,440],
+                [780,590],
+                [1000,470],
+                [1230,610],
+                [1460,500],
+                [1700,640],
+                [2120,520],
+                [2120,1300],
+                [-200,1300]
+              ],
+              "closed": true
+            },
+            "fill": "@haze"
+          }
+        },
+        "mountains": {
+          "type": "shape.path",
+          "name": "Mountains",
+          "props": {
+            "path": {
+              "v": [
+                [-200,760],
+                [180,610],
+                [420,700],
+                [700,560],
+                [960,720],
+                [1260,600],
+                [1540,730],
+                [1800,640],
+                [2120,740],
+                [2120,1300],
+                [-200,1300]
+              ],
+              "closed": true
+            },
+            "fill": "@mountain",
+            "stroke": "@ink",
+            "strokeWidth": 4
+          }
+        },
+        "hill": {
+          "type": "shape.path",
+          "name": "Hill",
+          "props": {
+            "path": {
+              "v": [
+                [-120,852],
+                [-60,837],
+                [0,819],
+                [60,802],
+                [120,787],
+                [180,776],
+                [240,769],
+                [300,768],
+                [360,770],
+                [420,776],
+                [480,783],
+                [540,789],
+                [600,793],
+                [660,794],
+                [720,792],
+                [780,786],
+                [840,779],
+                [900,771],
+                [960,764],
+                [1020,761],
+                [1080,761],
+                [1140,767],
+                [1200,778],
+                [1260,792],
+                [1320,809],
+                [1380,826],
+                [1440,841],
+                [1500,853],
+                [1560,861],
+                [1620,865],
+                [1680,866],
+                [1740,863],
+                [1800,860],
+                [1860,858],
+                [1920,858],
+                [1980,862],
+                [2040,870],
+                [2040,1240],
+                [-120,1240]
+              ],
+              "closed": true
+            },
+            "fill": "@hill",
+            "stroke": "@ink",
+            "strokeWidth": 5
+          }
+        },
+        "grass1": {
+          "type": "sequence",
+          "name": "Grass 1",
+          "transform": {"position":[140,587],"scale":[1.15,1.15]},
+          "props": {
+            "frames": [
+              "grass-01",
+              "grass-02",
+              "grass-03",
+              "grass-04",
+              "grass-05",
+              "grass-06",
+              "grass-07",
+              "grass-08"
+            ],
+            "size": [640,380],
+            "hold": 3,
+            "loop": "pingpong",
+            "offset": 0
+          }
+        },
+        "grass2": {
+          "type": "sequence",
+          "name": "Grass 2",
+          "transform": {"position":[470,647],"scale":[0.8,0.8]},
+          "props": {
+            "frames": [
+              "grass-01",
+              "grass-02",
+              "grass-03",
+              "grass-04",
+              "grass-05",
+              "grass-06",
+              "grass-07",
+              "grass-08"
+            ],
+            "size": [640,380],
+            "hold": 3,
+            "loop": "pingpong",
+            "offset": 3
+          }
+        },
+        "grass3": {
+          "type": "sequence",
+          "name": "Grass 3",
+          "transform": {"position":[760,627],"scale":[0.95,0.95]},
+          "props": {
+            "frames": [
+              "grass-01",
+              "grass-02",
+              "grass-03",
+              "grass-04",
+              "grass-05",
+              "grass-06",
+              "grass-07",
+              "grass-08"
+            ],
+            "size": [640,380],
+            "hold": 3,
+            "loop": "pingpong",
+            "offset": 5
+          }
+        },
+        "grass4": {
+          "type": "sequence",
+          "name": "Grass 4",
+          "transform": {"position":[1080,644],"scale":[0.7,0.7]},
+          "props": {
+            "frames": [
+              "grass-01",
+              "grass-02",
+              "grass-03",
+              "grass-04",
+              "grass-05",
+              "grass-06",
+              "grass-07",
+              "grass-08"
+            ],
+            "size": [640,380],
+            "hold": 3,
+            "loop": "pingpong",
+            "offset": 2
+          }
+        },
+        "grass5": {
+          "type": "sequence",
+          "name": "Grass 5",
+          "transform": {"position":[1420,657],"scale":[1.05,1.05]},
+          "props": {
+            "frames": [
+              "grass-01",
+              "grass-02",
+              "grass-03",
+              "grass-04",
+              "grass-05",
+              "grass-06",
+              "grass-07",
+              "grass-08"
+            ],
+            "size": [640,380],
+            "hold": 3,
+            "loop": "pingpong",
+            "offset": 6
+          }
+        },
+        "grass6": {
+          "type": "sequence",
+          "name": "Grass 6",
+          "transform": {"position":[1760,719],"scale":[0.85,0.85]},
+          "props": {
+            "frames": [
+              "grass-01",
+              "grass-02",
+              "grass-03",
+              "grass-04",
+              "grass-05",
+              "grass-06",
+              "grass-07",
+              "grass-08"
+            ],
+            "size": [640,380],
+            "hold": 3,
+            "loop": "pingpong",
+            "offset": 1
+          }
+        },
+        "front1": {
+          "type": "sequence",
+          "name": "Grass (front)",
+          "transform": {"position":[150,1010],"scale":[2.1,2.1]},
+          "props": {
+            "frames": [
+              "grass-01",
+              "grass-02",
+              "grass-03",
+              "grass-04",
+              "grass-05",
+              "grass-06",
+              "grass-07",
+              "grass-08"
+            ],
+            "size": [640,380],
+            "hold": 2,
+            "loop": "pingpong",
+            "offset": 4
+          },
+          "effects": [{"id":"shade","type":"fx.tint","props":{"color":"#121829","amount":0.92}}]
+        },
+        "front2": {
+          "type": "sequence",
+          "name": "Grass (front)",
+          "transform": {"position":[1780,1030],"scale":[-1.8,1.8]},
+          "props": {
+            "frames": [
+              "grass-01",
+              "grass-02",
+              "grass-03",
+              "grass-04",
+              "grass-05",
+              "grass-06",
+              "grass-07",
+              "grass-08"
+            ],
+            "size": [640,380],
+            "hold": 2,
+            "loop": "pingpong",
+            "offset": 1
+          },
+          "effects": [{"id":"shade","type":"fx.tint","props":{"color":"#121829","amount":0.92}}]
+        },
+        "petals": {
+          "type": "particles",
+          "name": "Petals",
+          "transform": {"position":[-160,420]},
+          "props": {
+            "emitter": "rect",
+            "emitterSize": [200,900],
+            "direction": 12,
+            "spread": 24,
+            "speed": 210,
+            "speedVar": 0.4,
+            "gravity": [0,26],
+            "drag": 0.05,
+            "spin": 220,
+            "size": 11,
+            "sizeVar": 0.45,
+            "shape": "square",
+            "color": "@petal",
+            "colorEnd": "#F49AB5",
+            "life": 10,
+            "fadeOut": 0.12,
+            "rate": 14,
+            "preroll": 7,
+            "seed": 3
+          }
+        }
+      },
+      "order": ["sky","sun","camera","petals"]
+    },
+    "gaze": {
+      "name": "Shot 2 · The gaze",
+      "width": 1920,
+      "height": 1080,
+      "fps": 24,
+      "duration": 2.5,
+      "background": "@skin",
+      "layers": {
+        "cheek": {
+          "type": "shape.ellipse",
+          "name": "Cheek",
+          "transform": {"position":[1460,940]},
+          "props": {"size":[760,300],"fill":"rgba(240,130,150,0.38)"},
+          "effects": [{"id":"blur","type":"fx.blur","props":{"radius":60}}]
+        },
+        "eye": {
+          "type": "sequence",
+          "name": "Eye",
+          "transform": {
+            "position": [960,590],
+            "scale": {"$k":[{"t":0,"v":[1,1],"ease":"@smooth"},{"t":2.5,"v":[1.06,1.06]}]}
+          },
+          "props": {
+            "frames": ["eye-01","eye-02","eye-03","eye-04","eye-05","eye-06"],
+            "size": [1200,640],
+            "loop": "once",
+            "sheet": "1/10, 2-4/2, 5/14, 4/1, 3/1, 2/1, 1/2, 2-4/1, 6/14"
+          }
+        },
+        "lock1": {
+          "type": "shape.path",
+          "name": "Hair lock",
+          "transform": {"rotation":{"$v":0,"$mod":[{"type":"wiggle","freq":0.8,"amp":1.2}]}},
+          "props": {
+            "path": {"v":[[1100,-40],[1300,-40],[1240,180],[1180,330],[1150,210]],"closed":true},
+            "fill": "@hair",
+            "stroke": "@ink",
+            "strokeWidth": 5
+          }
+        },
+        "lock2": {
+          "type": "shape.path",
+          "name": "Hair lock",
+          "transform": {"rotation":{"$v":0,"$mod":[{"type":"wiggle","freq":0.7,"amp":1,"seed":4}]}},
+          "props": {
+            "path": {"v":[[1260,-40],[1500,-40],[1420,120],[1340,250],[1330,120]],"closed":true},
+            "fill": "@hair",
+            "stroke": "@ink",
+            "strokeWidth": 5
+          }
+        }
+      },
+      "order": ["cheek","eye","lock1","lock2"]
+    },
+    "wind": {
+      "name": "Shot 3 · The wind",
+      "width": 1920,
+      "height": 1080,
+      "fps": 24,
+      "duration": 3,
+      "background": "@day-low",
+      "layers": {
+        "sky": {
+          "type": "shape.rect",
+          "name": "Sky",
+          "transform": {"position":[960,540]},
+          "props": {
+            "size": [1920,1080],
+            "fill": {
+              "type": "linear",
+              "from": [0,-540],
+              "to": [0,540],
+              "stops": [[0,"@day-high"],[1,"@day-low"]]
+            }
+          }
+        },
+        "cloud1": {
+          "type": "shape.ellipse",
+          "name": "Cloud",
+          "transform": {"position":{"$k":[{"t":0,"v":[420,260]},{"t":3,"v":[180,260]}]}},
+          "props": {"size":[520,120],"fill":"rgba(255,255,255,0.85)"},
+          "effects": [{"id":"blur","type":"fx.blur","props":{"radius":8}}]
+        },
+        "cloud2": {
+          "type": "shape.ellipse",
+          "name": "Cloud",
+          "transform": {"position":{"$k":[{"t":0,"v":[1500,170]},{"t":3,"v":[1300,170]}]}},
+          "props": {"size":[380,90],"fill":"rgba(255,255,255,0.75)"},
+          "effects": [{"id":"blur","type":"fx.blur","props":{"radius":8}}]
+        },
+        "speed": {
+          "type": "sequence",
+          "name": "Speed lines",
+          "transform": {"position":[960,540],"opacity":0.6},
+          "props": {
+            "frames": [
+              "speed-lines-01",
+              "speed-lines-02",
+              "speed-lines-03",
+              "speed-lines-04",
+              "speed-lines-05",
+              "speed-lines-06"
+            ],
+            "size": [1920,1080],
+            "fit": "fill",
+            "hold": 1
+          }
+        },
+        "scarf": {
+          "type": "sequence",
+          "name": "Scarf",
+          "transform": {
+            "position": [900,520],
+            "rotation": {"$v":-4,"$mod":[{"type":"wiggle","freq":1.1,"amp":1.5}]}
+          },
+          "props": {
+            "frames": [
+              "scarf-01",
+              "scarf-02",
+              "scarf-03",
+              "scarf-04",
+              "scarf-05",
+              "scarf-06",
+              "scarf-07",
+              "scarf-08"
+            ],
+            "size": [1800,760],
+            "hold": 2
+          }
+        },
+        "petals": {
+          "type": "particles",
+          "name": "Petals",
+          "transform": {"position":[-120,540]},
+          "props": {
+            "emitter": "rect",
+            "emitterSize": [120,1100],
+            "direction": 4,
+            "spread": 10,
+            "speed": 900,
+            "speedVar": 0.35,
+            "gravity": [0,40],
+            "drag": 0,
+            "spin": 400,
+            "size": 12,
+            "sizeVar": 0.5,
+            "shape": "square",
+            "color": "@petal",
+            "life": 3,
+            "fadeOut": 0.1,
+            "rate": 40,
+            "preroll": 2,
+            "seed": 9
+          }
+        },
+        "title": {
+          "type": "text",
+          "name": "Title",
+          "in": 0.7,
+          "transform": {
+            "position": {"$k":[{"t":0.7,"v":[1860,980],"ease":"@snappy"},{"t":1.3,"v":[1800,980]}]},
+            "opacity": {"$k":[{"t":0.7,"v":0},{"t":1.1,"v":1}]}
+          },
+          "props": {
+            "text": "The wind rises",
+            "size": 128,
+            "weight": 800,
+            "tracking": -0.01,
+            "color": "@white",
+            "align": "right"
+          },
+          "effects": [
+            {
+              "id": "shadow",
+              "type": "fx.shadow",
+              "props": {"color":"rgba(40,24,70,0.5)","blur":26,"offset":[0,10]}
+            }
+          ]
+        },
+        "flash": {
+          "type": "shape.rect",
+          "name": "Flash",
+          "transform": {"position":[960,540],"opacity":{"$k":[{"t":0,"v":0.9},{"t":0.3,"v":0}]}},
+          "props": {"size":[1920,1080],"fill":"#FFFFFF"}
+        }
+      },
+      "order": ["sky","cloud1","cloud2","speed","scarf","petals","title","flash"]
+    }
+  }
+}

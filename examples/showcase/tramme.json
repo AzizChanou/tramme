@@ -1,0 +1,11 @@
+{
+  "format": "tramme-project/1",
+  "id": "example-showcase",
+  "name": "Showcase",
+  "created": "2026-10-01T12:17:40.210Z",
+  "modified": "2026-10-01T12:17:40.210Z",
+  "width": 1920,
+  "height": 1080,
+  "duration": 6,
+  "thumbnail": "thumbnail.webp"
+}
