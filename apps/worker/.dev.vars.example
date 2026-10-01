@@ -1,0 +1,11 @@
+# Model of apps/worker/.dev.vars: copy it to .dev.vars and fill in the keys.
+# Never put real keys in this file (it is kept in git).
+# Deployed app: the same names as Cloudflare secrets (npx wrangler secret put NAME).
+
+# Claude through the server (fallback when the local companion is not running)
+ANTHROPIC_API_KEY=
+
+# Other providers (OpenAI chat format)
+OPENAI_API_KEY=
+GEMINI_API_KEY=
+OPENROUTER_API_KEY=
