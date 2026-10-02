@@ -15,6 +15,7 @@ import { companionTurn, pairCompanion, probeCompanion, stopCompanion } from './c
 import { ServerSession, type Message } from './server.ts';
 import { ToolRunner } from './tools.ts';
 import { runCall, uid } from './calls.ts';
+import { clip } from '../model.ts';
 import type { Command } from './commands.ts';
 import { describe, imageBlocks, type Attachment } from '../attachments.ts';
 import { locale, t } from '../i18n/index.ts';
@@ -29,17 +30,23 @@ export interface AiSettings {
   localUrl: string;
   /** the effort level chosen for each model that has levels; none chosen: high for Claude, the model's own default for the others */
   efforts: Record<string, Effort>;
+  /** tell the user when a turn is over (a notification when the editor is in the background) */
+  notify: boolean;
+  /** the proposals are applied as soon as the turn is over, without the preview step (confirmed once in the settings) */
+  autoApply: boolean;
 }
 
 const KEY = 'tramme.assistant';
 function loadSettings(): AiSettings {
-  const d: AiSettings = { model: DEFAULT_MODEL, prefer: 'auto', companionUrl: `http://127.0.0.1:${COMPANION_PORT}`, token: '', localUrl: LOCAL_URL, efforts: {} };
+  const d: AiSettings = { model: DEFAULT_MODEL, prefer: 'auto', companionUrl: `http://127.0.0.1:${COMPANION_PORT}`, token: '', localUrl: LOCAL_URL, efforts: {}, notify: true, autoApply: false };
   try {
     // the settings kept under the tool's former name (model, companion token) are taken over
     const s = { ...d, ...JSON.parse(localStorage.getItem(KEY) ?? localStorage.getItem('emotion.assistant') ?? '{}') } as AiSettings;
     if (typeof s.model !== 'string' || (providerOf(s.model) === 'anthropic' && !MODELS.some(([id]) => id === s.model))) s.model = d.model;
     const efforts = s.efforts && typeof s.efforts === 'object' ? s.efforts : {};
     s.efforts = Object.fromEntries(Object.entries(efforts).filter(([, e]) => EFFORTS.includes(e)));
+    s.notify = s.notify !== false;
+    s.autoApply = s.autoApply === true;
     return s;
   } catch { return d; }
 }
@@ -215,7 +222,7 @@ function parse(text: string) {
 function titleOf(items: ChatItem[]): string {
   const first = items.find((it) => it.role === 'user' && it.text)?.text ?? t('ai.conversation');
   const line = first.replace(/\s+/g, ' ').trim();
-  return line.length > 70 ? `${line.slice(0, 68)}…` : line;
+  return clip(line, 69);
 }
 
 /** open the most recent conversation of the project; an older single chat.json becomes the first one */

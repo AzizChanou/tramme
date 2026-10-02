@@ -35,6 +35,9 @@ export function subtree(comp: Composition, id: string): string[] {
 
 export const layerName = (id: string, l: Layer) => l.name || id;
 
+/** a text cut to at most max characters, an ellipsis marking the cut */
+export const clip = (text: string, max: number) => (text.length > max ? `${text.slice(0, max - 1)}…` : text);
+
 // ── time ─────────────────────────────────────────────────────
 export const snap = (t: number, fps: number) => Math.round(t * fps) / fps;
 

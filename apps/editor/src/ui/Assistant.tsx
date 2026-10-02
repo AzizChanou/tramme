@@ -14,7 +14,8 @@ import { fieldsOf, inputLine, inputOf, listCommands, matchCommands, parseCommand
 import { uid } from '../ai/calls.ts';
 import { refreshLibrary } from '../library.ts';
 import { acceptProposal, comp, propose, rejectProposal, S, toast, uiTime } from '../state.ts';
-import { ago, describeOp, layerName, timecode } from '../model.ts';
+import { ago, clip, describeOp, layerName, timecode } from '../model.ts';
+import { away, notify } from '../notify.ts';
 import { Icon } from './icons.tsx';
 import { attachFiles, attaching, attachmentUrl, pending, removePending, type Attachment } from '../attachments.ts';
 import { Popover, Seg, Select, Toggle } from './controls.tsx';
@@ -78,6 +79,8 @@ async function consume(start: (signal: AbortSignal) => AsyncGenerator<AiEvent>) 
   turnStart.value = Date.now();
   streaming.value = null;
   controller = new AbortController();
+  const from = chat.peek().length, signal = controller.signal;
+  let error = '';
   try {
     for await (const ev of start(controller.signal)) {
       if (ev.type === 'item') { chat.value = [...chat.value, ev.item]; streaming.value = ev.item.text !== undefined ? ev.item.id : null; }
@@ -96,18 +99,43 @@ async function consume(start: (signal: AbortSignal) => AsyncGenerator<AiEvent>) 
         chat.value = chat.value.filter((it) => it.proposal?.id !== ev.id);
       } else if (ev.type === 'reload') {
         preview.reload(ev.assets).catch((e) => toast(t('assistant.pluginError', { error: (e as Error).message }), 'error'));
-      } else if (ev.type === 'error') chat.value = [...chat.value, { id: uid(), role: 'assistant', text: t('assistant.errorError', { error: ev.message }) }];
+      } else if (ev.type === 'error') { error = ev.message; chat.value = [...chat.value, { id: uid(), role: 'assistant', text: t('assistant.errorError', { error }) }]; }
     }
   } catch (e) {
-    if ((e as Error).name !== 'AbortError') chat.value = [...chat.value, { id: uid(), role: 'assistant', text: t('assistant.errorError', { error: (e as Error).message }) }];
+    if ((e as Error).name !== 'AbortError') { error = (e as Error).message; chat.value = [...chat.value, { id: uid(), role: 'assistant', text: t('assistant.errorError', { error }) }]; }
   } finally {
     running.value = false;
     streaming.value = null;
     controller = null;
     chat.value = chat.value.map((it) => (it.tool && !it.tool.done ? { ...it, tool: { ...it.tool, done: true } }
       : it.thinking && !it.thinking.done ? { ...it, thinking: { ...it.thinking, done: true, ms: Date.now() - (it.thinking.start ?? Date.now()) } } : it));
+    // stopped by the user: nothing applied, nothing to tell
+    if (!signal.aborted) finished(from, error, Date.now() - turnStart.peek());
     saveChat(chat.value).catch(() => {});
   }
+}
+
+/** a turn longer than this is told even when the user stayed in the editor */
+const LONG_TURN = 15_000;
+
+/**
+ * The turn is over: its proposal applied when the user chose so, then the
+ * user told (a notification in the background, a message after a long turn,
+ * always when something was applied without them).
+ */
+function finished(from: number, error: string, ms: number) {
+  const { notify: tell, autoApply } = aiSettings.peek();
+  const turn = chat.peek().slice(from);
+  const p = S.proposal.peek();
+  const proposal = p?.status === 'pending' && turn.some((it) => it.proposal?.id === p.id) ? p : null;
+  const applied = !error && !!proposal && autoApply && decide(true);
+  const said = turn.filter((it) => it.role === 'assistant' && it.text).at(-1)?.text?.replace(/\s+/g, ' ').trim();
+  const body = error ? t('assistant.doneError', { error })
+    : applied ? t('assistant.doneApplied', { label: proposal!.label })
+    : proposal ? t('assistant.doneProposal', { label: proposal.label })
+    : said ? clip(said, 140) : t('assistant.doneReply');
+  if (tell && (away() || ms >= LONG_TURN)) notify(t('assistant.doneTitle', { name: S.project.peek().name }), body, error ? 'error' : 'info');
+  else if (applied) toast(body);
 }
 
 function stop() {
@@ -115,17 +143,22 @@ function stop() {
   controller?.abort();
 }
 
-/** keep the proposal cards in step with the state, and remember decisions for the agent */
-export function decide(accept: boolean) {
+/**
+ * The user (or the automatic application) applies or refuses the proposal:
+ * the cards follow, the decision is told to the agent. False when it could
+ * not be applied.
+ */
+export function decide(accept: boolean): boolean {
   const p = S.proposal.peek();
-  if (!p) return;
+  if (!p) return false;
   const ok = accept ? acceptProposal() : (rejectProposal(), true);
-  if (!ok) return;
+  if (!ok) return false;
   const status = accept ? 'accepted' : 'rejected';
   decisions.set(p.id, status);
   decided(p.id);
   chat.value = chat.value.map((it) => (it.proposal?.id === p.id ? { ...it, proposal: { ...it.proposal, status } } : it));
   saveChat(chat.value).catch(() => {});
+  return true;
 }
 
 // ── light markdown: paragraphs, lists, code, bold, inline code ──

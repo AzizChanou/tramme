@@ -4,6 +4,7 @@
 
 import type { AiNotes, JsonSchema, PropSchema, Registry } from '@tramme/core';
 import { TOOLS } from '@tramme/assistant';
+import { clip } from '../model.ts';
 
 /** what is wrong with a tool's input against its schema, one line per problem */
 export function inputIssues(name: string, input: unknown): string[] {
@@ -14,7 +15,7 @@ export function inputIssues(name: string, input: unknown): string[] {
 }
 
 // ── the vocabulary's index: each entry in a line or two, its full schema on demand ──
-const short = (v: unknown) => { const s = JSON.stringify(v); return s.length > 40 ? `${s.slice(0, 37)}…` : s; };
+const short = (v: unknown) => clip(JSON.stringify(v), 38);
 const propLine = (props: PropSchema) => Object.entries(props).map(([k, d]) => `${k}:${d.options ? d.options.join('|') : d.type}=${short(d.default)}`).join(', ');
 const notes = (ai?: AiNotes) => [ai?.when && `  when: ${ai.when}`, ai?.avoid && `  avoid: ${ai.avoid}`].filter(Boolean).join('\n');
 function inputLine(schema?: JsonSchema): string {

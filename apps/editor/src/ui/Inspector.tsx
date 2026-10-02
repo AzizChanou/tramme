@@ -505,12 +505,12 @@ function CompInspector({ ctx }: { ctx: Ctx }) {
       <Section id="blur" title={t('common.motionBlur')}>
         {c.motionBlur
           ? <SchemaRows ctx={ctx} schema={MOTION_BLUR_SCHEMA} basePath={`${cp}/motionBlur`} baseAddress="$comp.motionBlur" />
-          : <button class="btn sm" onClick={() => commit(t('common.motionBlur'), [{ op: 'add', path: `${cp}/motionBlur`, value: { samples: 8, shutter: 0.5 } }])}><Icon name="plus" />{t('inspector.enable')}</button>}
+          : <button class="btn sm" onClick={() => commit(t('common.motionBlur'), [{ op: 'add', path: `${cp}/motionBlur`, value: { samples: 8, shutter: 0.5 } }])}><Icon name="plus" />{t('common.enable')}</button>}
       </Section>
       <Section id="camera" title={t('inspector.camera')}>
         {c.camera
           ? <SchemaRows ctx={ctx} schema={CAMERA_SCHEMA} basePath={`${cp}/camera`} baseAddress="$comp.camera" />
-          : <button class="btn sm" onClick={() => commit(t('inspector.camera'), [{ op: 'add', path: `${cp}/camera`, value: {} }])}><Icon name="plus" />{t('inspector.enable')}</button>}
+          : <button class="btn sm" onClick={() => commit(t('inspector.camera'), [{ op: 'add', path: `${cp}/camera`, value: {} }])}><Icon name="plus" />{t('common.enable')}</button>}
       </Section>
       <EffectsSection ctx={ctx} base={cp} address="$comp.effects" effects={c.effects || []} stage="finish" title={t('inspector.finishingEffects')} />
     </>

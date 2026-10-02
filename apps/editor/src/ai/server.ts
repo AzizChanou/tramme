@@ -61,7 +61,9 @@ const REFUSED: [Part, RegExp][] = [
 
 class ApiFailure extends Error {
   status: number;
-  constructor(status: number, message: string) { super(message); this.status = status; }
+  /** already tried again as many times as allowed */
+  final: boolean;
+  constructor(status: number, message: string, final = false) { super(message); this.status = status; this.final = final; }
 }
 
 /** the error a provider answered, in the Messages API's shape or the chat format's ({ error } or [{ error }]) */
@@ -76,12 +78,22 @@ async function errorMessage(res: Response): Promise<string> {
 /** a request as built for one attempt: what it carries of the parts a model may refuse */
 interface Attempt { headers?: Record<string, string>; body: unknown; parts: Part[] }
 
-/** how long to wait before trying again: what the server asks (retry-after), or more each time */
-function backoff(res: Response, attempt: number): Promise<void> {
-  const asked = Number(res.headers.get('retry-after'));
+/** tries after the first one, for a busy server, a dropped connection or a broken stream */
+const RETRIES = 2;
+
+/** waits before trying again: what the server asks (retry-after), or longer each time */
+function backoff(attempt: number, res?: Response): Promise<void> {
+  const asked = Number(res?.headers.get('retry-after'));
   const ms = Number.isFinite(asked) && asked > 0 ? Math.min(30, asked) * 1000 : 1500 * (attempt + 1) ** 2;
   return new Promise((r) => setTimeout(r, ms));
 }
+
+/** a failure worth trying again: a busy or failing server, no answer, a stream cut short */
+const transient = (status: number) => status === 0 || status === 429 || status === 529 || status >= 500;
+const retryable = (e: unknown) => (e instanceof ApiFailure ? !e.final && transient(e.status) : (e as Error).name !== 'AbortError');
+
+/** the status of an error sent inside a stream (the Messages API's error types) */
+const STREAM_STATUS: Record<string, number> = { overloaded_error: 529, rate_limit_error: 429, api_error: 500, timeout_error: 504 };
 
 /** server-sent events of a response, as parsed JSON */
 async function* sse(body: ReadableStream<Uint8Array<ArrayBuffer>>): AsyncGenerator<any> {
@@ -163,6 +175,28 @@ export class ServerSession {
     if (calls.length) this.pushUser(calls.map((b) => failed(b.id, INTERRUPTED)));
   }
 
+  /**
+   * An answer read from the start again when its stream breaks before
+   * anything was shown (a server overloaded mid-way, a dropped connection).
+   * Once the user saw part of it, the error is theirs to read.
+   */
+  private async *streamed(signal: AbortSignal, read: () => AsyncGenerator<AiEvent, Answer>): AsyncGenerator<AiEvent, Answer> {
+    for (let attempt = 0; ; attempt++) {
+      const answer = read();
+      let shown = false;
+      try {
+        for (let r = await answer.next(); ; r = await answer.next()) {
+          if (r.done) return r.value;
+          shown = true;
+          yield r.value;
+        }
+      } catch (e) {
+        if (shown || signal.aborted || attempt >= RETRIES || !retryable(e)) throw e;
+        await backoff(attempt);
+      }
+    }
+  }
+
   /** whether the model still takes this part of a request */
   private takes(model: string, part: Part) { return !this.refused.has(`${model} ${part}`); }
 
@@ -179,7 +213,9 @@ export class ServerSession {
         res = await fetch(url, { method: 'POST', headers: { 'content-type': 'application/json', ...headers }, body: JSON.stringify(body), signal });
       } catch (e) {
         if ((e as Error).name === 'AbortError') throw e;
-        throw new ApiFailure(0, t('ai.urlDoesNotAnswer', { url, error: (e as Error).message }));
+        // no answer (network, server starting): tried again like a busy server
+        if (attempt < RETRIES) { await backoff(attempt++); continue; }
+        throw new ApiFailure(0, t('ai.urlDoesNotAnswer', { url, error: (e as Error).message }), true);
       }
       if (res.ok) return res;
       const message = await errorMessage(res);
@@ -188,8 +224,8 @@ export class ServerSession {
         const part = REFUSED.find(([p, re]) => parts.includes(p) && this.takes(model, p) && re.test(message))?.[0];
         if (part) { this.refused.add(`${model} ${part}`); continue; }
       }
-      if ((res.status === 429 || res.status === 529 || res.status >= 500) && attempt < 2) { await backoff(res, attempt++); continue; }
-      throw new ApiFailure(res.status, message);
+      if (transient(res.status) && attempt < RETRIES) { await backoff(attempt++, res); continue; }
+      throw new ApiFailure(res.status, message, true);
     }
   }
 
@@ -199,9 +235,9 @@ export class ServerSession {
     // chat models: the pictures of earlier turns are not sent again (they have no context editing)
     const turnStart = this.messages.length - 1;
     for (let step = 0; step < MAX_STEPS; step++) {
-      const { content, stop, invalid, declined } = providerOf(model) === 'anthropic'
-        ? yield* this.request(model, system, opts.effort ?? DEFAULT_EFFORT, signal)
-        : yield* this.chat(model, system, signal, opts.target!, turnStart, opts.effort);
+      const { content, stop, invalid, declined } = yield* this.streamed(signal, () => (providerOf(model) === 'anthropic'
+        ? this.request(model, system, opts.effort ?? DEFAULT_EFFORT, signal)
+        : this.chat(model, system, signal, opts.target!, turnStart, opts.effort)));
       // empty text blocks are refused when sent back
       const kept = content.filter((b) => !(b.type === 'text' && !b.text));
       this.messages.push({ role: 'assistant', content: kept.length ? kept : [{ type: 'text', text: '…' }] });
@@ -340,7 +376,7 @@ export class ServerSession {
         const details = ev.delta?.stop_details ?? ev.stop_details;
         if (details) declined = details.explanation || details.category || undefined;
       } else if (ev.type === 'error') {
-        throw new ApiFailure(500, ev.error?.message ?? t('ai.serviceError'));
+        throw new ApiFailure(STREAM_STATUS[ev.error?.type] ?? 400, ev.error?.message ?? t('ai.serviceError'));
       }
     }
     return { content: afterFallback(blocks.filter(Boolean)), stop, invalid, declined };

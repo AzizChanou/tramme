@@ -5,6 +5,7 @@ import type { ComponentChildren } from 'preact';
 import { useEffect, useState } from 'preact/hooks';
 import { EffortPicker, ModelPicker } from './ModelPicker.tsx';
 import { aiSettings, aiStatus, ensureStatus, refreshStatus, setAiSettings, statusLabels } from '../ai/index.ts';
+import { allowNotifications, notificationState } from '../notify.ts';
 import { previewInfo } from '../preview.ts';
 import { DEFAULT_PREFERENCES, prefs, resetPrefs, setLanguage, setPrefs, settingsOpen, type Preferences } from '../settings.ts';
 import { S } from '../state.ts';
@@ -103,11 +104,26 @@ function Tours() {
   );
 }
 
+const NOTIFY_HINT: Record<ReturnType<typeof notificationState>, string> = {
+  granted: m('settings.notifyHint'),
+  default: m('settings.notifyHint'),
+  denied: m('settings.notifyBlocked'),
+  unsupported: m('settings.notifyBlocked'),
+};
+
 function Assistant() {
   const a = aiSettings.value, st = aiStatus.value;
   const [token, setToken] = useState(a.token);
+  // the automatic application waits for the user's confirmation below its row
+  const [confirming, setConfirming] = useState(false);
+  const [permission, setPermission] = useState(notificationState);
   useEffect(() => { ensureStatus(); }, []);
   const labels = statusLabels(st);
+  const notifyOn = (on: boolean) => {
+    setAiSettings({ notify: on });
+    // asked from the click: the browser shows its question only then
+    if (on) allowNotifications().then(setPermission);
+  };
   return (
     <section class="set-section">
       <h3>{t('common.assistant')}</h3>
@@ -117,6 +133,21 @@ function Assistant() {
       <Row label={t('settings.effort')} hint={t('settings.effortHint')}>
         <EffortPicker />
       </Row>
+      <Row label={t('settings.notifyDone')} hint={t(NOTIFY_HINT[permission])}>
+        <Toggle on={a.notify} onChange={notifyOn} />
+      </Row>
+      <Row label={t('settings.autoApply')} hint={t('settings.autoApplyHint')}>
+        <Toggle on={a.autoApply || confirming} onChange={(on) => (on ? setConfirming(true) : (setConfirming(false), setAiSettings({ autoApply: false })))} />
+      </Row>
+      {confirming && (
+        <div class="set-confirm" role="alertdialog" aria-label={t('settings.autoApply')}>
+          <span>{t('settings.autoApplyConfirm')}</span>
+          <div class="set-confirm-actions">
+            <button class="btn sm" onClick={() => setConfirming(false)}>{t('common.cancel')}</button>
+            <button class="btn sm primary" onClick={() => { setAiSettings({ autoApply: true }); setConfirming(false); }}>{t('common.enable')}</button>
+          </div>
+        </div>
+      )}
       <Row label={t('common.accessToClaude')} hint={t('settings.automaticTheLocalCompanion')}>
         <Seg value={a.prefer} options={[['auto', t('common.automatic')], ['companion', t('common.companion')], ['server', t('common.server')]]} onChange={(v) => setAiSettings({ prefer: v as typeof a.prefer })} />
       </Row>

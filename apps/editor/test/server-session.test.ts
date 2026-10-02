@@ -195,6 +195,45 @@ describe('assistant, server path', () => {
     expect(sent.map((x) => x.body.reasoning_effort)).toEqual(['low', undefined, undefined]);
   });
 
+  describe('tries again by itself', () => {
+    // the waits between tries, at once
+    const instant = () => vi.stubGlobal('setTimeout', ((fn: () => void) => { fn(); return 0; }) as unknown as typeof setTimeout);
+    const offline = () => { throw new TypeError('Failed to fetch'); };
+    const broken = (before: object[] = []) => () => sse([{ type: 'message_start', message: { id: 'm', role: 'assistant', content: [] } }, ...before, { type: 'error', error: { type: 'overloaded_error', message: 'Overloaded' } }]);
+
+    it('when the server does not answer', async () => {
+      instant();
+      const sent = serve(offline, second);
+      const events = await go(new ServerSession(), fakeRunner().runner);
+      expect(sent.length).toBe(2);
+      expect(events.at(-1)).toMatchObject({ type: 'text', delta: 'Opacity: 1.' });
+    });
+
+    it('when the stream breaks before anything was shown', async () => {
+      instant();
+      const sent = serve(broken(), second);
+      const s = new ServerSession();
+      await go(s, fakeRunner().runner);
+      expect(sent.length).toBe(2);
+      expect(s.messages.at(-1)!.content).toEqual([{ type: 'text', text: 'Opacity: 1.' }]);
+    });
+
+    it('not when the user already saw part of the answer', async () => {
+      instant();
+      const sent = serve(broken([{ type: 'content_block_start', index: 0, content_block: { type: 'text', text: '' } }, { type: 'content_block_delta', index: 0, delta: { type: 'text_delta', text: 'Let me' } }]), second);
+      await expect(go(new ServerSession(), fakeRunner().runner)).rejects.toThrow('Overloaded');
+      expect(sent.length).toBe(1);
+    });
+
+    it('a limited number of times', async () => {
+      instant();
+      const busy = () => new Response(JSON.stringify({ error: { type: 'overloaded_error', message: 'Overloaded' } }), { status: 529 });
+      const sent = serve(busy, busy, busy, second);
+      await expect(go(new ServerSession(), fakeRunner().runner)).rejects.toThrow('Overloaded');
+      expect(sent.length).toBe(3);
+    });
+  });
+
   it('says when Claude declines, and keeps only the text of an answer another model took over', async () => {
     serve(() => answer([{ text: 'Sorry.' }], 'refusal', { stop_details: { type: 'refusal', category: null, explanation: 'not allowed' } }));
     const events = await go(new ServerSession(), fakeRunner().runner);

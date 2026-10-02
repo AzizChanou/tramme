@@ -93,7 +93,7 @@ function NewProject({ onClose }: { onClose: () => void }) {
           </div>
         </div>
         <div class="modal-foot">
-          <button type="button" class="btn ghost" onClick={onClose}>{t('home.cancel')}</button>
+          <button type="button" class="btn ghost" onClick={onClose}>{t('common.cancel')}</button>
           <button type="submit" class="btn primary" disabled={!valid || busy}><Icon name={busy ? 'spinner' : 'plus'} />{t('home.createProject')}</button>
         </div>
       </form>
@@ -114,7 +114,7 @@ function Rename({ project, onClose, onDone }: { project: Manifest; onClose: () =
       <form class="modal-body" onSubmit={save}>
         <div class="field"><input value={name} autoFocus onFocus={(e) => (e.target as HTMLInputElement).select()} onInput={(e) => setName((e.target as HTMLInputElement).value)} /></div>
         <div class="modal-foot">
-          <button type="button" class="btn ghost" onClick={onClose}>{t('home.cancel')}</button>
+          <button type="button" class="btn ghost" onClick={onClose}>{t('common.cancel')}</button>
           <button type="submit" class="btn primary" disabled={!name.trim()}>{t('common.rename')}</button>
         </div>
       </form>
@@ -134,7 +134,7 @@ function Remove({ project, onClose, onDone }: { project: Manifest; onClose: () =
       <div class="modal-body">
         <p>{t('home.nameAndAllIts', { name: project.name })}</p>
         <div class="modal-foot">
-          <button class="btn ghost" onClick={onClose}>{t('home.cancel')}</button>
+          <button class="btn ghost" onClick={onClose}>{t('common.cancel')}</button>
           <button class="btn danger-solid" disabled={busy} onClick={remove}><Icon name="trash" />{t('common.delete')}</button>
         </div>
       </div>

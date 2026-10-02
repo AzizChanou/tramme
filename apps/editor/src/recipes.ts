@@ -8,6 +8,7 @@
 import type { EaseSpec, KitType, Op, ToolContext, ToolType, TrammeDoc, Vec2 } from '@tramme/core';
 import { pointer } from '@tramme/core';
 import { adder } from './templates.ts';
+import { clip } from './model.ts';
 
 // ── the look of the document ─────────────────────────────────
 type Bezier = [number, number, number, number];
@@ -113,7 +114,7 @@ const kineticTitle: ToolType<TitleArgs> = {
     });
     // the whole title leaves together
     add('kinetic-title', {
-      type: 'group', name: a.text.length > 40 ? `${a.text.slice(0, 38)}…` : a.text, in: at, out: end,
+      type: 'group', name: clip(a.text, 39), in: at, out: end,
       transform: { position: [r(c.width / 2), r(y)], opacity: { $k: [{ t: r(end - 0.35), v: 1, ease: s.exit }, { t: end, v: 0 }] } },
       children,
     });
