@@ -14,6 +14,11 @@ export const DEFAULT_MODEL = 'claude-opus-5-5';
 /** models that think when they need to (adaptive thinking) */
 export const ADAPTIVE = new Set(['claude-opus-5-5', 'claude-sonnet-5-5']);
 
+/** how hard the adaptive models work on a turn: thinking depth, care, checks (Opus 5.5 defaults to medium) */
+export const EFFORTS = ['low', 'medium', 'high', 'xhigh', 'max'] as const;
+export type Effort = typeof EFFORTS[number];
+export const DEFAULT_EFFORT: Effort = 'high';
+
 // ── other models ─────────────────────────────────────────────
 // Claude goes through the companion or the server's Anthropic key. The others
 // speak the OpenAI chat format: OpenAI, Gemini, OpenRouter and Z.AI (GLM) through the
@@ -68,15 +73,19 @@ const t: Translate = (text, params) => translate(text, params);
 export const TOOLS: ToolDef[] = [
   {
     name: 'get_document',
-    description: 'The current document (JSON), with your pending proposal applied if there is one.',
-    schema: z.object({}),
-    label: () => t('Reading the document'),
+    description: 'The current document (JSON), with your pending proposal applied if there is one. With path, only that part (e.g. /compositions/main/layers/title, /tokens): lighter when you know where to look.',
+    schema: z.object({
+      path: z.string().optional().describe('JSON Pointer of the part to read; the whole document without it'),
+    }),
+    label: (i) => (i.path ? t('Reading {path} in the document', { path: i.path }) : t('Reading the document')),
   },
   {
     name: 'list_nodes',
-    description: "The vocabulary of the project: node, effect and modifier types (built-in and the project's plugins) with their property schemas, default values and notes on when to use them, and the tools the plugins bring (run them with use_tool).",
-    schema: z.object({}),
-    label: () => t('Reading the node vocabulary'),
+    description: "The vocabulary of the project: node, effect and modifier types (built-in and the project's plugins) and the tools they bring (run them with use_tool). Without types: an index, each entry with its properties as name:type=default and notes on when to use it, each tool with its input as name:type (? when optional). With types: the full entries of these names (property labels, descriptions, ranges, options, examples; a tool's input schema).",
+    schema: z.object({
+      types: z.array(z.string()).optional().describe('node, effect or modifier types and tool names to give in full'),
+    }),
+    label: (i) => (Array.isArray(i.types) && i.types.length ? t('Reading the details of {types}', { types: i.types.join(', ') }) : t('Reading the node vocabulary')),
   },
   {
     name: 'evaluate',
@@ -121,8 +130,11 @@ export const TOOLS: ToolDef[] = [
   },
   {
     name: 'read_file',
-    description: 'The text content of a project file (.js/.mjs plugin, .json data, .svg).',
-    schema: z.object({ path: z.string().describe('path in the project, e.g. plugins/star.js') }),
+    description: 'The text content of a project file (.js/.mjs plugin, .json data, .svg). A long file comes in parts: the answer says the offset to read the next one from.',
+    schema: z.object({
+      path: z.string().describe('path in the project, e.g. plugins/star.js'),
+      offset: z.number().int().min(0).optional().describe('character to start from (0 by default)'),
+    }),
     label: (i) => t('Reading {path}', { path: i.path }),
   },
   {
@@ -211,7 +223,8 @@ Rules:
 - When the request is about "this", "this layer", "here", "now": it means the selection and the current time given in the message context.
 - Check your work: after a proposal, run the check tool (use_tool "check": quality checks and a contact sheet of the key moments) and fix the warnings that matter; use the motion tool to judge an entrance or a transition, render_still for one precise frame. Be thrifty: no more pictures than needed.
 - Use the existing design tokens (colors, curves) rather than hard-coded values, and follow the style already in the document.
-- Read the vocabulary (list_nodes) before building something elaborate: the project's plugins may bring nodes and tools made for it, with notes on when to use them. When a tool fits (use_tool), prefer it to writing many operations by hand.
+- Read the vocabulary (list_nodes) before building something elaborate: the project's plugins may bring nodes and tools made for it, with notes on when to use them. Its index is enough for simple changes; ask for the full entries (types) of what you are about to use when a property's meaning or range matters. When a tool fits (use_tool), prefer it to writing many operations by hand.
+- Read only the part of the document you need (get_document with a path) once you know its layout.
 - For what the existing nodes cannot do, write a node plugin (write_file, for example plugins/my-node.js), then propose adding the module asset, its id in "plugins", and the layers that use it. Rendering must stay a pure function of time. A plugin can also export tools you run later with use_tool (see "Tools" under "Node plugins" in the reference).
 - Reply in the user's language, briefly: what you changed and why, without repeating the list of operations.
 

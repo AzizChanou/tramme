@@ -29,9 +29,15 @@ describe('chat format', () => {
   });
 
   it('replaces the images by a note for a model without vision, plain strings for text alone', () => {
-    const out = toChat(messages, 's', false);
+    const out = toChat(messages, 's', { vision: false });
     expect(out[1].content).toBe('[image this model cannot read]\nChange the title.');
     expect(JSON.stringify(out)).not.toContain('image_url');
+  });
+
+  it('sends the pictures of the current turn only', () => {
+    const out = toChat(messages, 's', { imagesFrom: 2 });
+    expect(out[1].content).toBe('[image seen earlier in the conversation]\nChange the title.');
+    expect(out[5].content[1].type).toBe('image_url');
   });
 
   it('reads a streamed answer: text, reasoning, tool calls in pieces or whole', () => {
@@ -49,6 +55,7 @@ describe('chat format', () => {
     expect(got.map((g) => g.reasoning + g.text).join('')).toBe('HmmI propose.');
     expect(r.result()).toEqual({
       stop: 'tool_use',
+      invalid: new Set(),
       content: [
         { type: 'text', text: 'I propose.' },
         { type: 'tool_use', id: 'c1', name: 'propose_changes', input: { label: 'Title' } },
@@ -61,6 +68,14 @@ describe('chat format', () => {
     expect(() => new ChatReader().push({ error: { message: 'quota' } })).toThrow('quota');
   });
 
+  it('tells a call cut off by the length limit from a complete one', () => {
+    const r = new ChatReader();
+    r.push({ choices: [{ delta: { tool_calls: [{ index: 0, id: 'c1', function: { name: 'propose_changes', arguments: '{"label":"Ti' } }] }, finish_reason: 'length' }] });
+    const { stop, invalid } = r.result();
+    expect(stop).toBe('max_tokens');
+    expect([...invalid]).toEqual(['c1']);
+  });
+
   it('keeps the signatures Gemini puts on its tool calls and sends them back to Gemini only', () => {
     const sig = { google: { thought_signature: 'c2lnbmVk' } };
     const r = new ChatReader();
@@ -71,7 +86,7 @@ describe('chat format', () => {
     expect(content[1]).not.toHaveProperty('extra_content');
     const history: Message[] = [{ role: 'user', content: [{ type: 'text', text: 'Hi' }] }, { role: 'assistant', content }];
     // to Gemini: its signature back, the placeholder for an unsigned call (another model's)
-    const gemini = toChat(history, 's', true, true)[2].tool_calls;
+    const gemini = toChat(history, 's', { gemini: true })[2].tool_calls;
     expect(gemini[0].extra_content).toEqual(sig);
     expect(gemini[1].extra_content).toEqual({ google: { thought_signature: 'skip_thought_signature_validator' } });
     // to other providers: nothing they would not know

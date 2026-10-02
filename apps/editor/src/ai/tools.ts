@@ -4,11 +4,12 @@
 // project's text files, and the tools its plugins bring. The document itself
 // only changes through proposals the user applies.
 
-import { applyOps, Evaluator, isTranscript, pointer, remapTranscript, silences, toolInputIssues, toolOutput, validate, type TrammeDoc, type Op, type Registry, type ToolContext, type Transcript } from '@tramme/core';
+import { applyOps, Evaluator, getAt, isTranscript, pointer, remapTranscript, silences, toolInputIssues, toolOutput, validate, type TrammeDoc, type Op, type Registry, type ToolContext, type Transcript } from '@tramme/core';
 import { editorRegistry } from '../vocabulary.ts';
 import { DOCUMENT, isChatPath, MANIFEST, pathIssue, srcPath } from '@tramme/project';
 import { Renderer, VideoFrames } from '@tramme/render';
 import type { ToolResult } from '@tramme/assistant';
+import { inputIssues, vocabularyDetail, vocabularyIndex } from './answers.ts';
 import { api, type AiEvent } from '../api.ts';
 import { describeOp, freshId } from '../model.ts';
 import { safeName } from '../files.ts';
@@ -21,6 +22,8 @@ const uid = () => Math.random().toString(36).slice(2, 10);
 const text = (s: string, isError = false): ToolResult => ({ content: [{ type: 'text', text: s }], isError });
 const STILL_WIDTH = 768;
 const TEXT_FILE = /\.(js|mjs|json|svg)$/i;
+/** a file read in parts of this many characters (about 15k tokens) */
+const READ_PART = 50_000;
 
 interface Pending { id: string; label: string; ops: Op[]; steps: string[] }
 
@@ -190,16 +193,20 @@ ${r.content[0].type === 'text' ? r.content[0].text : ''}`);
 
   async run(name: string, input: any, signal?: AbortSignal): Promise<ToolResult> {
     this.signal = signal ?? new AbortController().signal;
+    // the model reads the error and calls again rather than the tool guessing
+    const issues = inputIssues(name, input);
+    if (issues.length) return text(`input refused by ${name}:\n${issues.join('\n')}`, true);
     try {
       switch (name) {
-        case 'get_document': return text(JSON.stringify(this.liveDoc()));
+        case 'get_document': {
+          const doc = this.liveDoc();
+          if (!input.path) return text(JSON.stringify(doc));
+          const part = getAt(doc, String(input.path));
+          return part === undefined ? text(`nothing at ${input.path} in the document`, true) : text(JSON.stringify(part));
+        }
         case 'list_nodes': {
           const reg = await this.registry(this.liveDoc());
-          const nodes = reg.listNodes().map((n) => ({ type: n.type, title: n.title, category: n.category, container: !!n.container, ...(n.ai ? { ai: n.ai } : {}), props: n.props }));
-          const effects = reg.listEffects().map((e) => ({ type: e.type, title: e.title, stage: e.stage, ...(e.ai ? { ai: e.ai } : {}), props: e.props }));
-          const modifiers = reg.listModifiers().map((m) => ({ type: m.type, title: m.title, description: m.description, ...(m.ai ? { ai: m.ai } : {}), params: m.params }));
-          const tools = reg.listTools().map(({ tool: x, from }) => ({ name: x.name, from, description: x.description, ...(x.ai ? { ai: x.ai } : {}), input: x.input ?? { type: 'object' } }));
-          return text(JSON.stringify({ nodes, effects, modifiers, tools }));
+          return text(Array.isArray(input.types) && input.types.length ? vocabularyDetail(reg, input.types.map(String)) : vocabularyIndex(reg));
         }
         case 'evaluate': {
           const doc = this.liveDoc();
@@ -216,7 +223,7 @@ ${r.content[0].type === 'text' ? r.content[0].text : ''}`);
           const { files } = await api.info(S.project.peek().id);
           return text(files.map((f) => `${f.path}\t${f.size} bytes`).join('\n') || '(no files)');
         }
-        case 'read_file': return await this.read(String(input.path ?? ''));
+        case 'read_file': return await this.read(String(input.path ?? ''), Number(input.offset ?? 0));
         case 'write_file': return await this.write(String(input.path ?? ''), String(input.content ?? ''));
         case 'get_transcript': return await this.transcript(String(input.asset ?? ''), input.from, input.to, !!input.words);
         case 'media_frame': return await this.mediaFrame(String(input.asset ?? ''), Number(input.t ?? 0));
@@ -329,15 +336,18 @@ ${r.content[0].type === 'text' ? r.content[0].text : ''}`);
     return text(`Proposal "${this.pending.label}" ready (${merged.length} operations in all). The user sees it as a preview.`);
   }
 
-  private async read(path: string): Promise<ToolResult> {
+  private async read(path: string, offset = 0): Promise<ToolResult> {
     if (path === DOCUMENT) return text('read the document with get_document', true);
     const bad = pathIssue(path);
     if (bad) return text(`${path}: ${bad}`, true);
     if (!TEXT_FILE.test(path) || path === MANIFEST || isChatPath(path)) return text('only .js, .mjs, .json and .svg text files can be read', true);
     const f = await api.readText(S.project.peek().id, path);
     if (!f) return text(`file not found: ${path}`, true);
-    if (f.text.length > 400_000) return text(`${path}: too long to read (${f.text.length} characters)`, true);
-    return text(f.text);
+    if (offset === 0 && f.text.length <= READ_PART) return text(f.text);
+    if (offset >= f.text.length) return text(`${path} has ${f.text.length} characters: nothing from ${offset}`, true);
+    const end = Math.min(f.text.length, offset + READ_PART);
+    const more = end < f.text.length ? `; the rest from offset ${end}` : '; end of the file';
+    return text(`[${path}: characters ${offset} to ${end} of ${f.text.length}${more}]\n${f.text.slice(offset, end)}`);
   }
 
   private async write(path: string, content: string): Promise<ToolResult> {

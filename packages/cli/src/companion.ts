@@ -16,7 +16,7 @@ import http from 'node:http';
 import os from 'node:os';
 import path from 'node:path';
 import { createSdkMcpServer, query, tool, type Query, type SDKMessage, type SDKUserMessage } from '@anthropic-ai/claude-agent-sdk';
-import { ADAPTIVE, COMPANION_PORT, MODELS, TOOLS, type ToolResult } from '@tramme/assistant';
+import { ADAPTIVE, COMPANION_PORT, DEFAULT_EFFORT, EFFORTS, MODELS, TOOLS, type Effort, type ToolResult } from '@tramme/assistant';
 
 const CONFIG = path.join(os.homedir(), '.tramme', 'companion.json');
 /** the pairing kept under the tool's former name: still valid, so the editor stays paired */
@@ -92,9 +92,10 @@ export async function startCompanion(opts: { port?: number; origins?: string[]; 
     });
   }
 
-  async function runTurn(body: { prompt?: string; system?: string; model?: string; sessionId?: string; images?: { mediaType: string; data: string }[] }, res: http.ServerResponse) {
+  async function runTurn(body: { prompt?: string; system?: string; model?: string; effort?: string; sessionId?: string; images?: { mediaType: string; data: string }[] }, res: http.ServerResponse) {
     if (typeof body.prompt !== 'string' || typeof body.system !== 'string') throw new Error('prompt and system expected');
     const model = MODELS.some(([id]) => id === body.model) ? body.model! : MODELS[0][0];
+    const effort: Effort = EFFORTS.find((e) => e === body.effort) ?? DEFAULT_EFFORT;
     // one conversation at a time: a new message stops the previous one
     if (turn) { turn.abort.abort(); turn.query?.interrupt().catch(() => {}); }
     res.writeHead(200, { 'content-type': 'application/x-ndjson; charset=utf-8', 'cache-control': 'no-store' });
@@ -129,7 +130,7 @@ export async function startCompanion(opts: { port?: number; origins?: string[]; 
             ? { behavior: 'allow' as const, updatedInput: input }
             : { behavior: 'deny' as const, message: `Tool ${name} is not available in tramme.` }),
           // thinking shown to the user as it goes (summarized)
-          ...(ADAPTIVE.has(model) ? { thinking: { type: 'adaptive' as const, display: 'summarized' as const } } : {}),
+          ...(ADAPTIVE.has(model) ? { thinking: { type: 'adaptive' as const, display: 'summarized' as const }, effort } : {}),
           includePartialMessages: true,
           abortController: t.abort,
           cwd: os.tmpdir(),

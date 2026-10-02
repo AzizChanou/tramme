@@ -31,11 +31,20 @@ Until 1.0.0, the document format and the APIs may still change between minor ver
 - The assistant knows when each built-in node, effect and modifier fits (notes in `list_nodes`).
 - Example project "Night sky": a project plugin with a node, a tool and a workflow.
 - Plugins roadmap: `docs/plugins-roadmap.md`.
+- Assistant effort setting (Settings, Assistant): how hard Claude Opus and Sonnet work on each message, `high` by default (Opus 5.5 alone would run at `medium`). Both the server path and the local companion use it.
+
+### Changed
+
+- The assistant's conversation with Claude is append-only: nothing already sent is rewritten, so the prompt cache stays warm and Claude's thinking stays valid. Old tool results are cleared by the API (context editing) once the conversation grows; the system prompt is cached for an hour.
+- Lighter tool answers: `list_nodes` gives an index (properties as `name:type=default`, notes, tool inputs) and the full entries on demand (`types`), about 60% fewer tokens; `get_document` reads one part with `path`; `read_file` reads long files in parts (`offset`).
+- Longer answers (64k tokens) on the server path; a request Claude declines goes to another model on the server (`fallbacks`), and the user is told when it is declined anyway.
 
 ### Fixed
 
 - On phones, the assistant's message box no longer slips under the tab bar when the conversation is long.
 - Counters: separators and units (`,` `%` `€`) take their own width instead of a digit's.
+- Assistant, server path: stopping during several tool calls no longer breaks the next message; a tool call whose input is invalid or cut off is no longer run with an empty input (the model is told and calls again); inputs are checked against each tool's schema on every path.
+- Assistant, server path: a request part the API refuses (thinking display, context editing, effort…) is dropped on its own instead of turning off the thinking summary; retries wait as long as the server asks (`retry-after`).
 
 ## [0.1.0] - 2026-10-02
 

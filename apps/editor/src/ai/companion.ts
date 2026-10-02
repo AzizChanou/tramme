@@ -55,7 +55,7 @@ async function* ndjson(body: ReadableStream<Uint8Array<ArrayBuffer>>): AsyncGene
 
 export async function* companionTurn(
   link: CompanionLink,
-  req: { prompt: string; system: string; model: string; sessionId?: string; images?: { mediaType: string; data: string }[] },
+  req: { prompt: string; system: string; model: string; effort?: string; sessionId?: string; images?: { mediaType: string; data: string }[] },
   runner: ToolRunner,
   signal: AbortSignal,
   onSession: (id: string) => void,

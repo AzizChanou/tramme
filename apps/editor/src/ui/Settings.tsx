@@ -113,6 +113,9 @@ function Assistant() {
       <Row label={t('settings.model')} hint={t('settings.claudeOpusForThe')}>
         <ModelPicker wide />
       </Row>
+      <Row label={t('settings.effort')} hint={t('settings.effortHint')}>
+        <Seg value={a.effort} options={[['low', t('settings.effortLow')], ['medium', t('settings.effortMedium')], ['high', t('settings.effortHigh')], ['xhigh', t('settings.effortXhigh')], ['max', t('settings.effortMax')]]} onChange={(v) => setAiSettings({ effort: v as typeof a.effort })} />
+      </Row>
       <Row label={t('common.accessToClaude')} hint={t('settings.automaticTheLocalCompanion')}>
         <Seg value={a.prefer} options={[['auto', t('common.automatic')], ['companion', t('common.companion')], ['server', t('common.server')]]} onChange={(v) => setAiSettings({ prefer: v as typeof a.prefer })} />
       </Row>

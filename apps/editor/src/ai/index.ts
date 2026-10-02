@@ -5,7 +5,7 @@
 // straight from the browser. The conversation is shared by all of them.
 
 import { computed, signal } from '@preact/signals';
-import { COMPANION_PORT, DEFAULT_MODEL, LOCAL_URL, MODELS, PROVIDER_LABEL, providerOf, REMOTE, setTranslator, systemPrompt, TOOLS, userPrompt, type Provider, type TurnContext } from '@tramme/assistant';
+import { COMPANION_PORT, DEFAULT_EFFORT, DEFAULT_MODEL, EFFORTS, LOCAL_URL, MODELS, PROVIDER_LABEL, providerOf, REMOTE, setTranslator, systemPrompt, TOOLS, userPrompt, type Effort, type Provider, type TurnContext } from '@tramme/assistant';
 import { CHAT, CHAT_INDEX, chatPath } from '@tramme/project';
 import type { TrammeDoc } from '@tramme/core';
 import reference from '../../../../docs/document.md';
@@ -26,15 +26,18 @@ export interface AiSettings {
   token: string;
   /** where local models answer (OpenAI format): Ollama by default, LM Studio on :1234 */
   localUrl: string;
+  /** how hard Opus and Sonnet work on a turn */
+  effort: Effort;
 }
 
 const KEY = 'tramme.assistant';
 function loadSettings(): AiSettings {
-  const d: AiSettings = { model: DEFAULT_MODEL, prefer: 'auto', companionUrl: `http://127.0.0.1:${COMPANION_PORT}`, token: '', localUrl: LOCAL_URL };
+  const d: AiSettings = { model: DEFAULT_MODEL, prefer: 'auto', companionUrl: `http://127.0.0.1:${COMPANION_PORT}`, token: '', localUrl: LOCAL_URL, effort: DEFAULT_EFFORT };
   try {
     // the settings kept under the tool's former name (model, companion token) are taken over
     const s = { ...d, ...JSON.parse(localStorage.getItem(KEY) ?? localStorage.getItem('emotion.assistant') ?? '{}') } as AiSettings;
     if (typeof s.model !== 'string' || (providerOf(s.model) === 'anthropic' && !MODELS.some(([id]) => id === s.model))) s.model = d.model;
+    if (!EFFORTS.includes(s.effort)) s.effort = d.effort;
     return s;
   } catch { return d; }
 }
@@ -310,11 +313,11 @@ export async function* ask(p: AskPayload, signal: AbortSignal): AsyncGenerator<A
   if (route !== 'companion' && !session.server.messages.length) notes.unshift(...earlier());
   const prompt = userPrompt(p.text, p.context, notes);
   const system = systemPrompt(reference);
-  const model = aiSettings.peek().model;
-  if (route === 'companion') yield* companionTurn(link(), { prompt, system, model, sessionId: session.companion, images }, runner, signal, (id) => { session.companion = id; });
+  const { model, effort } = aiSettings.peek();
+  if (route === 'companion') yield* companionTurn(link(), { prompt, system, model, effort, sessionId: session.companion, images }, runner, signal, (id) => { session.companion = id; });
   else {
     const target = route === 'local' ? { url: localBase() } : route === 'remote' ? { url: `/api/llm/${providerOf(model)}` } : undefined;
-    yield* session.server.turn(prompt, model, system, runner, signal, images, target);
+    yield* session.server.turn(prompt, model, system, runner, signal, { images, target, effort });
   }
   yield { type: 'done' };
 }

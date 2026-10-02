@@ -3,9 +3,14 @@
 // editor runs them, sends the results, until Claude answers. The same loop
 // drives the models in the OpenAI chat format (other providers through the
 // Worker, local models directly): see compat.ts.
+//
+// The history is append-only: what was sent once is sent again byte for byte.
+// The prompt cache stays warm, and Claude's thinking stays valid (Opus and
+// Sonnet 5.5 refuse thinking replayed after an edited history). Old tool
+// results are cleared by the API itself (context editing), not here.
 
 import { z } from 'zod';
-import { ADAPTIVE, modelName, providerOf, SILENT, TOOLS, type ToolResult } from '@tramme/assistant';
+import { ADAPTIVE, DEFAULT_EFFORT, modelName, providerOf, SILENT, TOOLS, type Effort, type ToolResult } from '@tramme/assistant';
 import { ChatReader, chatTools, toChat } from './compat.ts';
 import type { AiEvent } from '../api.ts';
 import type { ToolRunner } from './tools.ts';
@@ -15,6 +20,8 @@ type Block = { type: string; [k: string]: any };
 export interface Message { role: 'user' | 'assistant'; content: Block[] }
 
 const MAX_STEPS = 40;
+/** streamed, so a long answer (thinking, a large proposal) does not time out */
+const MAX_TOKENS = 64_000;
 const uid = () => Math.random().toString(36).slice(2, 10);
 
 const TOOL_SPECS = TOOLS.map((t) => {
@@ -24,9 +31,42 @@ const TOOL_SPECS = TOOLS.map((t) => {
 
 const CHAT_TOOLS = chatTools(TOOL_SPECS);
 
+/** the oldest tool results are cleared by the API once the conversation grows; proposals and writes stay */
+const CLEAR_OLD_RESULTS = {
+  type: 'clear_tool_uses_20250919',
+  trigger: { type: 'input_tokens', value: 80_000 },
+  keep: { type: 'tool_uses', value: 6 },
+  // enough at once to be worth the cache it restarts
+  clear_at_least: { type: 'input_tokens', value: 20_000 },
+  exclude_tools: ['propose_changes', 'discard_proposal', 'write_file', 'cut_media', 'apply_template'],
+};
+
+/**
+ * Parts of the request an account or a model may refuse. A 400 naming one
+ * drops it for the rest of the session and the request goes again; the most
+ * specific patterns come first.
+ */
+type Feature = 'context' | 'binding' | 'fallbacks' | 'hour' | 'effort' | 'display' | 'thinking';
+const REFUSED: [Feature, RegExp][] = [
+  ['context', /context_management|context-management|clear_tool_uses/i],
+  ['hour', /\bttl\b/i],
+  ['binding', /block_binding|thinking-binding/i],
+  ['fallbacks', /fallback/i],
+  ['effort', /effort|output_config/i],
+  ['display', /display/i],
+  ['thinking', /thinking/i],
+];
+
 class ApiFailure extends Error {
   status: number;
   constructor(status: number, message: string) { super(message); this.status = status; }
+}
+
+/** how long to wait before trying again: what the server asks (retry-after), or more each time */
+function backoff(res: Response, attempt: number): Promise<void> {
+  const asked = Number(res.headers.get('retry-after'));
+  const ms = Number.isFinite(asked) && asked > 0 ? Math.min(30, asked) * 1000 : 1500 * (attempt + 1) ** 2;
+  return new Promise((r) => setTimeout(r, ms));
 }
 
 /** server-sent events of a response, as parsed JSON */
@@ -52,29 +92,37 @@ const toApi = (r: ToolResult) => r.content.map((c) => (c.type === 'image'
   ? { type: 'image', source: { type: 'base64', media_type: c.mimeType, data: c.data } }
   : { type: 'text', text: c.text || '(empty)' }));
 
-/** images already seen in earlier turns are not sent again */
-function forgetImages(messages: Message[]) {
-  for (const m of messages) {
-    if (m.role !== 'user') continue;
-    for (const b of m.content) {
-      if (b.type === 'tool_result' && Array.isArray(b.content) && b.content.some((c: Block) => c.type === 'image')) {
-        b.content = b.content.map((c: Block) => (c.type === 'image' ? { type: 'text', text: '[frame rendered earlier in the conversation]' } : c));
-      }
-    }
-    // images joined to earlier messages
-    m.content = m.content.map((b) => (b.type === 'image' ? { type: 'text', text: '[image attached earlier in the conversation]' } : b));
-  }
+const failed = (id: string, text: string): Block => ({ type: 'tool_result', tool_use_id: id, content: text, is_error: true });
+
+/**
+ * An answer where another model took over after a refusal (fallbacks): what
+ * came before the last switch is not sent back but its text, the switch marks
+ * are dropped.
+ */
+function afterFallback(blocks: Block[]): Block[] {
+  const last = blocks.map((b) => b.type).lastIndexOf('fallback');
+  if (last < 0) return blocks;
+  return blocks.filter((b, i) => b.type !== 'fallback' && (i > last || b.type === 'text'));
 }
+
+/** one model's answer: its content blocks, why it stopped, the tool calls whose input could not be read */
+interface Answer { content: Block[]; stop: string; invalid: Set<string>; declined?: string }
 
 /** where a model of the chat format answers: /api/llm/<provider> (the Worker adds the key) or a local server */
 export interface ChatTarget { url: string }
+
+export interface TurnOptions {
+  images?: { mediaType: string; data: string }[];
+  target?: ChatTarget;
+  effort?: Effort;
+}
 
 export class ServerSession {
   messages: Message[] = [];
   /** chat models that refused images: they get a note instead */
   private noVision = new Set<string>();
-  /** 2: adaptive thinking with its summary shown, 1: without the summary, 0: none (the API refused the richer ones) */
-  private thinkingLevel = 2;
+  /** parts of the request the API refused in this session */
+  private refused = new Set<Feature>();
 
   constructor(saved?: Message[]) { if (saved) this.messages = saved; }
 
@@ -100,29 +148,42 @@ export class ServerSession {
     const last = this.messages.at(-1);
     if (last?.role !== 'assistant') return;
     const calls = last.content.filter((b) => b.type === 'tool_use');
-    if (calls.length) this.pushUser(calls.map((b) => ({ type: 'tool_result', tool_use_id: b.id, content: 'Interrupted by the user.', is_error: true })));
+    if (calls.length) this.pushUser(calls.map((b) => failed(b.id, 'Interrupted by the user.')));
   }
 
-  async *turn(prompt: string, model: string, system: string, runner: ToolRunner, signal: AbortSignal, images: { mediaType: string; data: string }[] = [], target?: ChatTarget): AsyncGenerator<AiEvent> {
+  async *turn(prompt: string, model: string, system: string, runner: ToolRunner, signal: AbortSignal, opts: TurnOptions = {}): AsyncGenerator<AiEvent> {
     this.repair();
-    forgetImages(this.messages);
-    this.pushUser([...images.map((i) => ({ type: 'image', source: { type: 'base64', media_type: i.mediaType, data: i.data } })), { type: 'text', text: prompt }]);
+    this.pushUser([...(opts.images ?? []).map((i) => ({ type: 'image', source: { type: 'base64', media_type: i.mediaType, data: i.data } })), { type: 'text', text: prompt }]);
+    // chat models: the pictures of earlier turns are not sent again (they have no context editing)
+    const turnStart = this.messages.length - 1;
     for (let step = 0; step < MAX_STEPS; step++) {
-      const { content, stop } = providerOf(model) === 'anthropic' ? yield* this.request(model, system, signal) : yield* this.chat(model, system, signal, target!);
+      const { content, stop, invalid, declined } = providerOf(model) === 'anthropic'
+        ? yield* this.request(model, system, opts.effort ?? DEFAULT_EFFORT, signal)
+        : yield* this.chat(model, system, signal, opts.target!, turnStart);
       // empty text blocks are refused when sent back
       const kept = content.filter((b) => !(b.type === 'text' && !b.text));
       this.messages.push({ role: 'assistant', content: kept.length ? kept : [{ type: 'text', text: '…' }] });
-      if (stop === 'max_tokens') yield { type: 'error', message: t('ai.answerCutOffLength') };
-      if (stop !== 'tool_use') return;
+      const calls = kept.filter((b) => b.type === 'tool_use');
+      if (stop === 'refusal') { yield { type: 'error', message: declined ? `${t('ai.declined')} (${declined})` : t('ai.declined') }; return; }
+      if (!calls.length) {
+        if (stop === 'max_tokens') yield { type: 'error', message: t('ai.answerCutOffLength') };
+        return;
+      }
+      // cut off in the middle of its calls: none is run, the model hears why and goes on in smaller steps
+      if (stop === 'max_tokens') {
+        this.pushUser(calls.map((b) => failed(b.id, 'Your answer reached the length limit before this call was complete: nothing was run. Call again, in smaller steps (several propose_changes rather than one large one).')));
+        continue;
+      }
       const results: Block[] = [];
-      for (const call of content.filter((b) => b.type === 'tool_use')) {
+      for (const call of calls) {
+        if (signal.aborted) { results.push(failed(call.id, 'Interrupted by the user.')); continue; }
+        if (invalid.has(call.id)) { results.push(failed(call.id, 'The input of this call was not valid JSON: nothing was run. Call again.')); continue; }
         const item = SILENT.has(call.name) ? '' : uid();
         if (item) yield { type: 'item', item: { id: item, role: 'assistant', tool: { name: call.name, summary: TOOLS.find((t) => t.name === call.name)?.label(call.input ?? {}) ?? call.name } } };
         const r = await runner.run(call.name, call.input ?? {}, signal);
         yield* runner.events.splice(0);
         if (item) yield { type: 'tool-done', id: item, error: !!r.isError };
         results.push({ type: 'tool_result', tool_use_id: call.id, content: toApi(r), ...(r.isError ? { is_error: true } : {}) });
-        if (signal.aborted) break;
       }
       this.pushUser(results);
       if (signal.aborted) return;
@@ -131,10 +192,10 @@ export class ServerSession {
   }
 
   /** one streamed request to a model of the chat format; yields the text as it comes, returns the content blocks */
-  private async *chat(model: string, system: string, signal: AbortSignal, target: ChatTarget): AsyncGenerator<AiEvent, { content: Block[]; stop: string }> {
+  private async *chat(model: string, system: string, signal: AbortSignal, target: ChatTarget, turnStart: number): AsyncGenerator<AiEvent, Answer> {
     let res: Response | null = null;
     for (let attempt = 0; ; attempt++) {
-      const body = { model: modelName(model), stream: true, messages: toChat(this.messages, system, !this.noVision.has(model), providerOf(model) === 'gemini'), tools: CHAT_TOOLS };
+      const body = { model: modelName(model), stream: true, messages: toChat(this.messages, system, { vision: !this.noVision.has(model), gemini: providerOf(model) === 'gemini', imagesFrom: turnStart }), tools: CHAT_TOOLS };
       try {
         res = await fetch(`${target.url}/chat/completions`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body), signal });
       } catch (e) {
@@ -146,7 +207,7 @@ export class ServerSession {
       try { const j = await res.json(); const err = Array.isArray(j) ? j[0]?.error : j.error; message = err?.message ?? (typeof err === 'string' ? err : message); } catch { /* not JSON */ }
       // a model without vision: once more, the images replaced by a note
       if (res.status === 400 && !this.noVision.has(model) && /image|vision|multimodal/i.test(message)) { this.noVision.add(model); continue; }
-      if ((res.status === 429 || res.status >= 500) && attempt < 2) { await new Promise((r) => setTimeout(r, 1500 * (attempt + 1) ** 2)); continue; }
+      if ((res.status === 429 || res.status >= 500) && attempt < 2) { await backoff(res, attempt); continue; }
       throw new ApiFailure(res.status, message);
     }
     const reader = new ChatReader();
@@ -167,35 +228,70 @@ export class ServerSession {
     return reader.result();
   }
 
-  /** one streamed request; yields the text as it comes, returns the content blocks */
-  private async *request(model: string, system: string, signal: AbortSignal): AsyncGenerator<AiEvent, { content: Block[]; stop: string }> {
+  /** the request's body: the conversation as it was sent before, plus what the session still accepts */
+  private body(model: string, system: string, effort: Effort): { body: Record<string, unknown>; betas: string[] } {
+    const on = (f: Feature) => !this.refused.has(f);
+    const adaptive = ADAPTIVE.has(model);
     // the Messages API refuses fields of its own blocks it does not know (Gemini's signatures)
     const clean = (b: Block) => (b.type === 'tool_use' && 'extra_content' in b ? { type: b.type, id: b.id, name: b.name, input: b.input } : b);
     // the cache covers the tools, the system prompt and the conversation so far
     const messages = this.messages.map((m) => ({ ...m, content: m.content.map(clean) })).map((m, i) => (i === this.messages.length - 1
       ? { ...m, content: m.content.map((b, j) => (j === m.content.length - 1 ? { ...b, cache_control: { type: 'ephemeral' } } : b)) }
       : m));
-    const level = ADAPTIVE.has(model) ? this.thinkingLevel : 0;
-    const body = {
-      model, max_tokens: 16000, stream: true,
-      system: [{ type: 'text', text: system, cache_control: { type: 'ephemeral' } }],
-      tools: TOOL_SPECS, messages,
-      ...(level === 2 ? { thinking: { type: 'adaptive', display: 'summarized' } } : level === 1 ? { thinking: { type: 'adaptive' } } : {}),
+    const betas: string[] = [];
+    let thinking: Record<string, unknown> | undefined;
+    if (adaptive && on('thinking')) {
+      thinking = { type: 'adaptive', ...(on('display') ? { display: 'summarized' } : {}) };
+      // a block that would not match its history any more is dropped rather than failing the request
+      if (on('binding')) { thinking.block_binding = { prefix_mismatch_behavior: 'drop_block' }; betas.push('thinking-binding-controls-2026-08-01'); }
+    }
+    if (on('context')) betas.push('context-management-2025-06-27');
+    // a request Claude declines is run again by another model, on the server
+    const fallbacks = adaptive && on('fallbacks');
+    if (fallbacks) betas.push('server-side-fallback-2026-07-01');
+    return {
+      betas,
+      body: {
+        model, max_tokens: MAX_TOKENS, stream: true,
+        // the system prompt is cached an hour: the user often takes longer than 5 minutes between two messages
+        system: [{ type: 'text', text: system, cache_control: { type: 'ephemeral', ...(on('hour') ? { ttl: '1h' } : {}) } }],
+        tools: TOOL_SPECS, messages,
+        ...(thinking ? { thinking } : {}),
+        ...(adaptive && on('effort') ? { output_config: { effort } } : {}),
+        ...(on('context') ? { context_management: { edits: [CLEAR_OLD_RESULTS] } } : {}),
+        ...(fallbacks ? { fallbacks: 'default' } : {}),
+      },
     };
+  }
+
+  /** one streamed request; yields the text as it comes, returns the content blocks */
+  private async *request(model: string, system: string, effort: Effort, signal: AbortSignal): AsyncGenerator<AiEvent, Answer> {
     let res: Response | null = null;
+    let stripped = false;
     for (let attempt = 0; ; attempt++) {
-      res = await fetch('/api/claude/v1/messages', { method: 'POST', headers: { 'content-type': 'application/json', 'anthropic-version': '2023-06-01' }, body: JSON.stringify(body), signal });
+      const { body, betas } = this.body(model, system, effort);
+      res = await fetch('/api/claude/v1/messages', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', 'anthropic-version': '2023-06-01', ...(betas.length ? { 'anthropic-beta': betas.join(',') } : {}) },
+        body: JSON.stringify(body), signal,
+      });
       if (res.ok) break;
       let message = `HTTP ${res.status}`;
       try { const j = await res.json(); message = j.error?.message ?? j.error ?? message; } catch { /* not JSON */ }
-      if (res.status === 400 && level > 0 && /thinking|display/i.test(message)) { this.thinkingLevel = level - 1; return yield* this.request(model, system, signal); }
-      if ((res.status === 429 || res.status === 529 || res.status >= 500) && attempt < 2) { await new Promise((r) => setTimeout(r, 1500 * (attempt + 1) ** 2)); continue; }
+      if (res.status === 400) {
+        // thinking that no longer matches its history (the conversation was changed elsewhere): sent without it, once
+        if (!stripped && /signature/i.test(message)) { stripped = true; this.stripThinking(); attempt--; continue; }
+        const part = REFUSED.find(([f, re]) => !this.refused.has(f) && re.test(message));
+        if (part) { this.refused.add(part[0]); attempt--; continue; }
+      }
+      if ((res.status === 429 || res.status === 529 || res.status >= 500) && attempt < 2) { await backoff(res, attempt); continue; }
       throw new ApiFailure(res.status, message);
     }
     const blocks: Block[] = [];
     const json: string[] = [];
     const items: string[] = [];
-    let stop = 'end_turn';
+    const invalid = new Set<string>();
+    let stop = 'end_turn', declined: string | undefined;
     for await (const ev of sse(res.body!)) {
       if (ev.type === 'content_block_start') {
         blocks[ev.index] = { ...ev.content_block };
@@ -216,14 +312,25 @@ export class ServerSession {
         else if (d.type === 'signature_delta') b.signature = d.signature;
       } else if (ev.type === 'content_block_stop') {
         const b = blocks[ev.index];
-        if (b?.type === 'tool_use') { try { b.input = json[ev.index] ? JSON.parse(json[ev.index]) : {}; } catch { b.input = {}; } }
+        if (b?.type === 'tool_use') { try { b.input = json[ev.index] ? JSON.parse(json[ev.index]) : {}; } catch { b.input = {}; invalid.add(b.id); } }
         if (/thinking/.test(b?.type ?? '')) yield { type: 'thinking-done', id: items[ev.index] };
       } else if (ev.type === 'message_delta') {
         if (ev.delta?.stop_reason) stop = ev.delta.stop_reason;
+        const details = ev.delta?.stop_details ?? ev.stop_details;
+        if (details) declined = details.explanation || details.category || undefined;
       } else if (ev.type === 'error') {
         throw new ApiFailure(500, ev.error?.message ?? t('ai.serviceError'));
       }
     }
-    return { content: blocks.filter(Boolean), stop };
+    return { content: afterFallback(blocks.filter(Boolean)), stop, invalid, declined };
+  }
+
+  /** the recovery when Claude's thinking no longer matches the conversation: the turns go on without it */
+  private stripThinking() {
+    for (const m of this.messages) {
+      if (m.role !== 'assistant') continue;
+      const rest = m.content.filter((b) => b.type !== 'thinking' && b.type !== 'redacted_thinking');
+      m.content = rest.length ? rest : [{ type: 'text', text: '…' }];
+    }
   }
 }

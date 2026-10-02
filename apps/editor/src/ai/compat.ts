@@ -11,6 +11,7 @@ import type { Message } from './server.ts';
 type Block = { type: string; [k: string]: any };
 
 const NO_IMAGE = '[image this model cannot read]';
+const SEEN_IMAGE = '[image seen earlier in the conversation]';
 
 const imagePart = (b: Block) => ({ type: 'image_url', image_url: { url: `data:${b.source?.media_type ?? 'image/jpeg'};base64,${b.source?.data ?? ''}` } });
 const textOf = (parts: Block[]) => parts.map((p) => p.text).join('\n');
@@ -20,10 +21,20 @@ const shape = (parts: Block[]) => (parts.every((p) => p.type === 'text') ? textO
 /** a call that Gemini did not sign (made by another model): the placeholder Gemini accepts for it */
 const UNSIGNED = { google: { thought_signature: 'skip_thought_signature_validator' } };
 
-/** the conversation in the chat format; `vision: false` replaces the images by a note, `gemini` sends the calls' signatures back */
-export function toChat(messages: Message[], system: string, vision = true, gemini = false): any[] {
+export interface ChatOptions {
+  /** false: the images replaced by a note */
+  vision?: boolean;
+  /** Gemini: the calls' signatures sent back */
+  gemini?: boolean;
+  /** the images of the messages before this one are replaced by a note (seen in an earlier turn) */
+  imagesFrom?: number;
+}
+
+/** the conversation in the chat format */
+export function toChat(messages: Message[], system: string, { vision = true, gemini = false, imagesFrom = 0 }: ChatOptions = {}): any[] {
   const out: any[] = [{ role: 'system', content: system }];
-  for (const m of messages) {
+  for (const [index, m] of messages.entries()) {
+    const old = index < imagesFrom;
     if (m.role === 'assistant') {
       const text = textOf(m.content.filter((b) => b.type === 'text'));
       const calls = m.content.filter((b) => b.type === 'tool_use').map((b) => ({
@@ -48,7 +59,7 @@ export function toChat(messages: Message[], system: string, vision = true, gemin
     // a tool message holds text only: the images it returned follow as a user message
     const all = [...(shown.length ? [{ type: 'text', text: 'Frames rendered by the tools:' }, ...shown] : []), ...parts];
     if (!all.length) continue;
-    out.push({ role: 'user', content: shape(all.map((b) => (b.type === 'image' ? (vision ? imagePart(b) : { type: 'text', text: NO_IMAGE }) : b))) });
+    out.push({ role: 'user', content: shape(all.map((b) => (b.type !== 'image' ? b : old ? { type: 'text', text: SEEN_IMAGE } : vision ? imagePart(b) : { type: 'text', text: NO_IMAGE }))) });
   }
   return out;
 }
@@ -91,15 +102,20 @@ export class ChatReader {
     return { text, reasoning };
   }
 
-  result(): { content: Block[]; stop: string } {
+  /** the content blocks, why it stopped, and the calls whose arguments were not valid JSON */
+  result(): { content: Block[]; stop: string; invalid: Set<string> } {
     const content: Block[] = [];
+    const invalid = new Set<string>();
     if (this.text) content.push({ type: 'text', text: this.text });
     this.calls.filter(Boolean).forEach((c, i) => {
+      const id = c.id || `call_${Date.now().toString(36)}_${i}`;
       let input: unknown = {};
-      try { input = c.args ? JSON.parse(c.args) : {}; } catch { input = {}; }
-      content.push({ type: 'tool_use', id: c.id || `call_${Date.now().toString(36)}_${i}`, name: c.name, input, ...(c.extra ? { extra_content: c.extra } : {}) });
+      try { input = c.args ? JSON.parse(c.args) : {}; } catch { invalid.add(id); }
+      content.push({ type: 'tool_use', id, name: c.name, input, ...(c.extra ? { extra_content: c.extra } : {}) });
     });
     const tools = content.some((b) => b.type === 'tool_use');
-    return { content, stop: tools ? 'tool_use' : this.finish === 'length' ? 'max_tokens' : 'end_turn' };
+    // calls cut off by the length limit: their arguments are incomplete
+    if (tools && this.finish === 'length') return { content, stop: 'max_tokens', invalid };
+    return { content, stop: tools ? 'tool_use' : this.finish === 'length' ? 'max_tokens' : 'end_turn', invalid };
   }
 }
