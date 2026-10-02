@@ -31,6 +31,7 @@ Until 1.0.0, the document format and the APIs may still change between minor ver
 - The assistant knows when each built-in node, effect and modifier fits (notes in `list_nodes`).
 - Example project "Night sky": a project plugin with a node, a tool and a workflow.
 - Plugins roadmap: `docs/plugins-roadmap.md`.
+- Sound roadmap: `docs/sound-roadmap.md` (sound effects, ambiences and music made by the assistant in the editor).
 - Assistant effort levels, chosen for each model next to the model menu and in the settings: Claude Opus and Sonnet (low to max, `high` by default, where Opus 5.5 alone would run at `medium`), and the reasoning models of the other providers (OpenAI o-series and GPT-5, Gemini 2.5 and later, OpenRouter models that reason, gpt-oss on a local server: low, medium, high, or the model's own default). A model that refuses its level runs at its own.
 
 - The assistant tells you when it is done (Settings, Assistant): a notification from the system when the editor is in the background, a message in the editor after a long task.
@@ -46,6 +47,7 @@ Until 1.0.0, the document format and the APIs may still change between minor ver
 
 - On phones, the assistant's message box no longer slips under the tab bar when the conversation is long.
 - Counters: separators and units (`,` `%` `€`) take their own width instead of a digit's.
+- MP4 export: the H.264 configuration (avcC) is written from the stream itself. The one some encoders give (Media Foundation under Windows) was malformed, so Windows, QuickTime and phones refused the file ("format not supported") while Chrome and VLC played it.
 - Assistant, server path: stopping during several tool calls no longer breaks the next message; a tool call whose input is invalid or cut off is no longer run with an empty input (the model is told and calls again); inputs are checked against each tool's schema on every path.
 - Assistant, server path: a request part the API refuses (thinking display, context editing, effort…) is dropped on its own instead of turning off the thinking summary; retries wait as long as the server asks (`retry-after`).
 - Assistant: a server that does not answer, or an answer whose stream breaks before anything was shown, is tried again by itself (twice) instead of ending the turn.

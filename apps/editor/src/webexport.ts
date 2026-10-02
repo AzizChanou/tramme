@@ -65,6 +65,24 @@ function wav(buf: AudioBuffer): Blob {
   return new Blob([out.buffer], { type: 'audio/wav' });
 }
 
+/** a packet in Annex B (start codes), rather than with its NAL units prefixed by their length */
+const isAnnexB = (d: Uint8Array) => d[0] === 0 && d[1] === 0 && (d[2] === 1 || (d[2] === 0 && d[3] === 1));
+
+/**
+ * H.264 in an MP4: the encoder hands its frames in Annex B, with the parameter
+ * sets in band, and the muxer writes the configuration box (avcC) from them.
+ * The avcC some encoders give of their own is malformed (Media Foundation under
+ * Windows: each SPS and PPS with its header byte twice, reserved bits cleared):
+ * Chrome and VLC play such a file, the strict players (Windows, QuickTime,
+ * phones, TVs) refuse it.
+ */
+const AVC_FROM_STREAM = {
+  onEncoderConfig: (config: VideoEncoderConfig) => { config.avc = { ...config.avc, format: 'annexb' }; },
+  onEncodedPacket: (packet: { data: Uint8Array }, meta?: EncodedVideoChunkMetadata) => {
+    if (meta?.decoderConfig && isAnnexB(packet.data)) delete meta.decoderConfig.description;
+  },
+};
+
 const aborted = (signal?: AbortSignal) => { if (signal?.aborted) throw new DOMException(t('export.exportCancelled'), 'AbortError'); };
 
 export async function exportInBrowser(doc: TrammeDoc, base: string, format: WebFormat, opts: WebExportOptions): Promise<WebExportResult> {
@@ -141,7 +159,7 @@ export async function exportInBrowser(doc: TrammeDoc, base: string, format: WebF
     const output = new Output({ format: webm ? new WebMOutputFormat() : new Mp4OutputFormat({ fastStart: 'in-memory' }), target });
     const quality = new Quality('very-high');
     // MP4: the visible canvas (opaque); WebM: straight RGBA frames, alpha kept
-    const video = webm ? new VideoSampleSource({ codec, quality, keyFrameInterval: 2, alpha: 'keep' }) : new CanvasSource(canvas, { codec, quality, keyFrameInterval: 2 });
+    const video = webm ? new VideoSampleSource({ codec, quality, keyFrameInterval: 2, alpha: 'keep' }) : new CanvasSource(canvas, { codec, quality, keyFrameInterval: 2, ...(codec === 'avc' ? AVC_FROM_STREAM : {}) });
     output.addVideoTrack(video, { frameRate: fps });
     const sound = await mixAudio(r, duration);
     let audio: AudioBufferSource | null = null;
