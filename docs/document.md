@@ -75,7 +75,11 @@ Wherever a color is expected (gradient stops included), `"@name"` refers to the 
 
 ### Expressions
 
-A single expression (`value + 10`) or a body with `return`. Available names: `t` (= `time`), `frame`, `fps`, `value`, `comp` (`width`, `height`, `duration`, `fps`), `prop('layer.prop')`, `token('name')`, `marker('id|kind|label')` (`{ t, frame }`), `ease(spec, x)`, `clamp`, `lerp`, `prog(t, a, b)`, `smoothstep`, `linear(t, t0, t1, v0, v1)`, `random(seed)`, `noise(x, y, z)`, `add`, `sub`, `mul`, `Math` (without `Math.random`), and the modifiers below. An expression must stay a pure function of `t`: no state, no unseeded randomness, no access to the browser.
+A single expression (`value + 10`) or a body with `return`. Available names: `t` (= `time`), `frame`, `fps`, `value`, `comp` (`width`, `height`, `duration`, `fps`), `prop('layer.prop')`, `token('name')`, `marker('id|kind|label')` (`{ t, frame }`), `ease(spec, x)`, `clamp`, `lerp`, `prog(t, a, b)`, `smoothstep`, `linear(t, t0, t1, v0, v1)`, `random(seed)`, `noise(x, y, z)`, `add`, `sub`, `mul`, `Math` (without `Math.random`), `audio(source)` (below), and the modifiers below. An expression must stay a pure function of `t`: no state, no unseeded randomness, no access to the browser.
+
+### Camera (2.5D)
+
+A composition may have a `camera`: `{ "pan": [x, y], "zoom": 1, "perspective": 1000, "focus": 0, "blur": 0 }`, all animatable. Each root layer then sits at its `transform.depth` (px behind the screen, negative in front): it is scaled by `zoom · perspective / (perspective + depth)` around the centre of the frame, so far layers move less when the camera pans (parallax), and blurred by `blur · |depth − focus| / 1000` px. A far layer looks smaller: scale it up to keep its size. Children follow their parent. Without a camera, depth does nothing.
 
 ### Modifiers
 
@@ -89,6 +93,11 @@ An animated property (keyframes, expression or link) can get a stack of modifier
 | `stagger` | `delay` (s), `from`: `first` or `last` | offsets the animation by the layer's rank among its siblings |
 | `noise` | `amp`, `scale`, `seed` | fractal noise fixed in time (value texture) |
 | `smooth` | `window` (s) | smooths the curve with a moving average |
+| `react` | `source` (sound or video layer id, or asset), `signal` (`beat`, `bar`, `hit`, `rms`, `low`, `mid`, `high`), `amount`, `decay` (s) | adds `amount` times the music's signal: a pulse on each beat, bar or hit, or the loudness of a band |
+
+### Following the music
+
+Once a sound has an analysis (the `beats` tool saves it as the asset `analysis-<sound>`), expressions read it with `audio(source)`: `source` is the sound or video layer (times follow its in point and `start`), or the asset id. `audio('music').pulse(0.2)` is 1 on each beat and fades in 0.2 s; also `.barPulse(decay)`, `.hit(decay)`, `.energy('rms' | 'low' | 'mid' | 'high')` (0..1), `.beat`, `.bar` (ranks), `.phase` (0..1 inside the beat), `.section`. Without the analysis, every value is 0. For example a logo that kicks on each beat: `"scale": { "$v": [1, 1], "$mod": [{ "type": "react", "source": "music", "signal": "beat", "amount": 0.06, "decay": 0.18 }] }`.
 
 ## Built-in nodes
 
@@ -107,14 +116,17 @@ Each layer type declares its property schema; the inspector and the validator us
 | `comp` | `comp` (id of another composition), `time` (local time, animatable), `size`: nested composition |
 | `particles` | deterministic emitter: `rate`, `life`, `speed`, `spread`, `gravity`, `size`, `color`, `seed` |
 | `shader` | `shader` (fragment GLSL), `size`, `params`: an image made by a shader |
+| `follow` | `target` (a layer), `frequency` (Hz), `damping`, `size`, `color`, `trail` (frames): a dot following another layer on a spring, drawn in composition space |
 | `code` | `module` (JS asset), `entry`, `params`: free drawing by existing code |
 | `audio` | `audio` (asset), `gain` (dB), `start`: a sound placed at the layer's in point |
 
-Composition finishing effects (`effects`): `look.vignette` (`amount`), `look.grain` (`amount`, `seed`), `look.bloom` (`amount`, `threshold`), `look.exposure` (`value`). Layer effects (`layer.effects`): `fx.blur` (`radius`), `fx.shadow` (`color`, `blur`, `offset`), `fx.glow` (`color`, `radius`, `strength`), `fx.color` (`brightness`, `contrast`, `saturation`, `hue`), `fx.tint` (`color`, `amount`).
+Composition finishing effects (`effects`): `look.vignette` (`amount`), `look.grain` (`amount`, `seed`), `look.bloom` (`amount`, `threshold`), `look.exposure` (`value`), `look.chromatic` (`amount` px), `look.grade` (`lift`, `gain`, `saturation`, `temperature`). Layer effects (`layer.effects`): `fx.blur` (`radius`), `fx.shadow` (`color`, `blur`, `offset`), `fx.glow` (`color`, `radius`, `strength`), `fx.color` (`brightness`, `contrast`, `saturation`, `hue`), `fx.tint` (`color`, `amount`), `fx.matte` (`source`: a layer, `mode`: `alpha`, `alpha-inverted`, `luma`, `luma-inverted`), `fx.displace` (`source`: a layer whose red and green push x and y, `amount` px).
+
+A track matte: the layer shows only where `source` is. The matte layer is usually hidden (`visible: false`): it is still drawn for the effect, at the same instant, with its own animation. For example footage seen through a big title: the title hidden, the video with `{ "id": "m", "type": "fx.matte", "props": { "source": "title", "mode": "alpha" } }`.
 
 ## Node plugins
 
-A plugin is a JavaScript module (asset `type: "module"`, listed in `plugins`) that exports `nodes`, `effects`, `modifiers`, `tools` and/or `prompts` (and, if it wants, `tours`: guided tours of its nodes in the editor, see [tours.md](tours.md)):
+A plugin is a JavaScript module (asset `type: "module"`, listed in `plugins`) that exports `nodes`, `effects`, `modifiers`, `tools`, `prompts`, `checks` and/or `kits` (and, if it wants, `tours`: guided tours of its nodes in the editor, see [tours.md](tours.md)):
 
 ```js
 export const nodes = [{
@@ -137,7 +149,17 @@ export const nodes = [{
 }];
 ```
 
-Property types: `number`, `vec2`, `bool`, `color`, `paint`, `enum` (`options`), `string`, `text`, `ease`, `path`, `asset` (`assetType`), `json`. Options: `default`, `label`, `group`, `min`, `max`, `step`, `unit` (`px`, `deg`, `%`, `em`, `s`, `x`, `dB`), `animatable: false`, `nullable`. Rendering receives the properties already evaluated at time `host.t`, in the layer's local space; it must stay a pure function of these values and of time.
+Property types: `number`, `vec2`, `bool`, `color`, `paint`, `enum` (`options`), `string`, `text`, `ease`, `path`, `asset` (`assetType`), `layer` (another layer of the composition, drawn alone for an effect: mattes, maps), `json`. Options: `default`, `label`, `group`, `min`, `max`, `step`, `unit` (`px`, `deg`, `%`, `em`, `s`, `x`, `dB`), `animatable: false`, `nullable`. Rendering receives the properties already evaluated at time `host.t`, in the layer's local space; it must stay a pure function of these values and of time.
+
+A node may also simulate: `simulate: { init(props, host), step(state, props, dt, host) }` carries a state from frame to frame (springs, ropes, flocks, trails). The engine steps it in order from the layer's in point at the composition's frame rate and keeps checkpoints, so any frame renders in any order and always gives the same picture; `step` returns a new state and never changes the one it is given. Rendering reads it with `host.state()`. `host.layer(id)` gives another layer's evaluated props and transform at the same instant (connectors, followers). The built-in `follow` node is an example: a dot following another layer on a spring.
+
+A plugin should say who it is: `export const meta = { name, version, description, api: 1 }`. `api` is the plugin API it was written for; a tramme with an older API refuses the plugin with a message rather than failing halfway. In TypeScript or with JSDoc, `@tramme/plugin` gives every type and `definePlugin()` for autocompletion.
+
+A plugin can be kept in the library shared by the projects (`library-add` tool, `/library-add`) and used in another project (`library-use`): it is copied into the project's `plugins/`, so the project and its archive stay self-contained.
+
+A node may declare `handles(props)`: points the viewport lets the user drag, in local space, each editing one property (`{ prop, at, kind: 'point' }` sets a vec2 to the point; `{ prop, at, kind: 'distance', from }` sets a number to the distance from `from`). Vector exports cannot run code: `export: { svg(props), lottie(props) }` gives SVG markup in local space and static Lottie shape items; without them the layer is left out with a warning.
+
+A plugin may also export `presets`, ready-made layers offered in the add menu: `{ name, title, category, layer }` where `layer` is an ordinary layer (type, props, transform, effects), centred when it has no position.
 
 Nodes, effects, modifiers and tools may carry notes for the assistant, returned by `list_nodes`: `ai: { when, avoid, example }` (when to use it, what looks bad, an example of props or input).
 
@@ -159,9 +181,45 @@ export const tools = [{
 }];
 ```
 
+Effects can be written in GLSL: `gl: { code }` defines `vec4 effect(vec2 uv)`, reading `uImage` (premultiplied), `uRes` (pixels), `uScale` (pixels per composition pixel), `uTime`, and `u_<prop>` for each property (`float` for number, bool and enum (its rank), `vec2`, `vec4` for a colour, `sampler2D` for a `layer` prop). On a layer (`stage: 'layer'`) it runs on the layer drawn alone; as a finishing effect (`stage: 'finish'`), on the composed frame in linear light, before the glow and the grain.
+
+```js
+export const effects = [{
+  type: 'demo.scanlines', title: 'Scanlines', category: 'Finishing', stage: 'finish',
+  props: { amount: { type: 'number', default: 0.3, min: 0, max: 1 } },
+  gl: { code: `vec4 effect(vec2 uv) { vec4 c = texture(uImage, uv); return c * (1.0 - u_amount * step(0.5, fract(uv.y * uRes.y / (3.0 * uScale)))); }` },
+}];
+```
+
+In the editor's preview, a node or effect that fails is drawn as a red frame and named in the error bar; the rest of the frame renders. Exports and stills keep failing, so a broken film is never delivered.
+
 `input` is a JSON Schema of an object; the input is checked against it before `run` (required keys, types, enums, bounds). `run` returns a string, or `{ text, images: [{ url, caption }], ops, label, reload }`: `images` are data URLs shown to the assistant and the user, `reload` lists assets whose files the tool rewrote.
 
 Tools also appear in the chat's `/` menu, with a form generated from `input` (`title` as the label; `format: 'asset'` with `assetType` picks an asset, `format: 'layer'` a layer). Once the required fields are filled, the tool runs at once without a model; words written after the command send it to the assistant instead.
+
+A plugin may also export `checks`: quality checks run by the `check` tool (assistant and `/check`) next to the built-in ones (text size, reading time, safe zone, overlapping text, text crossing an element, crowded entrances, still stretches). A check reads the composition sampled four times a second, each layer placed in composition space, and returns issues:
+
+```js
+export const checks = [{
+  name: 'brand.logo', description: 'the logo stays on screen',
+  run({ samples, comp }) {
+    const missing = samples.filter((s) => !s.layers.some((p) => p.id === 'logo' && p.opacity > 0.5));
+    return missing.length ? [{ check: 'brand.logo', severity: 'warning', t: missing[0].t, message: `the logo is missing at ${missing[0].t} s` }] : [];
+  },
+}];
+```
+
+Each sample is `{ t, layers }`; a placed layer has `id`, `layer`, `node`, `props`, `opacity` (with its parents'), `box` (composition pixels) and, for text, `text` and `textSize` (the height of the type on screen).
+
+A plugin may also export `kits`: style kits applied by the `kit` tool, as design tokens. The recipes (`kinetic-title`, `bar-chart`, `stat`, `transition`) and the dressings read these token names: `plate`, `ink`, `accent`, `accent2` (colours), `enter`, `exit` (curves), `pace` (seconds of an entrance), `stagger` (seconds between siblings).
+
+```js
+export const kits = [{
+  name: 'brand', title: 'Our brand', description: 'navy and coral, brisk',
+  tokens: { plate: { type: 'color', value: '#0B1B3F' }, ink: { type: 'color', value: '#FFFFFF' }, accent: { type: 'color', value: '#FF6F59' },
+    enter: { type: 'ease', value: [0.16, 1, 0.3, 1] }, pace: { type: 'number', value: 0.5 }, stagger: { type: 'number', value: 0.05 } },
+}];
+```
 
 A plugin may also export `prompts`: workflows the user picks in the `/` menu, whose instructions guide the assistant for one kind of result.
 

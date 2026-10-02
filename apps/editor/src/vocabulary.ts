@@ -5,6 +5,11 @@
 
 import type { PromptType, ToolContext, ToolType } from '@tramme/core';
 import { builtinRegistry } from '@tramme/nodes';
+import { LIBRARY_TOOLS } from './library.ts';
+import { PERCEPTION_TOOLS } from './perception.ts';
+import { EDITOR_PRESETS } from './presets.ts';
+import { BUILTIN_KITS, RECIPE_TOOLS } from './recipes.ts';
+import { REVIEW_TOOLS } from './review.ts';
 import { TEMPLATES, type TemplateArgs } from './templates.ts';
 
 const at = { type: 'number', minimum: 0, title: 'Start (s)', description: 'composition time; the current time by default' };
@@ -43,11 +48,11 @@ export const EDITOR_PROMPTS: PromptType[] = [
   },
   {
     name: 'review', title: 'Review the composition', description: 'checks the key moments and fixes what is wrong',
-    prompt: 'Review the composition: render frames at its key moments (entrances, transitions, the busiest moments) and look for text too small, too brief or with too little contrast, elements outside the safe zones or over a face, overlaps, and empty stretches. Propose fixes for what you find, then check them.',
+    prompt: 'Review the composition: run the check tool (use_tool "check") and read its issues and contact sheet, look closer at the entrances and transitions that matter with the motion tool, and judge what the checks cannot: contrast, hierarchy, rhythm, elements over a face. Propose fixes for what you find, then run check again.',
   },
 ];
 
 /** the base vocabulary of the editor, before a document's plugins */
 export function editorRegistry() {
-  return builtinRegistry().registerTool(...EDITOR_TOOLS).registerPrompt(...EDITOR_PROMPTS);
+  return builtinRegistry().registerTool(...EDITOR_TOOLS, ...RECIPE_TOOLS, ...PERCEPTION_TOOLS, ...REVIEW_TOOLS, ...LIBRARY_TOOLS).registerPrompt(...EDITOR_PROMPTS).registerKit(...BUILTIN_KITS).registerPreset(...EDITOR_PRESETS);
 }

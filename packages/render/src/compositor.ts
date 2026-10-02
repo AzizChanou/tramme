@@ -149,6 +149,12 @@ void main(){
   o = clamp(c, 0., 1.);
 }`;
 
+import type { PropSchema } from '@tramme/core';
+import { fragmentOf, program as customProgram, setUniforms } from './gpu.ts';
+
+/** a finishing effect written in GLSL, run on the accumulated frame (linear light, premultiplied) */
+export interface FinishPass { code: string; schema: PropSchema; props: Record<string, unknown> }
+
 type Program = WebGLProgram & { u(name: string): WebGLUniformLocation | null };
 interface Target { fb: WebGLFramebuffer; tex: WebGLTexture; w: number; h: number }
 
@@ -196,6 +202,9 @@ export class Compositor {
   private finalFbo!: Target;
   private yuv!: Target;
   private rgba!: Target;
+  /** ping-pong targets of the GLSL finishing effects, made when first needed */
+  private passTargets: Target[] = [];
+  private custom = new Map<string, WebGLProgram | Error>();
 
   /**
    * preserve: keep the picture after it is shown (reading the canvas later);
@@ -241,7 +250,8 @@ export class Compositor {
 
   private release() {
     const gl = this.gl;
-    for (const t of [this.accum, ...this.bloom, this.finalFbo, this.yuv, this.rgba]) { gl.deleteFramebuffer(t.fb); gl.deleteTexture(t.tex); }
+    for (const t of [this.accum, ...this.bloom, this.finalFbo, this.yuv, this.rgba, ...this.passTargets]) { gl.deleteFramebuffer(t.fb); gl.deleteTexture(t.tex); }
+    this.passTargets = [];
     gl.deleteTexture(this.srcTex); gl.deleteTexture(this.hudTex);
   }
 
@@ -250,6 +260,7 @@ export class Compositor {
     const gl = this.gl;
     this.release();
     for (const p of Object.values(this.p)) gl.deleteProgram(p);
+    for (const p of this.custom.values()) if (!(p instanceof Error)) gl.deleteProgram(p);
     gl.deleteVertexArray(this.vao);
   }
 
@@ -303,12 +314,36 @@ export class Compositor {
     gl.disable(gl.BLEND);
   }
 
+  /** the GLSL finishing effects in turn, each reading the previous result; returns the last picture */
+  private runPasses(passes: FinishPass[], t: number, scale: number, onError?: (e: Error) => void): WebGLTexture {
+    const gl = this.gl;
+    if (!this.passTargets.length) this.passTargets = [this.fbo(this.w, this.h), this.fbo(this.w, this.h)];
+    let src = this.accum.tex, k = 0;
+    for (const pass of passes) {
+      let p: WebGLProgram;
+      // the compositor's vertex shader gives vUv 0..1 like the effects expect
+      try { p = customProgram({ gl, programs: this.custom }, fragmentOf(pass.code, pass.schema), VS); }
+      catch (e) { onError?.(e as Error); continue; }
+      const out = this.passTargets[k++ % 2];
+      gl.useProgram(p); this.target(out); this.bindTex(0, src);
+      gl.uniform1i(gl.getUniformLocation(p, 'uImage'), 0);
+      gl.uniform2f(gl.getUniformLocation(p, 'uRes'), this.w, this.h);
+      gl.uniform1f(gl.getUniformLocation(p, 'uTime'), t);
+      gl.uniform1f(gl.getUniformLocation(p, 'uScale'), scale);
+      setUniforms(gl, p, pass.schema, pass.props, 1, () => null);
+      this.draw();
+      src = out.tex;
+    }
+    return src;
+  }
+
   /** compose the accumulated frame: to the canvas (toFbo false, dithered) or to the float target for reading */
-  finish(fx: Finish, look: Look, seed: number, { hud = null as TexImageSource | null, toFbo = false } = {}) {
+  finish(fx: Finish, look: Look, seed: number, { hud = null as TexImageSource | null, toFbo = false, passes = [] as FinishPass[], t = 0, scale = 1, onError = undefined as ((e: Error) => void) | undefined } = {}) {
     const gl = this.gl, bl = this.bloom;
+    const scene = passes.length ? this.runPasses(passes, t, scale, onError) : this.accum.tex;
     if (fx.bloom > 0) {
       let p = this.p.prefilter;
-      gl.useProgram(p); this.target(bl[0]); this.bindTex(0, this.accum.tex);
+      gl.useProgram(p); this.target(bl[0]); this.bindTex(0, scene);
       gl.uniform1i(p.u('uTex'), 0);
       gl.uniform2f(p.u('uTexel'), 1 / this.w, 1 / this.h);
       gl.uniform1f(p.u('uThresh'), fx.bloomThreshold); gl.uniform1f(p.u('uKnee'), 0.25);
@@ -330,7 +365,7 @@ export class Compositor {
     }
     if (hud) this.upload(this.hudTex, hud, false);
     const p = this.p.final; gl.useProgram(p); this.target(toFbo ? this.finalFbo : null);
-    this.bindTex(0, this.accum.tex); this.bindTex(1, bl[0].tex); this.bindTex(2, this.hudTex);
+    this.bindTex(0, scene); this.bindTex(1, bl[0].tex); this.bindTex(2, this.hudTex);
     gl.uniform1i(p.u('uScene'), 0); gl.uniform1i(p.u('uBloom'), 1); gl.uniform1i(p.u('uHud'), 2);
     gl.uniform2f(p.u('uRes'), this.w, this.h);
     gl.uniform3fv(p.u('uBg'), look.bg || [0, 0, 0]);

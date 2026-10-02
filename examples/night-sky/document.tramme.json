@@ -1,0 +1,2227 @@
+{
+  "$schema": "../../schema/tramme-1.schema.json",
+  "schema": "tramme/1",
+  "meta": {
+    "title": "Night sky",
+    "description": "A project plugin: a moon node, a star field tool and a night scene workflow (type / in the assistant)."
+  },
+  "tokens": {
+    "night": {
+      "type": "color",
+      "value": "#070B1A"
+    },
+    "dusk": {
+      "type": "color",
+      "value": "#1D2B5A"
+    },
+    "moonlight": {
+      "type": "color",
+      "value": "#F3EBD3"
+    },
+    "swift": {
+      "type": "ease",
+      "value": [
+        0.16,
+        1,
+        0.3,
+        1
+      ]
+    },
+    "slow": {
+      "type": "ease",
+      "value": [
+        0.45,
+        0,
+        0.2,
+        1
+      ]
+    }
+  },
+  "assets": {
+    "sky": {
+      "type": "module",
+      "src": "plugins/sky.js",
+      "name": "Sky (plugin)"
+    }
+  },
+  "plugins": [
+    "sky"
+  ],
+  "root": "main",
+  "compositions": {
+    "main": {
+      "name": "Night sky",
+      "width": 1080,
+      "height": 1080,
+      "fps": 30,
+      "duration": 8,
+      "background": "@night",
+      "layers": {
+        "sky": {
+          "type": "shape.rect",
+          "name": "Sky",
+          "transform": {
+            "position": [
+              540,
+              540
+            ]
+          },
+          "props": {
+            "size": [
+              1080,
+              1080
+            ],
+            "radius": 0,
+            "fill": {
+              "type": "linear",
+              "from": [
+                0,
+                -540
+              ],
+              "to": [
+                0,
+                540
+              ],
+              "stops": [
+                [
+                  0,
+                  "@night"
+                ],
+                [
+                  1,
+                  "@dusk"
+                ]
+              ]
+            }
+          }
+        },
+        "moon": {
+          "type": "sky.moon",
+          "name": "Moon",
+          "transform": {
+            "position": {
+              "$k": [
+                {
+                  "t": 0,
+                  "v": [
+                    860,
+                    1010
+                  ],
+                  "ease": "@slow"
+                },
+                {
+                  "t": 7.5,
+                  "v": [
+                    760,
+                    290
+                  ]
+                }
+              ]
+            }
+          },
+          "props": {
+            "radius": 86,
+            "phase": {
+              "$k": [
+                {
+                  "t": 0,
+                  "v": 0.18,
+                  "ease": "@slow"
+                },
+                {
+                  "t": 8,
+                  "v": 0.34
+                }
+              ]
+            },
+            "color": "@moonlight",
+            "glow": 0.5
+          }
+        },
+        "title": {
+          "type": "text",
+          "name": "Title",
+          "in": 1.2,
+          "transform": {
+            "position": {
+              "$k": [
+                {
+                  "t": 1.2,
+                  "v": [
+                    96,
+                    910
+                  ],
+                  "ease": "@swift"
+                },
+                {
+                  "t": 2.2,
+                  "v": [
+                    96,
+                    880
+                  ]
+                }
+              ]
+            },
+            "opacity": {
+              "$k": [
+                {
+                  "t": 1.2,
+                  "v": 0,
+                  "ease": "@swift"
+                },
+                {
+                  "t": 2.2,
+                  "v": 1
+                }
+              ]
+            }
+          },
+          "props": {
+            "text": "Good night",
+            "size": 84,
+            "weight": 700,
+            "align": "left",
+            "baseline": "middle",
+            "color": "@moonlight",
+            "tracking": 0.02
+          }
+        },
+        "star-1": {
+          "type": "shape.ellipse",
+          "name": "Star 1",
+          "transform": {
+            "position": [
+              337,
+              37
+            ],
+            "opacity": {
+              "$v": 0.8511538640141059,
+              "$mod": [
+                {
+                  "type": "wiggle",
+                  "freq": 1.008551049333579,
+                  "amp": 0.25,
+                  "seed": 0
+                }
+              ]
+            }
+          },
+          "props": {
+            "size": [
+              2,
+              2
+            ],
+            "fill": "#FFFFFF"
+          }
+        },
+        "star-2": {
+          "type": "shape.ellipse",
+          "name": "Star 2",
+          "transform": {
+            "position": [
+              510,
+              228
+            ],
+            "opacity": {
+              "$v": 0.6264829982085927,
+              "$mod": [
+                {
+                  "type": "wiggle",
+                  "freq": 1.3135800926141257,
+                  "amp": 0.25,
+                  "seed": 1
+                }
+              ]
+            }
+          },
+          "props": {
+            "size": [
+              3.7,
+              3.7
+            ],
+            "fill": "#FFFFFF"
+          }
+        },
+        "star-3": {
+          "type": "shape.ellipse",
+          "name": "Star 3",
+          "transform": {
+            "position": [
+              635,
+              670
+            ],
+            "opacity": {
+              "$v": 0.6839251285967651,
+              "$mod": [
+                {
+                  "type": "wiggle",
+                  "freq": 0.6846800478963927,
+                  "amp": 0.25,
+                  "seed": 2
+                }
+              ]
+            }
+          },
+          "props": {
+            "size": [
+              2.4,
+              2.4
+            ],
+            "fill": "#FFFFFF"
+          }
+        },
+        "star-4": {
+          "type": "shape.ellipse",
+          "name": "Star 4",
+          "transform": {
+            "position": [
+              640,
+              449
+            ],
+            "opacity": {
+              "$v": 0.7175600749138371,
+              "$mod": [
+                {
+                  "type": "wiggle",
+                  "freq": 0.8348014416497214,
+                  "amp": 0.25,
+                  "seed": 3
+                }
+              ]
+            }
+          },
+          "props": {
+            "size": [
+              3.1,
+              3.1
+            ],
+            "fill": "#FFFFFF"
+          }
+        },
+        "star-5": {
+          "type": "shape.ellipse",
+          "name": "Star 5",
+          "transform": {
+            "position": [
+              13,
+              156
+            ],
+            "opacity": {
+              "$v": 0.7515975238071732,
+              "$mod": [
+                {
+                  "type": "wiggle",
+                  "freq": 1.313096538757064,
+                  "amp": 0.25,
+                  "seed": 4
+                }
+              ]
+            }
+          },
+          "props": {
+            "size": [
+              3.7,
+              3.7
+            ],
+            "fill": "#FFFFFF"
+          }
+        },
+        "star-6": {
+          "type": "shape.ellipse",
+          "name": "Star 6",
+          "transform": {
+            "position": [
+              958,
+              423
+            ],
+            "opacity": {
+              "$v": 0.5839152555064441,
+              "$mod": [
+                {
+                  "type": "wiggle",
+                  "freq": 1.2105764872493003,
+                  "amp": 0.25,
+                  "seed": 5
+                }
+              ]
+            }
+          },
+          "props": {
+            "size": [
+              2,
+              2
+            ],
+            "fill": "#FFFFFF"
+          }
+        },
+        "star-7": {
+          "type": "shape.ellipse",
+          "name": "Star 7",
+          "transform": {
+            "position": [
+              974,
+              15
+            ],
+            "opacity": {
+              "$v": 0.8010997095155528,
+              "$mod": [
+                {
+                  "type": "wiggle",
+                  "freq": 1.4080531482659775,
+                  "amp": 0.25,
+                  "seed": 6
+                }
+              ]
+            }
+          },
+          "props": {
+            "size": [
+              4.2,
+              4.2
+            ],
+            "fill": "#FFFFFF"
+          }
+        },
+        "star-8": {
+          "type": "shape.ellipse",
+          "name": "Star 8",
+          "transform": {
+            "position": [
+              180,
+              648
+            ],
+            "opacity": {
+              "$v": 0.8817936646815331,
+              "$mod": [
+                {
+                  "type": "wiggle",
+                  "freq": 1.3317784142045102,
+                  "amp": 0.25,
+                  "seed": 7
+                }
+              ]
+            }
+          },
+          "props": {
+            "size": [
+              3.9,
+              3.9
+            ],
+            "fill": "#FFFFFF"
+          }
+        },
+        "star-9": {
+          "type": "shape.ellipse",
+          "name": "Star 9",
+          "transform": {
+            "position": [
+              466,
+              207
+            ],
+            "opacity": {
+              "$v": 0.7654315696008798,
+              "$mod": [
+                {
+                  "type": "wiggle",
+                  "freq": 0.6239752428829439,
+                  "amp": 0.25,
+                  "seed": 8
+                }
+              ]
+            }
+          },
+          "props": {
+            "size": [
+              7.6,
+              7.6
+            ],
+            "fill": "#FFFFFF"
+          }
+        },
+        "star-10": {
+          "type": "shape.ellipse",
+          "name": "Star 10",
+          "transform": {
+            "position": [
+              380,
+              708
+            ],
+            "opacity": {
+              "$v": 0.5504511911659047,
+              "$mod": [
+                {
+                  "type": "wiggle",
+                  "freq": 1.2662076028680498,
+                  "amp": 0.25,
+                  "seed": 9
+                }
+              ]
+            }
+          },
+          "props": {
+            "size": [
+              7.5,
+              7.5
+            ],
+            "fill": "#FFFFFF"
+          }
+        },
+        "star-11": {
+          "type": "shape.ellipse",
+          "name": "Star 11",
+          "transform": {
+            "position": [
+              734,
+              413
+            ],
+            "opacity": {
+              "$v": 0.8485721312449985,
+              "$mod": [
+                {
+                  "type": "wiggle",
+                  "freq": 1.0337435345479693,
+                  "amp": 0.25,
+                  "seed": 10
+                }
+              ]
+            }
+          },
+          "props": {
+            "size": [
+              5.7,
+              5.7
+            ],
+            "fill": "#FFFFFF"
+          }
+        },
+        "star-12": {
+          "type": "shape.ellipse",
+          "name": "Star 12",
+          "transform": {
+            "position": [
+              459,
+              657
+            ],
+            "opacity": {
+              "$v": 0.7277223148641385,
+              "$mod": [
+                {
+                  "type": "wiggle",
+                  "freq": 0.8255636278777976,
+                  "amp": 0.25,
+                  "seed": 11
+                }
+              ]
+            }
+          },
+          "props": {
+            "size": [
+              8.5,
+              8.5
+            ],
+            "fill": "#FFFFFF"
+          }
+        },
+        "star-13": {
+          "type": "shape.ellipse",
+          "name": "Star 13",
+          "transform": {
+            "position": [
+              893,
+              88
+            ],
+            "opacity": {
+              "$v": 0.6727728221311913,
+              "$mod": [
+                {
+                  "type": "wiggle",
+                  "freq": 1.150923820632439,
+                  "amp": 0.25,
+                  "seed": 12
+                }
+              ]
+            }
+          },
+          "props": {
+            "size": [
+              2,
+              2
+            ],
+            "fill": "#FFFFFF"
+          }
+        },
+        "star-14": {
+          "type": "shape.ellipse",
+          "name": "Star 14",
+          "transform": {
+            "position": [
+              114,
+              307
+            ],
+            "opacity": {
+              "$v": 0.6110906497678633,
+              "$mod": [
+                {
+                  "type": "wiggle",
+                  "freq": 1.1730083129117341,
+                  "amp": 0.25,
+                  "seed": 13
+                }
+              ]
+            }
+          },
+          "props": {
+            "size": [
+              3.2,
+              3.2
+            ],
+            "fill": "#FFFFFF"
+          }
+        },
+        "star-15": {
+          "type": "shape.ellipse",
+          "name": "Star 15",
+          "transform": {
+            "position": [
+              106,
+              793
+            ],
+            "opacity": {
+              "$v": 0.8979128341171079,
+              "$mod": [
+                {
+                  "type": "wiggle",
+                  "freq": 1.3742943500860543,
+                  "amp": 0.25,
+                  "seed": 14
+                }
+              ]
+            }
+          },
+          "props": {
+            "size": [
+              5.6,
+              5.6
+            ],
+            "fill": "#FFFFFF"
+          }
+        },
+        "star-16": {
+          "type": "shape.ellipse",
+          "name": "Star 16",
+          "transform": {
+            "position": [
+              930,
+              523
+            ],
+            "opacity": {
+              "$v": 0.725787292654428,
+              "$mod": [
+                {
+                  "type": "wiggle",
+                  "freq": 0.9057971608879019,
+                  "amp": 0.25,
+                  "seed": 15
+                }
+              ]
+            }
+          },
+          "props": {
+            "size": [
+              3.5,
+              3.5
+            ],
+            "fill": "#FFFFFF"
+          }
+        },
+        "star-17": {
+          "type": "shape.ellipse",
+          "name": "Star 17",
+          "transform": {
+            "position": [
+              1039,
+              461
+            ],
+            "opacity": {
+              "$v": 0.8686203059215288,
+              "$mod": [
+                {
+                  "type": "wiggle",
+                  "freq": 0.7470910530975936,
+                  "amp": 0.25,
+                  "seed": 16
+                }
+              ]
+            }
+          },
+          "props": {
+            "size": [
+              3,
+              3
+            ],
+            "fill": "#FFFFFF"
+          }
+        },
+        "star-18": {
+          "type": "shape.ellipse",
+          "name": "Star 18",
+          "transform": {
+            "position": [
+              746,
+              233
+            ],
+            "opacity": {
+              "$v": 0.8392620489366931,
+              "$mod": [
+                {
+                  "type": "wiggle",
+                  "freq": 0.9635912978682586,
+                  "amp": 0.25,
+                  "seed": 17
+                }
+              ]
+            }
+          },
+          "props": {
+            "size": [
+              3.1,
+              3.1
+            ],
+            "fill": "#FFFFFF"
+          }
+        },
+        "star-19": {
+          "type": "shape.ellipse",
+          "name": "Star 19",
+          "transform": {
+            "position": [
+              550,
+              187
+            ],
+            "opacity": {
+              "$v": 0.5851478156029692,
+              "$mod": [
+                {
+                  "type": "wiggle",
+                  "freq": 1.3981122949143054,
+                  "amp": 0.25,
+                  "seed": 18
+                }
+              ]
+            }
+          },
+          "props": {
+            "size": [
+              5,
+              5
+            ],
+            "fill": "#FFFFFF"
+          }
+        },
+        "star-20": {
+          "type": "shape.ellipse",
+          "name": "Star 20",
+          "transform": {
+            "position": [
+              818,
+              276
+            ],
+            "opacity": {
+              "$v": 0.851633375651793,
+              "$mod": [
+                {
+                  "type": "wiggle",
+                  "freq": 1.0346998803640715,
+                  "amp": 0.25,
+                  "seed": 19
+                }
+              ]
+            }
+          },
+          "props": {
+            "size": [
+              3.6,
+              3.6
+            ],
+            "fill": "#FFFFFF"
+          }
+        },
+        "star-21": {
+          "type": "shape.ellipse",
+          "name": "Star 21",
+          "transform": {
+            "position": [
+              36,
+              451
+            ],
+            "opacity": {
+              "$v": 0.6534737194920646,
+              "$mod": [
+                {
+                  "type": "wiggle",
+                  "freq": 1.408015521436944,
+                  "amp": 0.25,
+                  "seed": 20
+                }
+              ]
+            }
+          },
+          "props": {
+            "size": [
+              2,
+              2
+            ],
+            "fill": "#FFFFFF"
+          }
+        },
+        "star-22": {
+          "type": "shape.ellipse",
+          "name": "Star 22",
+          "transform": {
+            "position": [
+              1069,
+              399
+            ],
+            "opacity": {
+              "$v": 0.8149140492220541,
+              "$mod": [
+                {
+                  "type": "wiggle",
+                  "freq": 0.7726455452597193,
+                  "amp": 0.25,
+                  "seed": 21
+                }
+              ]
+            }
+          },
+          "props": {
+            "size": [
+              3.4,
+              3.4
+            ],
+            "fill": "#FFFFFF"
+          }
+        },
+        "star-23": {
+          "type": "shape.ellipse",
+          "name": "Star 23",
+          "transform": {
+            "position": [
+              263,
+              215
+            ],
+            "opacity": {
+              "$v": 0.7240029749916894,
+              "$mod": [
+                {
+                  "type": "wiggle",
+                  "freq": 1.2228630362291475,
+                  "amp": 0.25,
+                  "seed": 22
+                }
+              ]
+            }
+          },
+          "props": {
+            "size": [
+              4.3,
+              4.3
+            ],
+            "fill": "#FFFFFF"
+          }
+        },
+        "star-24": {
+          "type": "shape.ellipse",
+          "name": "Star 24",
+          "transform": {
+            "position": [
+              530,
+              413
+            ],
+            "opacity": {
+              "$v": 0.5911626334918315,
+              "$mod": [
+                {
+                  "type": "wiggle",
+                  "freq": 1.2296671835050612,
+                  "amp": 0.25,
+                  "seed": 23
+                }
+              ]
+            }
+          },
+          "props": {
+            "size": [
+              3,
+              3
+            ],
+            "fill": "#FFFFFF"
+          }
+        },
+        "star-25": {
+          "type": "shape.ellipse",
+          "name": "Star 25",
+          "transform": {
+            "position": [
+              605,
+              173
+            ],
+            "opacity": {
+              "$v": 0.820686665103479,
+              "$mod": [
+                {
+                  "type": "wiggle",
+                  "freq": 0.973660042298641,
+                  "amp": 0.25,
+                  "seed": 24
+                }
+              ]
+            }
+          },
+          "props": {
+            "size": [
+              4.8,
+              4.8
+            ],
+            "fill": "#FFFFFF"
+          }
+        },
+        "star-26": {
+          "type": "shape.ellipse",
+          "name": "Star 26",
+          "transform": {
+            "position": [
+              417,
+              160
+            ],
+            "opacity": {
+              "$v": 0.7291112444168993,
+              "$mod": [
+                {
+                  "type": "wiggle",
+                  "freq": 1.521960720719733,
+                  "amp": 0.25,
+                  "seed": 25
+                }
+              ]
+            }
+          },
+          "props": {
+            "size": [
+              2.4,
+              2.4
+            ],
+            "fill": "#FFFFFF"
+          }
+        },
+        "star-27": {
+          "type": "shape.ellipse",
+          "name": "Star 27",
+          "transform": {
+            "position": [
+              905,
+              675
+            ],
+            "opacity": {
+              "$v": 0.8041907694229771,
+              "$mod": [
+                {
+                  "type": "wiggle",
+                  "freq": 0.8407498333982656,
+                  "amp": 0.25,
+                  "seed": 26
+                }
+              ]
+            }
+          },
+          "props": {
+            "size": [
+              2.5,
+              2.5
+            ],
+            "fill": "#FFFFFF"
+          }
+        },
+        "star-28": {
+          "type": "shape.ellipse",
+          "name": "Star 28",
+          "transform": {
+            "position": [
+              337,
+              744
+            ],
+            "opacity": {
+              "$v": 0.7920150401694841,
+              "$mod": [
+                {
+                  "type": "wiggle",
+                  "freq": 1.1622313530763901,
+                  "amp": 0.25,
+                  "seed": 27
+                }
+              ]
+            }
+          },
+          "props": {
+            "size": [
+              2.5,
+              2.5
+            ],
+            "fill": "#FFFFFF"
+          }
+        },
+        "star-29": {
+          "type": "shape.ellipse",
+          "name": "Star 29",
+          "transform": {
+            "position": [
+              479,
+              601
+            ],
+            "opacity": {
+              "$v": 0.554868475142744,
+              "$mod": [
+                {
+                  "type": "wiggle",
+                  "freq": 1.384184071965687,
+                  "amp": 0.25,
+                  "seed": 28
+                }
+              ]
+            }
+          },
+          "props": {
+            "size": [
+              3.5,
+              3.5
+            ],
+            "fill": "#FFFFFF"
+          }
+        },
+        "star-30": {
+          "type": "shape.ellipse",
+          "name": "Star 30",
+          "transform": {
+            "position": [
+              846,
+              394
+            ],
+            "opacity": {
+              "$v": 0.7651396996482646,
+              "$mod": [
+                {
+                  "type": "wiggle",
+                  "freq": 0.6083801248188877,
+                  "amp": 0.25,
+                  "seed": 29
+                }
+              ]
+            }
+          },
+          "props": {
+            "size": [
+              2.1,
+              2.1
+            ],
+            "fill": "#FFFFFF"
+          }
+        },
+        "star-31": {
+          "type": "shape.ellipse",
+          "name": "Star 31",
+          "transform": {
+            "position": [
+              970,
+              201
+            ],
+            "opacity": {
+              "$v": 0.608837312072364,
+              "$mod": [
+                {
+                  "type": "wiggle",
+                  "freq": 0.9677322253284344,
+                  "amp": 0.25,
+                  "seed": 30
+                }
+              ]
+            }
+          },
+          "props": {
+            "size": [
+              7.8,
+              7.8
+            ],
+            "fill": "#FFFFFF"
+          }
+        },
+        "star-32": {
+          "type": "shape.ellipse",
+          "name": "Star 32",
+          "transform": {
+            "position": [
+              811,
+              380
+            ],
+            "opacity": {
+              "$v": 0.6143599647696689,
+              "$mod": [
+                {
+                  "type": "wiggle",
+                  "freq": 1.1655146265081266,
+                  "amp": 0.25,
+                  "seed": 31
+                }
+              ]
+            }
+          },
+          "props": {
+            "size": [
+              5.3,
+              5.3
+            ],
+            "fill": "#FFFFFF"
+          }
+        },
+        "star-33": {
+          "type": "shape.ellipse",
+          "name": "Star 33",
+          "transform": {
+            "position": [
+              339,
+              69
+            ],
+            "opacity": {
+              "$v": 0.7127646839132205,
+              "$mod": [
+                {
+                  "type": "wiggle",
+                  "freq": 1.5601256996021844,
+                  "amp": 0.25,
+                  "seed": 32
+                }
+              ]
+            }
+          },
+          "props": {
+            "size": [
+              6.2,
+              6.2
+            ],
+            "fill": "#FFFFFF"
+          }
+        },
+        "star-34": {
+          "type": "shape.ellipse",
+          "name": "Star 34",
+          "transform": {
+            "position": [
+              625,
+              587
+            ],
+            "opacity": {
+              "$v": 0.8505101741529164,
+              "$mod": [
+                {
+                  "type": "wiggle",
+                  "freq": 1.0985639294596052,
+                  "amp": 0.25,
+                  "seed": 33
+                }
+              ]
+            }
+          },
+          "props": {
+            "size": [
+              2.4,
+              2.4
+            ],
+            "fill": "#FFFFFF"
+          }
+        },
+        "star-35": {
+          "type": "shape.ellipse",
+          "name": "Star 35",
+          "transform": {
+            "position": [
+              985,
+              534
+            ],
+            "opacity": {
+              "$v": 0.5982206227939768,
+              "$mod": [
+                {
+                  "type": "wiggle",
+                  "freq": 1.154313314663538,
+                  "amp": 0.25,
+                  "seed": 34
+                }
+              ]
+            }
+          },
+          "props": {
+            "size": [
+              2.5,
+              2.5
+            ],
+            "fill": "#FFFFFF"
+          }
+        },
+        "star-36": {
+          "type": "shape.ellipse",
+          "name": "Star 36",
+          "transform": {
+            "position": [
+              908,
+              22
+            ],
+            "opacity": {
+              "$v": 0.7466653907174854,
+              "$mod": [
+                {
+                  "type": "wiggle",
+                  "freq": 1.4720656823106721,
+                  "amp": 0.25,
+                  "seed": 35
+                }
+              ]
+            }
+          },
+          "props": {
+            "size": [
+              3.5,
+              3.5
+            ],
+            "fill": "#FFFFFF"
+          }
+        },
+        "star-37": {
+          "type": "shape.ellipse",
+          "name": "Star 37",
+          "transform": {
+            "position": [
+              172,
+              170
+            ],
+            "opacity": {
+              "$v": 0.8112198013218305,
+              "$mod": [
+                {
+                  "type": "wiggle",
+                  "freq": 1.3748614594106203,
+                  "amp": 0.25,
+                  "seed": 36
+                }
+              ]
+            }
+          },
+          "props": {
+            "size": [
+              6.4,
+              6.4
+            ],
+            "fill": "#FFFFFF"
+          }
+        },
+        "star-38": {
+          "type": "shape.ellipse",
+          "name": "Star 38",
+          "transform": {
+            "position": [
+              915,
+              306
+            ],
+            "opacity": {
+              "$v": 0.6705644009826374,
+              "$mod": [
+                {
+                  "type": "wiggle",
+                  "freq": 1.1025403164350802,
+                  "amp": 0.25,
+                  "seed": 37
+                }
+              ]
+            }
+          },
+          "props": {
+            "size": [
+              2.5,
+              2.5
+            ],
+            "fill": "#FFFFFF"
+          }
+        },
+        "star-39": {
+          "type": "shape.ellipse",
+          "name": "Star 39",
+          "transform": {
+            "position": [
+              567,
+              640
+            ],
+            "opacity": {
+              "$v": 0.8942009817754859,
+              "$mod": [
+                {
+                  "type": "wiggle",
+                  "freq": 1.131144988286444,
+                  "amp": 0.25,
+                  "seed": 38
+                }
+              ]
+            }
+          },
+          "props": {
+            "size": [
+              2.1,
+              2.1
+            ],
+            "fill": "#FFFFFF"
+          }
+        },
+        "star-40": {
+          "type": "shape.ellipse",
+          "name": "Star 40",
+          "transform": {
+            "position": [
+              401,
+              734
+            ],
+            "opacity": {
+              "$v": 0.7155697886278571,
+              "$mod": [
+                {
+                  "type": "wiggle",
+                  "freq": 1.2612540335964915,
+                  "amp": 0.25,
+                  "seed": 39
+                }
+              ]
+            }
+          },
+          "props": {
+            "size": [
+              7.9,
+              7.9
+            ],
+            "fill": "#FFFFFF"
+          }
+        },
+        "star-41": {
+          "type": "shape.ellipse",
+          "name": "Star 41",
+          "transform": {
+            "position": [
+              154,
+              707
+            ],
+            "opacity": {
+              "$v": 0.5558585318791295,
+              "$mod": [
+                {
+                  "type": "wiggle",
+                  "freq": 0.9267085308457804,
+                  "amp": 0.25,
+                  "seed": 40
+                }
+              ]
+            }
+          },
+          "props": {
+            "size": [
+              6.1,
+              6.1
+            ],
+            "fill": "#FFFFFF"
+          }
+        },
+        "star-42": {
+          "type": "shape.ellipse",
+          "name": "Star 42",
+          "transform": {
+            "position": [
+              1010,
+              632
+            ],
+            "opacity": {
+              "$v": 0.5522909133949233,
+              "$mod": [
+                {
+                  "type": "wiggle",
+                  "freq": 0.6096689988949047,
+                  "amp": 0.25,
+                  "seed": 41
+                }
+              ]
+            }
+          },
+          "props": {
+            "size": [
+              6.8,
+              6.8
+            ],
+            "fill": "#FFFFFF"
+          }
+        },
+        "star-43": {
+          "type": "shape.ellipse",
+          "name": "Star 43",
+          "transform": {
+            "position": [
+              552,
+              482
+            ],
+            "opacity": {
+              "$v": 0.7276027942100566,
+              "$mod": [
+                {
+                  "type": "wiggle",
+                  "freq": 1.0861818216612393,
+                  "amp": 0.25,
+                  "seed": 42
+                }
+              ]
+            }
+          },
+          "props": {
+            "size": [
+              2,
+              2
+            ],
+            "fill": "#FFFFFF"
+          }
+        },
+        "star-44": {
+          "type": "shape.ellipse",
+          "name": "Star 44",
+          "transform": {
+            "position": [
+              862,
+              94
+            ],
+            "opacity": {
+              "$v": 0.5640128926737354,
+              "$mod": [
+                {
+                  "type": "wiggle",
+                  "freq": 1.4991137057534547,
+                  "amp": 0.25,
+                  "seed": 43
+                }
+              ]
+            }
+          },
+          "props": {
+            "size": [
+              2.4,
+              2.4
+            ],
+            "fill": "#FFFFFF"
+          }
+        },
+        "star-45": {
+          "type": "shape.ellipse",
+          "name": "Star 45",
+          "transform": {
+            "position": [
+              381,
+              283
+            ],
+            "opacity": {
+              "$v": 0.8620840702784099,
+              "$mod": [
+                {
+                  "type": "wiggle",
+                  "freq": 0.877055616748571,
+                  "amp": 0.25,
+                  "seed": 44
+                }
+              ]
+            }
+          },
+          "props": {
+            "size": [
+              4.6,
+              4.6
+            ],
+            "fill": "#FFFFFF"
+          }
+        },
+        "star-46": {
+          "type": "shape.ellipse",
+          "name": "Star 46",
+          "transform": {
+            "position": [
+              311,
+              779
+            ],
+            "opacity": {
+              "$v": 0.764850570228743,
+              "$mod": [
+                {
+                  "type": "wiggle",
+                  "freq": 0.7243854059133542,
+                  "amp": 0.25,
+                  "seed": 45
+                }
+              ]
+            }
+          },
+          "props": {
+            "size": [
+              3.4,
+              3.4
+            ],
+            "fill": "#FFFFFF"
+          }
+        },
+        "star-47": {
+          "type": "shape.ellipse",
+          "name": "Star 47",
+          "transform": {
+            "position": [
+              699,
+              84
+            ],
+            "opacity": {
+              "$v": 0.5967747703397412,
+              "$mod": [
+                {
+                  "type": "wiggle",
+                  "freq": 0.7244784943987415,
+                  "amp": 0.25,
+                  "seed": 46
+                }
+              ]
+            }
+          },
+          "props": {
+            "size": [
+              4.4,
+              4.4
+            ],
+            "fill": "#FFFFFF"
+          }
+        },
+        "star-48": {
+          "type": "shape.ellipse",
+          "name": "Star 48",
+          "transform": {
+            "position": [
+              739,
+              14
+            ],
+            "opacity": {
+              "$v": 0.7253515113846879,
+              "$mod": [
+                {
+                  "type": "wiggle",
+                  "freq": 0.9795805977467267,
+                  "amp": 0.25,
+                  "seed": 47
+                }
+              ]
+            }
+          },
+          "props": {
+            "size": [
+              2.6,
+              2.6
+            ],
+            "fill": "#FFFFFF"
+          }
+        },
+        "star-49": {
+          "type": "shape.ellipse",
+          "name": "Star 49",
+          "transform": {
+            "position": [
+              121,
+              595
+            ],
+            "opacity": {
+              "$v": 0.8535574521902553,
+              "$mod": [
+                {
+                  "type": "wiggle",
+                  "freq": 1.428855214481107,
+                  "amp": 0.25,
+                  "seed": 48
+                }
+              ]
+            }
+          },
+          "props": {
+            "size": [
+              6,
+              6
+            ],
+            "fill": "#FFFFFF"
+          }
+        },
+        "star-50": {
+          "type": "shape.ellipse",
+          "name": "Star 50",
+          "transform": {
+            "position": [
+              447,
+              795
+            ],
+            "opacity": {
+              "$v": 0.7796281229747721,
+              "$mod": [
+                {
+                  "type": "wiggle",
+                  "freq": 1.3424679400794841,
+                  "amp": 0.25,
+                  "seed": 49
+                }
+              ]
+            }
+          },
+          "props": {
+            "size": [
+              2.5,
+              2.5
+            ],
+            "fill": "#FFFFFF"
+          }
+        },
+        "star-51": {
+          "type": "shape.ellipse",
+          "name": "Star 51",
+          "transform": {
+            "position": [
+              394,
+              784
+            ],
+            "opacity": {
+              "$v": 0.7672965510210922,
+              "$mod": [
+                {
+                  "type": "wiggle",
+                  "freq": 1.1803830000389208,
+                  "amp": 0.25,
+                  "seed": 50
+                }
+              ]
+            }
+          },
+          "props": {
+            "size": [
+              3.3,
+              3.3
+            ],
+            "fill": "#FFFFFF"
+          }
+        },
+        "star-52": {
+          "type": "shape.ellipse",
+          "name": "Star 52",
+          "transform": {
+            "position": [
+              754,
+              236
+            ],
+            "opacity": {
+              "$v": 0.6858972792847988,
+              "$mod": [
+                {
+                  "type": "wiggle",
+                  "freq": 1.3873560435020886,
+                  "amp": 0.25,
+                  "seed": 51
+                }
+              ]
+            }
+          },
+          "props": {
+            "size": [
+              3.8,
+              3.8
+            ],
+            "fill": "#FFFFFF"
+          }
+        },
+        "star-53": {
+          "type": "shape.ellipse",
+          "name": "Star 53",
+          "transform": {
+            "position": [
+              676,
+              594
+            ],
+            "opacity": {
+              "$v": 0.7507242515922751,
+              "$mod": [
+                {
+                  "type": "wiggle",
+                  "freq": 1.3785647989051089,
+                  "amp": 0.25,
+                  "seed": 52
+                }
+              ]
+            }
+          },
+          "props": {
+            "size": [
+              2.3,
+              2.3
+            ],
+            "fill": "#FFFFFF"
+          }
+        },
+        "star-54": {
+          "type": "shape.ellipse",
+          "name": "Star 54",
+          "transform": {
+            "position": [
+              1022,
+              101
+            ],
+            "opacity": {
+              "$v": 0.5951369444794365,
+              "$mod": [
+                {
+                  "type": "wiggle",
+                  "freq": 1.0760807193592943,
+                  "amp": 0.25,
+                  "seed": 53
+                }
+              ]
+            }
+          },
+          "props": {
+            "size": [
+              3.1,
+              3.1
+            ],
+            "fill": "#FFFFFF"
+          }
+        },
+        "star-55": {
+          "type": "shape.ellipse",
+          "name": "Star 55",
+          "transform": {
+            "position": [
+              452,
+              380
+            ],
+            "opacity": {
+              "$v": 0.7946218101490492,
+              "$mod": [
+                {
+                  "type": "wiggle",
+                  "freq": 1.3393257135891594,
+                  "amp": 0.25,
+                  "seed": 54
+                }
+              ]
+            }
+          },
+          "props": {
+            "size": [
+              4.8,
+              4.8
+            ],
+            "fill": "#FFFFFF"
+          }
+        },
+        "star-56": {
+          "type": "shape.ellipse",
+          "name": "Star 56",
+          "transform": {
+            "position": [
+              349,
+              742
+            ],
+            "opacity": {
+              "$v": 0.6322004610041161,
+              "$mod": [
+                {
+                  "type": "wiggle",
+                  "freq": 0.8661434055922026,
+                  "amp": 0.25,
+                  "seed": 55
+                }
+              ]
+            }
+          },
+          "props": {
+            "size": [
+              2.4,
+              2.4
+            ],
+            "fill": "#FFFFFF"
+          }
+        },
+        "star-57": {
+          "type": "shape.ellipse",
+          "name": "Star 57",
+          "transform": {
+            "position": [
+              73,
+              642
+            ],
+            "opacity": {
+              "$v": 0.6863689837850342,
+              "$mod": [
+                {
+                  "type": "wiggle",
+                  "freq": 1.0386061340929997,
+                  "amp": 0.25,
+                  "seed": 56
+                }
+              ]
+            }
+          },
+          "props": {
+            "size": [
+              2.4,
+              2.4
+            ],
+            "fill": "#FFFFFF"
+          }
+        },
+        "star-58": {
+          "type": "shape.ellipse",
+          "name": "Star 58",
+          "transform": {
+            "position": [
+              1003,
+              318
+            ],
+            "opacity": {
+              "$v": 0.5736847519163832,
+              "$mod": [
+                {
+                  "type": "wiggle",
+                  "freq": 0.9417943211661599,
+                  "amp": 0.25,
+                  "seed": 57
+                }
+              ]
+            }
+          },
+          "props": {
+            "size": [
+              2.1,
+              2.1
+            ],
+            "fill": "#FFFFFF"
+          }
+        },
+        "star-59": {
+          "type": "shape.ellipse",
+          "name": "Star 59",
+          "transform": {
+            "position": [
+              744,
+              223
+            ],
+            "opacity": {
+              "$v": 0.697056685385347,
+              "$mod": [
+                {
+                  "type": "wiggle",
+                  "freq": 1.2620367422346368,
+                  "amp": 0.25,
+                  "seed": 58
+                }
+              ]
+            }
+          },
+          "props": {
+            "size": [
+              2.2,
+              2.2
+            ],
+            "fill": "#FFFFFF"
+          }
+        },
+        "star-60": {
+          "type": "shape.ellipse",
+          "name": "Star 60",
+          "transform": {
+            "position": [
+              401,
+              633
+            ],
+            "opacity": {
+              "$v": 0.8855841500317531,
+              "$mod": [
+                {
+                  "type": "wiggle",
+                  "freq": 1.3508848470178292,
+                  "amp": 0.25,
+                  "seed": 59
+                }
+              ]
+            }
+          },
+          "props": {
+            "size": [
+              5.9,
+              5.9
+            ],
+            "fill": "#FFFFFF"
+          }
+        },
+        "star-61": {
+          "type": "shape.ellipse",
+          "name": "Star 61",
+          "transform": {
+            "position": [
+              18,
+              59
+            ],
+            "opacity": {
+              "$v": 0.552625912476914,
+              "$mod": [
+                {
+                  "type": "wiggle",
+                  "freq": 0.696324908636813,
+                  "amp": 0.25,
+                  "seed": 60
+                }
+              ]
+            }
+          },
+          "props": {
+            "size": [
+              2.1,
+              2.1
+            ],
+            "fill": "#FFFFFF"
+          }
+        },
+        "star-62": {
+          "type": "shape.ellipse",
+          "name": "Star 62",
+          "transform": {
+            "position": [
+              771,
+              230
+            ],
+            "opacity": {
+              "$v": 0.7719911133842461,
+              "$mod": [
+                {
+                  "type": "wiggle",
+                  "freq": 0.6132675734472158,
+                  "amp": 0.25,
+                  "seed": 61
+                }
+              ]
+            }
+          },
+          "props": {
+            "size": [
+              6.4,
+              6.4
+            ],
+            "fill": "#FFFFFF"
+          }
+        },
+        "star-63": {
+          "type": "shape.ellipse",
+          "name": "Star 63",
+          "transform": {
+            "position": [
+              830,
+              629
+            ],
+            "opacity": {
+              "$v": 0.825131258252199,
+              "$mod": [
+                {
+                  "type": "wiggle",
+                  "freq": 1.4030229446506342,
+                  "amp": 0.25,
+                  "seed": 62
+                }
+              ]
+            }
+          },
+          "props": {
+            "size": [
+              3.7,
+              3.7
+            ],
+            "fill": "#FFFFFF"
+          }
+        },
+        "star-64": {
+          "type": "shape.ellipse",
+          "name": "Star 64",
+          "transform": {
+            "position": [
+              979,
+              529
+            ],
+            "opacity": {
+              "$v": 0.5761202099743488,
+              "$mod": [
+                {
+                  "type": "wiggle",
+                  "freq": 0.8924902101908718,
+                  "amp": 0.25,
+                  "seed": 63
+                }
+              ]
+            }
+          },
+          "props": {
+            "size": [
+              2.8,
+              2.8
+            ],
+            "fill": "#FFFFFF"
+          }
+        },
+        "star-65": {
+          "type": "shape.ellipse",
+          "name": "Star 65",
+          "transform": {
+            "position": [
+              489,
+              712
+            ],
+            "opacity": {
+              "$v": 0.8278620639609751,
+              "$mod": [
+                {
+                  "type": "wiggle",
+                  "freq": 1.5363130190747911,
+                  "amp": 0.25,
+                  "seed": 64
+                }
+              ]
+            }
+          },
+          "props": {
+            "size": [
+              2.3,
+              2.3
+            ],
+            "fill": "#FFFFFF"
+          }
+        },
+        "star-66": {
+          "type": "shape.ellipse",
+          "name": "Star 66",
+          "transform": {
+            "position": [
+              865,
+              57
+            ],
+            "opacity": {
+              "$v": 0.7014307217452962,
+              "$mod": [
+                {
+                  "type": "wiggle",
+                  "freq": 1.30326264920017,
+                  "amp": 0.25,
+                  "seed": 65
+                }
+              ]
+            }
+          },
+          "props": {
+            "size": [
+              2.9,
+              2.9
+            ],
+            "fill": "#FFFFFF"
+          }
+        },
+        "star-67": {
+          "type": "shape.ellipse",
+          "name": "Star 67",
+          "transform": {
+            "position": [
+              310,
+              303
+            ],
+            "opacity": {
+              "$v": 0.6352123171419021,
+              "$mod": [
+                {
+                  "type": "wiggle",
+                  "freq": 1.495475075017172,
+                  "amp": 0.25,
+                  "seed": 66
+                }
+              ]
+            }
+          },
+          "props": {
+            "size": [
+              7.1,
+              7.1
+            ],
+            "fill": "#FFFFFF"
+          }
+        },
+        "star-68": {
+          "type": "shape.ellipse",
+          "name": "Star 68",
+          "transform": {
+            "position": [
+              999,
+              67
+            ],
+            "opacity": {
+              "$v": 0.8913388381165814,
+              "$mod": [
+                {
+                  "type": "wiggle",
+                  "freq": 0.6910065514883087,
+                  "amp": 0.25,
+                  "seed": 67
+                }
+              ]
+            }
+          },
+          "props": {
+            "size": [
+              3.4,
+              3.4
+            ],
+            "fill": "#FFFFFF"
+          }
+        },
+        "star-69": {
+          "type": "shape.ellipse",
+          "name": "Star 69",
+          "transform": {
+            "position": [
+              111,
+              115
+            ],
+            "opacity": {
+              "$v": 0.8056962657540071,
+              "$mod": [
+                {
+                  "type": "wiggle",
+                  "freq": 1.1346836159328777,
+                  "amp": 0.25,
+                  "seed": 68
+                }
+              ]
+            }
+          },
+          "props": {
+            "size": [
+              3.6,
+              3.6
+            ],
+            "fill": "#FFFFFF"
+          }
+        },
+        "star-70": {
+          "type": "shape.ellipse",
+          "name": "Star 70",
+          "transform": {
+            "position": [
+              839,
+              618
+            ],
+            "opacity": {
+              "$v": 0.8864903632425614,
+              "$mod": [
+                {
+                  "type": "wiggle",
+                  "freq": 0.8672432095438645,
+                  "amp": 0.25,
+                  "seed": 69
+                }
+              ]
+            }
+          },
+          "props": {
+            "size": [
+              3.8,
+              3.8
+            ],
+            "fill": "#FFFFFF"
+          }
+        }
+      },
+      "order": [
+        "sky",
+        "star-1",
+        "star-2",
+        "star-3",
+        "star-4",
+        "star-5",
+        "star-6",
+        "star-7",
+        "star-8",
+        "star-9",
+        "star-10",
+        "star-11",
+        "star-12",
+        "star-13",
+        "star-14",
+        "star-15",
+        "star-16",
+        "star-17",
+        "star-18",
+        "star-19",
+        "star-20",
+        "star-21",
+        "star-22",
+        "star-23",
+        "star-24",
+        "star-25",
+        "star-26",
+        "star-27",
+        "star-28",
+        "star-29",
+        "star-30",
+        "star-31",
+        "star-32",
+        "star-33",
+        "star-34",
+        "star-35",
+        "star-36",
+        "star-37",
+        "star-38",
+        "star-39",
+        "star-40",
+        "star-41",
+        "star-42",
+        "star-43",
+        "star-44",
+        "star-45",
+        "star-46",
+        "star-47",
+        "star-48",
+        "star-49",
+        "star-50",
+        "star-51",
+        "star-52",
+        "star-53",
+        "star-54",
+        "star-55",
+        "star-56",
+        "star-57",
+        "star-58",
+        "star-59",
+        "star-60",
+        "star-61",
+        "star-62",
+        "star-63",
+        "star-64",
+        "star-65",
+        "star-66",
+        "star-67",
+        "star-68",
+        "star-69",
+        "star-70",
+        "moon",
+        "title"
+      ]
+    }
+  }
+}

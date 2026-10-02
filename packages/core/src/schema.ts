@@ -28,7 +28,7 @@ const asset = z.strictObject({
 
 const transform = z.strictObject({
   anchor: prop.optional(), position: prop.optional(), scale: prop.optional(),
-  rotation: prop.optional(), opacity: prop.optional(),
+  rotation: prop.optional(), opacity: prop.optional(), depth: prop.optional(),
 });
 
 const effect = z.strictObject({
@@ -69,6 +69,7 @@ const composition = z.strictObject({
   duration: z.number().positive(),
   background: prop.optional(),
   motionBlur: z.strictObject({ samples: prop, shutter: prop }).optional(),
+  camera: z.strictObject({ pan: prop.optional(), zoom: prop.optional(), perspective: prop.optional(), focus: prop.optional(), blur: prop.optional() }).optional(),
   markers: z.array(marker).optional(),
   effects: z.array(effect).optional(),
   layers: z.record(id, layer),

@@ -6,6 +6,7 @@
 
 import { hash, noise3 } from './math.ts';
 import type { PropSchema } from './registry.ts';
+import type { AudioReader } from './analysis.ts';
 import type { AiNotes } from './tools.ts';
 import type { Keyframe } from './types.ts';
 
@@ -25,6 +26,8 @@ export interface ModifierContext {
   count: number;
   /** a stable number for this property (distinct noise per property) */
   seed: number;
+  /** the music or sound at this instant (see the expressions' audio()) */
+  audio?(source: string): AudioReader;
 }
 
 export interface ModifierType {
@@ -149,7 +152,37 @@ export const smooth: ModifierType = {
   },
 };
 
-export const BUILTIN_MODIFIERS = [wiggle, loop, spring, stagger, noise, smooth];
+
+/** follows the music: the value moves with the beats, the bars, the hits or the loudness of a band */
+export const react: ModifierType = {
+  type: 'react', title: 'React to sound', description: 'moves with the beats or the loudness of an analysed sound',
+  params: {
+    source: { type: 'string', default: '', label: 'Sound', description: 'a sound or video layer id, or the asset of its analysis' },
+    signal: { type: 'enum', default: 'beat', options: ['beat', 'bar', 'hit', 'rms', 'low', 'mid', 'high'], label: 'Follows' },
+    amount: { type: 'number', default: 0.1, step: 0.01, label: 'Amount' },
+    decay: { type: 'number', default: 0.2, min: 0.02, step: 0.01, unit: 's', label: 'Decay', description: 'how fast a beat, bar or hit fades' },
+  },
+  apply(v, p, c) {
+    const a = c.audio?.(String(p.source ?? ''));
+    if (!a) return v;
+    const s = p.signal === 'beat' ? a.pulse(p.decay) : p.signal === 'bar' ? a.barPulse(p.decay) : p.signal === 'hit' ? a.hit(p.decay) : a.energy(p.signal);
+    return each(v, (x) => x + p.amount * s);
+  },
+};
+
+/** notes for the assistant: when each built-in modifier fits */
+const MODIFIER_NOTES: Record<string, AiNotes> = {
+  wiggle: { when: 'handheld camera feel (position amp 4 to 10 px, freq 0.6 to 1.2), floating elements, flicker', avoid: 'high frequency on large objects (nervous)' },
+  loop: { when: 'repeating an animation: pingpong for breathing, cycle for spinners' },
+  spring: { when: 'lively entrances and pops: freq 2 to 3, damping 0.4 to 0.6 gives one or two bounces' },
+  stagger: { when: 'cascading entrances of siblings (words, bars, list items): delay 0.04 to 0.08 s per item' },
+  noise: { when: 'varying a value across siblings without motion (sizes, rotations of a scatter)' },
+  smooth: { when: 'softening jittery keyframes or tracked data' },
+  react: { when: 'making things move with the music once it has an analysis (the beats tool): scale +0.06 on beat for a pulse, opacity on hit for flashes, position on low for a bounce', example: { type: 'react', source: 'music', signal: 'beat', amount: 0.06, decay: 0.18 } },
+};
+
+export const BUILTIN_MODIFIERS = [wiggle, loop, spring, stagger, noise, smooth, react];
+for (const mod of BUILTIN_MODIFIERS) mod.ai = MODIFIER_NOTES[mod.type];
 
 /** default params filled in */
 export function modifierParams(m: ModifierType, mod: Modifier): Record<string, unknown> {

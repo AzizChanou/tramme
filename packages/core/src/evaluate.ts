@@ -5,10 +5,11 @@
 // cycles are reported and the editor can show what drives what. Static
 // properties are cached across frames.
 
+import { audioReader, type AudioReader } from './analysis.ts';
 import { compileExpr, type ExprScope } from './expr.ts';
 import { modifierParams, seedOf, type ModifierContext } from './modifiers.ts';
 import { asExpr, asKeyframed, asLink, easeFn, modsOf, propKind, resolveTokens, sampleKeyframes, staticValue, tokenValue } from './props.ts';
-import { MOTION_BLUR_SCHEMA, TRANSFORM_SCHEMA, type NodeType, type PropDef, type Registry } from './registry.ts';
+import { CAMERA_SCHEMA, MOTION_BLUR_SCHEMA, TRANSFORM_SCHEMA, type NodeType, type PropDef, type Registry } from './registry.ts';
 import type { Composition, TrammeDoc, Layer, Marker, Prop, Vec2 } from './types.ts';
 
 export interface EvaluatedTransform {
@@ -17,7 +18,10 @@ export interface EvaluatedTransform {
   scale: Vec2;
   rotation: number;
   opacity: number;
+  depth: number;
 }
+
+export interface EvaluatedCamera { pan: Vec2; zoom: number; perspective: number; focus: number; blur: number }
 
 export interface EvaluatedEffect {
   id: string;
@@ -44,6 +48,8 @@ export interface EvaluatedFrame {
   frame: number;
   background: string | null;
   motionBlur: { samples: number; shutter: number };
+  /** the 2.5D camera, when the composition has one */
+  camera: EvaluatedCamera | null;
   effects: EvaluatedEffect[];
   /** active, visible layers of the root stack, bottom to top */
   layers: EvaluatedLayer[];
@@ -77,16 +83,41 @@ export function layerActive(layer: Layer, comp: Composition, t: number): boolean
   return t >= (layer.in ?? 0) && t < (layer.out ?? comp.duration);
 }
 
+export interface EvaluatorOptions {
+  /** the loaded content of a JSON asset (analyses), when the caller has it: the renderer does */
+  data?(assetId: string): unknown;
+}
+
 export class Evaluator {
   readonly doc: TrammeDoc;
   readonly registry: Registry;
+  private data?: (assetId: string) => unknown;
   /** address -> addresses it read, from the last evaluations */
   readonly deps = new Map<string, Set<string>>();
   private staticCache = new Map<string, unknown>();
 
-  constructor(doc: TrammeDoc, registry: Registry) {
+  constructor(doc: TrammeDoc, registry: Registry, opts: EvaluatorOptions = {}) {
     this.doc = doc;
     this.registry = registry;
+    this.data = opts.data;
+  }
+
+  /**
+   * The music at time t from its analysis (asset analysis-<media>). The
+   * source is a sound or video layer (its own time: in point and start in
+   * the file), or an asset id: the analysis itself, or the media analysed.
+   */
+  private audioAt(ctx: FrameCtx, source: string): AudioReader {
+    const layer = ctx.comp.layers[source];
+    let asset = source, t = ctx.t;
+    if (layer && (layer.type === 'audio' || layer.type === 'video')) {
+      asset = String(staticValue(layer.props?.[layer.type]) ?? '');
+      const start = Number(staticValue(layer.props?.start) ?? 0) || 0;
+      t = ctx.t - (layer.in ?? 0) + start;
+    }
+    const a = this.doc.assets[asset];
+    const id = a && a.type !== 'json' ? `analysis-${asset}`.slice(0, 64) : asset;
+    return audioReader(this.data?.(id), t);
   }
 
   comp(compId = this.doc.root): Composition {
@@ -109,6 +140,7 @@ export class Evaluator {
         samples: Math.max(1, Math.round(this.read(ctx, '$comp.motionBlur.samples') as number)),
         shutter: this.read(ctx, '$comp.motionBlur.shutter') as number,
       },
+      camera: comp.camera ? this.evalSchema(ctx, '$comp.camera', CAMERA_SCHEMA) as unknown as EvaluatedCamera : null,
       effects,
       layers: this.stack(ctx, comp.order),
     };
@@ -173,6 +205,9 @@ export class Evaluator {
       if (parts[1] === 'motionBlur' && MOTION_BLUR_SCHEMA[parts[2]]) {
         return { prop: (ctx.comp.motionBlur as any)?.[parts[2]], def: MOTION_BLUR_SCHEMA[parts[2]] };
       }
+      if (parts[1] === 'camera' && CAMERA_SCHEMA[parts[2]]) {
+        return { prop: (ctx.comp.camera as any)?.[parts[2]], def: CAMERA_SCHEMA[parts[2]] };
+      }
       if (parts[1] === 'effects') {
         const fx = (ctx.comp.effects || []).find((e) => e.id === parts[2]);
         const def = fx && this.effectSchema(fx.type)[parts[3]];
@@ -231,6 +266,7 @@ export class Evaluator {
       const m = this.registry.modifier(spec.type);
       const mc: ModifierContext = {
         t: ctx.t, fps: ctx.comp.fps, index, count, seed: seedOf(address),
+        audio: (source: string) => this.audioAt(ctx, source),
         keys: kp ? kp.$k : null,
         keyValues: kp ? kp.$k.map((key) => resolveTokens(def.type, key.v, this.doc.tokens)) : null,
         base: (t2: number) => this.valueAt(ctx, address, prop, def, t2, k),
@@ -297,6 +333,7 @@ export class Evaluator {
       prop: (a: string) => { this.depend(address, a); return this.read(ctx, a); },
       token: (name: string) => tokenValue(tokens, name),
       marker: (q: string) => markerInfo(comp, q),
+      audio: (source: string) => this.audioAt(ctx, source),
       ease: (spec: unknown, x: number) => {
         const f = easeFn(spec as any, tokens);
         return f === 'hold' ? (x >= 1 ? 1 : 0) : f(x);
@@ -329,7 +366,7 @@ function checkShape(def: PropDef, v: unknown): string | null {
     case 'number': return typeof v === 'number' && Number.isFinite(v) ? null : 'number expected';
     case 'vec2': return Array.isArray(v) && v.length === 2 && v.every((x) => typeof x === 'number' && Number.isFinite(x)) ? null : '[x, y] expected';
     case 'bool': return typeof v === 'boolean' ? null : 'boolean expected';
-    case 'color': case 'string': case 'text': case 'enum': case 'asset': case 'comp': return typeof v === 'string' ? null : 'text expected';
+    case 'color': case 'string': case 'text': case 'enum': case 'asset': case 'comp': case 'layer': return typeof v === 'string' ? null : 'text expected';
     case 'assets': return Array.isArray(v) && v.every((x) => typeof x === 'string') ? null : 'list of asset ids expected';
     default: return null;
   }

@@ -26,6 +26,10 @@ interface Pending { id: string; label: string; ops: Op[]; steps: string[] }
 
 export class ToolRunner {
   pending: Pending | null = null;
+  /** the turn's signal, handed to the plugins' tools */
+  private signal: AbortSignal = new AbortController().signal;
+  /** the last plugin tool's message for the user */
+  notice = '';
   private renderer: Renderer | null = null;
   private canvas = document.createElement('canvas');
   /** events for the conversation (images, proposals, reloads), read after each tool */
@@ -184,7 +188,8 @@ export class ToolRunner {
 ${r.content[0].type === 'text' ? r.content[0].text : ''}`);
   }
 
-  async run(name: string, input: any): Promise<ToolResult> {
+  async run(name: string, input: any, signal?: AbortSignal): Promise<ToolResult> {
+    this.signal = signal ?? new AbortController().signal;
     try {
       switch (name) {
         case 'get_document': return text(JSON.stringify(this.liveDoc()));
@@ -263,17 +268,20 @@ ${r.content[0].type === 'text' ? r.content[0].text : ''}`);
       readText: async (path) => (await api.readText(S.project.peek().id, path))?.text ?? null,
       writeFile: async (path, data) => {
         const bad = pathIssue(path);
-        if (bad || !path.startsWith('assets/')) throw new Error(`${path}: ${bad ?? 'a tool writes under assets/ only'}`);
-        await api.write(S.project.peek().id, path, typeof data === 'string' ? new Blob([data], { type: /\.json$/i.test(path) ? 'application/json' : 'text/plain' }) : data);
+        const plugin = /^plugins\/.+\.(js|mjs)$/i.test(path);
+        if (bad || (!path.startsWith('assets/') && !plugin)) throw new Error(`${path}: ${bad ?? 'a tool writes under assets/, or a plugin under plugins/'}`);
+        await api.write(S.project.peek().id, path, typeof data === 'string' ? new Blob([data], { type: plugin ? 'text/javascript' : /\.json$/i.test(path) ? 'application/json' : 'text/plain' }) : data);
         return path;
       },
       renderStill: (t, id) => this.stillUrl(t, id),
       transcript: async (id) => (await this.readTranscript(id)).t,
+      signal: this.signal,
     };
   }
 
   /** a tool of the project's plugins: its text and images for the assistant, its operations added to the proposal */
   private async useTool(name: string, input: unknown): Promise<ToolResult> {
+    this.notice = '';
     const doc = this.liveDoc(), reg = await this.registry(doc);
     if (!reg.hasTool(name)) {
       const names = reg.listTools().map((e) => e.tool.name);
@@ -284,7 +292,7 @@ ${r.content[0].type === 'text' ? r.content[0].text : ''}`);
     if (issues.length) return text(`input refused by ${name}:\n${issues.join('\n')}`, true);
     let out;
     try { out = toolOutput(await tool.run(input, this.toolContext(doc, reg))); }
-    catch (e) { return text(`${name} (plugin ${from}) failed: ${(e as Error).message}`, true); }
+    catch (e) { if (this.signal.aborted) return text(`${name}: stopped by the user`, true); return text(`${name} (plugin ${from}) failed: ${(e as Error).message}`, true); }
     const content: ToolResult['content'] = [];
     for (const img of out.images ?? []) {
       const m = /^data:(image\/(?:png|jpeg|webp|gif));base64,/.exec(img.url);
@@ -293,6 +301,8 @@ ${r.content[0].type === 'text' ? r.content[0].text : ''}`);
       content.push({ type: 'image', data: img.url.slice(m[0].length), mimeType: m[1] });
     }
     if (out.reload?.length) this.events.push({ type: 'reload', assets: out.reload });
+    // what the user reads after running it from the / menu: its notice, or its text when no proposal card shows the result
+    this.notice = out.notice ?? (out.ops?.length ? '' : out.text ?? '');
     const lines = out.text ? [out.text] : [];
     if (out.ops?.length) {
       const r = await this.propose(out.label ?? tool.title ?? name, out.ops);

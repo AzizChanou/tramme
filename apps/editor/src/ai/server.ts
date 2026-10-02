@@ -118,7 +118,7 @@ export class ServerSession {
       for (const call of content.filter((b) => b.type === 'tool_use')) {
         const item = SILENT.has(call.name) ? '' : uid();
         if (item) yield { type: 'item', item: { id: item, role: 'assistant', tool: { name: call.name, summary: TOOLS.find((t) => t.name === call.name)?.label(call.input ?? {}) ?? call.name } } };
-        const r = await runner.run(call.name, call.input ?? {});
+        const r = await runner.run(call.name, call.input ?? {}, signal);
         yield* runner.events.splice(0);
         if (item) yield { type: 'tool-done', id: item, error: !!r.isError };
         results.push({ type: 'tool_result', tool_use_id: call.id, content: toApi(r), ...(r.isError ? { is_error: true } : {}) });

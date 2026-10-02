@@ -4,6 +4,7 @@
 // after it, or a workflow, the request goes to the assistant.
 
 import type { JsonSchema, Registry, TrammeDoc } from '@tramme/core';
+import { libraryList } from '../library.ts';
 
 export interface Command {
   kind: 'tool' | 'prompt';
@@ -40,15 +41,17 @@ export function parseCommand(text: string, list: Command[]): { cmd: Command; res
   return cmd ? { cmd, rest: (m[2] ?? '').trim() } : null;
 }
 
-export type FieldKind = 'number' | 'integer' | 'boolean' | 'enum' | 'asset' | 'layer' | 'string';
+export type FieldKind = 'number' | 'integer' | 'boolean' | 'enum' | 'asset' | 'layer' | 'kit' | 'plugin' | 'library' | 'string';
 export interface Field { key: string; kind: FieldKind; label: string; description?: string; required: boolean; options?: [string, string][]; min?: number; max?: number; default?: unknown }
 
 /**
  * The form of a tool, from its input schema: one field per top-level
- * property. `format: 'asset'` (with `assetType`) picks an asset of the
- * document, `format: 'layer'` a layer of the composition.
+ * property. `format: 'asset'` (with `assetType`, one type or a list) picks an asset of the
+ * document, `format: 'layer'` a layer of the composition, `format: 'kit'` a
+ * style kit of the vocabulary, `format: 'plugin'` a plugin of the project,
+ * `format: 'library'` a plugin of the shared library.
  */
-export function fieldsOf(schema: JsonSchema | undefined, doc: TrammeDoc, compId: string): Field[] {
+export function fieldsOf(schema: JsonSchema | undefined, doc: TrammeDoc, compId: string, reg?: Registry): Field[] {
   const props = (schema?.properties ?? {}) as Record<string, JsonSchema>;
   const required = new Set((schema?.required ?? []) as string[]);
   return Object.entries(props).map(([key, p]) => {
@@ -56,13 +59,17 @@ export function fieldsOf(schema: JsonSchema | undefined, doc: TrammeDoc, compId:
     const base = { key, label: typeof p.title === 'string' ? p.title : key, required: required.has(key), ...(typeof p.description === 'string' ? { description: p.description } : {}), ...(p.default !== undefined ? { default: p.default } : {}) };
     if (Array.isArray(p.enum)) return { ...base, kind: 'enum', options: p.enum.map((v) => [String(v), String(v)] as [string, string]) };
     if (p.format === 'asset') {
-      const options = Object.entries(doc.assets).filter(([, a]) => !p.assetType || a.type === p.assetType).map(([id, a]) => [id, a.name ?? id] as [string, string]);
+      const types = p.assetType === undefined ? null : ([] as unknown[]).concat(p.assetType);
+      const options = Object.entries(doc.assets).filter(([, a]) => !types || types.includes(a.type)).map(([id, a]) => [id, a.name ?? id] as [string, string]);
       return { ...base, kind: 'asset', options };
     }
     if (p.format === 'layer') {
       const c = doc.compositions[compId];
       return { ...base, kind: 'layer', options: Object.entries(c?.layers ?? {}).map(([id, l]) => [id, l.name ?? id] as [string, string]) };
     }
+    if (p.format === 'plugin') return { ...base, kind: 'plugin', options: (doc.plugins ?? []).filter((id) => doc.assets[id]?.type === 'module').map((id) => [id, doc.assets[id].name ?? id] as [string, string]) };
+    if (p.format === 'library') return { ...base, kind: 'library', options: libraryList.value.map((x) => [x.name, x.name] as [string, string]) };
+    if (p.format === 'kit') return { ...base, kind: 'kit', options: (reg?.listKits() ?? []).map(({ kit }) => [kit.name, kit.title ?? kit.name] as [string, string]) };
     if (type === 'number' || type === 'integer') return { ...base, kind: type, ...(typeof p.minimum === 'number' ? { min: p.minimum } : {}), ...(typeof p.maximum === 'number' ? { max: p.maximum } : {}) };
     if (type === 'boolean') return { ...base, kind: 'boolean' };
     return { ...base, kind: 'string' };

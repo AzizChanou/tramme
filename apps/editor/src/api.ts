@@ -75,6 +75,15 @@ export const api = {
   create: (opts: { name: string; width?: number; height?: number; fps?: number; duration?: number; created?: string; empty?: boolean }) => call<Manifest>('/api/projects', jsonInit('POST', opts)),
   info: (id: string) => call<{ manifest: Manifest; files: ProjectFile[] }>(P(id)),
   update: (id: string, patch: { name?: string; thumbnail?: string | null }) => call<Manifest>(P(id), jsonInit('PATCH', patch)),
+
+  // ── the plugin library, shared by the projects ─────────────────
+  library: () => call<{ name: string; size: number; modified: string }[]>('/api/library'),
+  async libraryGet(name: string): Promise<string> {
+    const r = await fetch(`/api/library/${encodeURIComponent(name)}`, { cache: 'no-store' });
+    if (!r.ok) throw new ApiError(r.status, `no plugin "${name}" in the library (HTTP ${r.status})`);
+    return r.text();
+  },
+  libraryPut: (name: string, code: string) => call<{ name: string; size: number }>(`/api/library/${encodeURIComponent(name)}`, { method: 'PUT', headers: { 'content-type': 'text/javascript' }, body: code }),
   remove: (id: string) => call<{ deleted: string }>(P(id), { method: 'DELETE' }),
   duplicate: (id: string, name?: string) => call<Manifest>(`${P(id)}/duplicate`, jsonInit('POST', { name })),
   exportUrl: (id: string) => `${P(id)}/export`,

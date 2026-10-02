@@ -28,6 +28,7 @@ import { llm, llmConfig, models } from './llm.ts';
 import { transcribe } from './speech.ts';
 import { HttpError, json, type Env } from './http.ts';
 import { abortUpload, completeUpload, startUpload, uploadPart, createProject, deleteFile, deleteProject, duplicateProject, exportProject, getFile, listProjects, projectInfo, putFile, updateProject } from './projects.ts';
+import { deleteLibraryPlugin, getLibraryPlugin, listLibrary, putLibraryPlugin } from './library.ts';
 
 async function route(req: Request, env: Env, url: URL): Promise<Response> {
   const parts = url.pathname.slice('/api/'.length).split('/');
@@ -39,6 +40,14 @@ async function route(req: Request, env: Env, url: URL): Promise<Response> {
   if (parts[0] === 'llm' && parts[1]) return llm(req, env, parts[1], parts.slice(2).join('/'));
   if (parts[0] === 'models' && m === 'GET') return models(env);
   if (parts[0] === 'transcribe' && m === 'POST') return transcribe(req, env);
+  if (parts[0] === 'library') {
+    // the plugin library: /api/library, /api/library/<name>.js
+    const [, name] = parts;
+    if (!name && m === 'GET') return listLibrary(env.FILES);
+    if (name && (m === 'GET' || m === 'HEAD')) return getLibraryPlugin(env.FILES, name);
+    if (name && m === 'PUT') return putLibraryPlugin(env.FILES, name, req);
+    if (name && m === 'DELETE') return deleteLibraryPlugin(env.FILES, name);
+  }
   if (parts[0] === 'projects') {
     const bucket = env.FILES;
     const [, id, sub] = parts;

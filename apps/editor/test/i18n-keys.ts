@@ -10,9 +10,14 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { MOTION_BLUR_SCHEMA, TRANSFORM_SCHEMA, type PropSchema } from '@tramme/core';
+import { BUILTIN_CHECKS, CAMERA_SCHEMA, MOTION_BLUR_SCHEMA, TRANSFORM_SCHEMA, type PropSchema } from '@tramme/core';
 import { builtinRegistry } from '@tramme/nodes';
 import { EDITOR_PROMPTS, EDITOR_TOOLS } from '../src/vocabulary.ts';
+import { REVIEW_TOOLS } from '../src/review.ts';
+import { BUILTIN_KITS, RECIPE_TOOLS } from '../src/recipes.ts';
+import { PERCEPTION_TOOLS } from '../src/perception.ts';
+import { EDITOR_PRESETS } from '../src/presets.ts';
+import { LIBRARY_TOOLS } from '../src/library.ts';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(HERE, '../../..');
@@ -50,9 +55,11 @@ export function registryKeys(): Set<string> {
   for (const m of reg.listModifiers()) { add(m.title); add((m as { description?: string }).description); schema((m as { params?: PropSchema }).params ?? {}); }
   schema(TRANSFORM_SCHEMA);
   schema(MOTION_BLUR_SCHEMA);
+  schema(CAMERA_SCHEMA);
   // the editor's tools and workflows, shown in the chat's / menu
-  for (const x of [...EDITOR_TOOLS, ...EDITOR_PROMPTS]) { add(x.title); add(x.description); }
-  for (const tool of EDITOR_TOOLS) {
+  for (const x of [...EDITOR_TOOLS, ...RECIPE_TOOLS, ...PERCEPTION_TOOLS, ...REVIEW_TOOLS, ...LIBRARY_TOOLS, ...EDITOR_PROMPTS, ...BUILTIN_CHECKS, ...BUILTIN_KITS, ...EDITOR_PRESETS]) { add(x.title); add(x.description); }
+  for (const c of BUILTIN_CHECKS) for (const text of c.texts ?? []) add(text);
+  for (const tool of [...EDITOR_TOOLS, ...RECIPE_TOOLS, ...PERCEPTION_TOOLS, ...REVIEW_TOOLS, ...LIBRARY_TOOLS]) {
     for (const p of Object.values((tool.input?.properties ?? {}) as Record<string, { title?: string; description?: string; enum?: unknown[] }>)) {
       add(p.title); add(p.description);
       for (const v of p.enum ?? []) add(String(v));

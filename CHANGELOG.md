@@ -14,11 +14,28 @@ Until 1.0.0, the document format and the APIs may still change between minor ver
 - Notes for the assistant (`ai: { when, avoid, example }`) on nodes, effects, modifiers and tools; `list_nodes` and `tramme nodes` now list modifiers and tools too.
 - Chat commands: typing `/` lists the tools and workflows (`/captions`, `/title`, `/keyword`, `/lower-third`, `/dress`, `/review`, and those of the project's plugins). A tool with its form filled runs at once, without a model; words after the command hand it to the assistant.
 - Plugin workflows: a project plugin can export `prompts`, instructions for the assistant picked from the `/` menu.
+- Quality checks: text too small, too brief or past the safe zone, overlapping text, text crossing an element, crowded entrances, still stretches. The `check` tool (assistant and `/check`) runs them and shows a contact sheet of the key moments; `motion` shows a strip of frames to judge a movement. Plugins add their own `checks`.
+- Recipes: `kinetic-title`, `bar-chart`, `stat` and `transition` lay out whole animated pieces as editable layers; style kits (editorial, punchy, calm, neon) set the colours, curves and pace they follow. Plugins add their own `kits`.
+- Perception tools: `beats` analyses music (tempo, beats, bars, sections, loudness per band), `shots` finds the cuts of a video, `subjects` finds the people in a video or an image (a small model run in the browser), `palette` turns the colours of a picture into tokens.
+- Following the music: the `react` modifier and `audio()` in expressions make any property move with the beats, bars, hits or loudness of an analysed sound.
+- Check `text-over-subject`: warns when text covers a face, once the people are known.
+- GPU effects: plugins write layer and finishing effects in GLSL; new built-in effects `fx.matte` (track matte from another layer), `fx.displace` (displacement map), `look.chromatic` (chromatic aberration), `look.grade` (colour grade in linear light). New property type `layer`.
+- In the preview, a layer or effect that fails is drawn as a red frame and named in the error bar instead of blanking the whole picture.
+- 2.5D camera: a composition can have a camera (pan, zoom, perspective, focus, depth blur) and layers a depth, for parallax and depth of field.
+- Viewport handles declared by nodes (the rectangle's corner radius, plugin nodes' own points).
+- Presets in the add menu: neon title, frosted card, light leak, spotlight; plugins add their own `presets`.
+- Plugin nodes can say how they export to SVG and Lottie (`export.svg`, `export.lottie`).
+- Plugin manifest (`meta` with the plugin API version, checked at load) and the `@tramme/plugin` package (types, `definePlugin()`).
+- Plugin library shared by the projects: keep a project's plugin there and use it in another (`/library-add`, `/library-use`).
+- Simulations: a node can carry a state from frame to frame (`simulate`), stepped deterministically with checkpoints; nodes read other layers with `host.layer()`. New `follow` node: a dot following a layer on a spring, with a trail.
+- The assistant knows when each built-in node, effect and modifier fits (notes in `list_nodes`).
+- Example project "Night sky": a project plugin with a node, a tool and a workflow.
 - Plugins roadmap: `docs/plugins-roadmap.md`.
 
 ### Fixed
 
 - On phones, the assistant's message box no longer slips under the tab bar when the conversation is long.
+- Counters: separators and units (`,` `%` `€`) take their own width instead of a digit's.
 
 ## [0.1.0] - 2026-10-02
 

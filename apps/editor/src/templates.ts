@@ -39,7 +39,7 @@ function look(doc: TrammeDoc) {
 }
 
 /** a layer added at the top of the composition, its id kept free */
-function adder(doc: TrammeDoc, compId: string) {
+export function adder(doc: TrammeDoc, compId: string) {
   const c = doc.compositions[compId];
   const taken: Record<string, unknown> = { ...c.layers };
   const ops: Op[] = [];

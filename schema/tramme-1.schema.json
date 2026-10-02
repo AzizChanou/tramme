@@ -162,6 +162,17 @@
             ],
             "additionalProperties": false
           },
+          "camera": {
+            "type": "object",
+            "properties": {
+              "pan": {},
+              "zoom": {},
+              "perspective": {},
+              "focus": {},
+              "blur": {}
+            },
+            "additionalProperties": false
+          },
           "markers": {
             "type": "array",
             "items": {
@@ -273,7 +284,8 @@
                     "position": {},
                     "scale": {},
                     "rotation": {},
-                    "opacity": {}
+                    "opacity": {},
+                    "depth": {}
                   },
                   "additionalProperties": false
                 },

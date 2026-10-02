@@ -77,6 +77,13 @@ interface CounterProps extends TypeProps { from: string; to: string; progress: n
  * inside a window of `lineHeight` em; the last digit makes `turns` extra
  * full turns. `progress` (0..1) usually carries its own ease in keyframes.
  */
+/** the width of each character of a counter: digits in equal cells (the widest digit), other signs (separators, units) at their own width */
+function cells(ctx: CanvasRenderingContext2D, s: string): number[] {
+  let cw = 0;
+  for (const d of '0123456789') cw = Math.max(cw, ctx.measureText(d).width);
+  return [...s].map((ch) => (/d/.test(ch) ? cw : ctx.measureText(ch).width));
+}
+
 export const counter: NodeType<CounterProps> = {
   type: 'text.counter', title: 'Counter', category: 'Text',
   props: {
@@ -92,9 +99,7 @@ export const counter: NodeType<CounterProps> = {
   bounds(p, host) {
     const ctx = measureCtx();
     setType(ctx, p, host);
-    let cw = 0;
-    for (const d of '0123456789') cw = Math.max(cw, ctx.measureText(d).width);
-    const w = cw * p.to.length;
+    const w = cells(ctx, p.to).reduce((a, b) => a + b, 0);
     return { x: alignX(p.align, w), y: -p.size * p.ascent, w, h: p.size * p.lineHeight };
   },
   render: {
@@ -102,12 +107,12 @@ export const counter: NodeType<CounterProps> = {
       setType(ctx, p, host);
       ctx.textAlign = 'center';
       ctx.textBaseline = 'alphabetic';
-      let cw = 0;
-      for (const d of '0123456789') cw = Math.max(cw, ctx.measureText(d).width);
-      const x0 = alignX(p.align, cw * p.to.length);
+      const widths = cells(ctx, p.to), cw = Math.max(...widths, 0);
+      let x = alignX(p.align, widths.reduce((s, w) => s + w, 0));
       const top = -p.size * p.ascent, h = p.size * p.lineHeight, pr = p.progress;
       for (let i = 0; i < p.to.length; i++) {
-        const a = p.from[i] ?? '', b = p.to[i], cx = x0 + cw * (i + 0.5);
+        const a = p.from[i] ?? '', b = p.to[i], cx = x + widths[i] / 2;
+        x += widths[i];
         if (!/\d/.test(a) || !/\d/.test(b) || pr >= 1 || pr <= 0) { ctx.fillText(pr <= 0 ? a : b, cx, 0); continue; }
         const da = Number(a), db = Number(b);
         const n = ((db - da + 10) % 10) + 10 * p.turns * (i === p.to.length - 1 ? 1 : 0);

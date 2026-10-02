@@ -100,3 +100,35 @@ describe('export SVG', () => {
     expect(imageSize(new Uint8Array(png))).toEqual({ width: 1800, height: 760 });
   });
 });
+
+describe('plugin nodes in vector exports', () => {
+  const star = {
+    type: 'demo.star', title: 'Star', category: 'Shapes', props: { r: { type: 'number' as const, default: 50 } },
+    render: { canvas2d() {} },
+    export: {
+      svg: (p: { r: number }) => `<circle cx="0" cy="0" r="${p.r}" fill="#FFD400"/>`,
+      lottie: (p: { r: number }) => [{ ty: 'el', d: 1, p: { a: 0, k: [0, 0] }, s: { a: 0, k: [p.r * 2, p.r * 2] } }, { ty: 'fl', c: { a: 0, k: [1, 0.83, 0, 1] }, o: { a: 0, k: 100 }, r: 1 }],
+    },
+  };
+  const plugged = builtinRegistry().clone().use({ nodes: [star] }, 'demo');
+  const doc: TrammeDoc = {
+    schema: 'tramme/1', meta: { title: 'Star' }, tokens: {}, assets: {}, root: 'main',
+    compositions: { main: { name: 'Main', width: 200, height: 200, fps: 30, duration: 1, layers: { s: { type: 'demo.star', name: 'Star', transform: { position: [100, 100] }, props: { r: 40 } } }, order: ['s'] } },
+  };
+
+  it('take the SVG and the Lottie shapes the node gives', () => {
+    const { svg, warnings } = toSvg(doc, plugged, 0);
+    expect(svg).toContain('<circle cx="0" cy="0" r="40" fill="#FFD400"/>');
+    expect(warnings).toEqual([]);
+    const { lottie, warnings: lw } = toLottie(doc, plugged);
+    expect(lottie.layers[0]).toMatchObject({ ty: 4, nm: 'Star' });
+    expect(lottie.layers[0].shapes[0].it.map((i: any) => i.ty)).toEqual(['el', 'fl', 'tr']);
+    expect(lw).toEqual([]);
+  });
+
+  it('leave out, with a warning, a node that says nothing', () => {
+    const silent = builtinRegistry().clone().use({ nodes: [{ ...star, export: undefined }] }, 'demo');
+    expect(toSvg(doc, silent, 0).warnings[0]).toMatch(/left out of the SVG/);
+    expect(toLottie(doc, silent).warnings[0]).toMatch(/no Lottie equivalent/);
+  });
+});

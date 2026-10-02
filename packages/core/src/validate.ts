@@ -7,7 +7,7 @@ import { parseColor } from './color.ts';
 import { compileExpr } from './expr.ts';
 import { pointer } from './ops.ts';
 import { asExpr, asKeyframed, asLink, propKind, staticValue } from './props.ts';
-import { MOTION_BLUR_SCHEMA, TRANSFORM_SCHEMA, type PropDef, type PropSchema, type Registry } from './registry.ts';
+import { CAMERA_SCHEMA, MOTION_BLUR_SCHEMA, TRANSFORM_SCHEMA, type PropDef, type PropSchema, type Registry } from './registry.ts';
 import { DocSchema } from './schema.ts';
 import type { Composition, TrammeDoc } from './types.ts';
 
@@ -123,6 +123,7 @@ class Checker {
       this.prop(cid, pointer(...base, 'background'), { type: 'color', default: null, nullable: true }, comp.background);
     }
     if (comp.motionBlur) this.props(cid, pointer(...base, 'motionBlur'), MOTION_BLUR_SCHEMA, comp.motionBlur);
+    if (comp.camera) this.props(cid, pointer(...base, 'camera'), CAMERA_SCHEMA, comp.camera);
     this.effects(cid, pointer(...base, 'effects'), comp.effects, 'finish');
 
     for (const [lid, layer] of Object.entries(comp.layers)) {
@@ -283,6 +284,7 @@ class Checker {
       case 'ease': return this.easeIssue(v);
       case 'json': return null;
       case 'comp': return typeof v === 'string' && this.doc.compositions[v] ? null : `unknown composition "${String(v)}"`;
+      case 'layer': return typeof v === 'string' && Object.values(this.doc.compositions).some((c) => c.layers[v]) ? null : `unknown layer "${String(v)}"`;
       case 'asset': {
         if (typeof v !== 'string') return 'asset id expected';
         const a = this.doc.assets[v];

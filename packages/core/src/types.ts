@@ -78,6 +78,17 @@ export interface Transform {
   rotation?: Prop<number>;
   /** 0..1 */
   opacity?: Prop<number>;
+  /** px behind the screen (negative: in front), for the composition camera */
+  depth?: Prop<number>;
+}
+
+/** a 2.5D camera: layers at a depth move with parallax and blur away from the focus */
+export interface Camera {
+  pan?: Prop<Vec2>;
+  zoom?: Prop<number>;
+  perspective?: Prop<number>;
+  focus?: Prop<number>;
+  blur?: Prop<number>;
 }
 
 export type BlendMode = 'normal' | 'multiply' | 'screen' | 'overlay' | 'darken' | 'lighten' | 'add';
@@ -135,6 +146,8 @@ export interface Composition {
   /** plate under the layers; null for a transparent render */
   background?: Prop<string> | null;
   motionBlur?: MotionBlur;
+  /** 2.5D camera; without it, depth does nothing */
+  camera?: Camera;
   markers?: Marker[];
   /** finishing effects applied to the whole frame */
   effects?: Effect[];

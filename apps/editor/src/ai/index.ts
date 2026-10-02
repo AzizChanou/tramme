@@ -268,14 +268,15 @@ const ranAlone: string[] = [];
 const uid = () => Math.random().toString(36).slice(2, 10);
 
 /** a tool run straight from the / menu, without a model: its activity, pictures and proposal in the conversation */
-export async function* runTool(name: string, input: Record<string, unknown>): AsyncGenerator<AiEvent> {
+export async function* runTool(name: string, input: Record<string, unknown>, signal?: AbortSignal): AsyncGenerator<AiEvent> {
   const item = uid();
   yield { type: 'item', item: { id: item, role: 'assistant', tool: { name: 'use_tool', summary: TOOLS.find((x) => x.name === 'use_tool')!.label({ name }) } } };
-  const r = await runner.run('use_tool', { name, input });
+  const r = await runner.run('use_tool', { name, input }, signal);
   yield* runner.events.splice(0);
   yield { type: 'tool-done', id: item, error: !!r.isError };
   const said = r.content.map((c) => (c.type === 'text' ? c.text : '')).filter(Boolean).join('\n');
   if (r.isError) yield { type: 'error', message: said };
+  else if (runner.notice) yield { type: 'item', item: { id: uid(), role: 'assistant', text: runner.notice } };
   ranAlone.push(`The user ran the tool "${name}" from the / menu with ${JSON.stringify(input)}${r.isError ? ', which failed' : ''}: ${said || 'no message'}`);
   yield { type: 'done' };
 }

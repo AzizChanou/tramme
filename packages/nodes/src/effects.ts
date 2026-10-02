@@ -88,3 +88,78 @@ export const tint: EffectType<{ color: string; amount: number }> = {
     },
   },
 };
+
+// ── GLSL effects: run on the GPU (see gpu.ts in the renderer) ──
+
+/** a track matte: the layer shows only where another layer is (its alpha or its brightness) */
+export const matte: EffectType<{ source: string | null; mode: 'alpha' | 'alpha-inverted' | 'luma' | 'luma-inverted' }> = {
+  type: 'fx.matte', title: 'Track matte', category: 'Effects', stage: 'layer',
+  description: 'shows the layer only where another layer is: through text, a shape, a mask',
+  props: {
+    source: { type: 'layer', default: null, nullable: true, label: 'Matte layer', animatable: false, description: 'usually hidden; drawn at the same instant' },
+    mode: { type: 'enum', default: 'alpha', options: ['alpha', 'alpha-inverted', 'luma', 'luma-inverted'], label: 'Mode', animatable: false },
+  },
+  gl: {
+    code: `vec4 effect(vec2 uv) {
+  vec4 c = texture(uImage, uv), m = texture(u_source, uv);
+  float luma = m.a > 0.0 ? dot(m.rgb / m.a, vec3(0.2126, 0.7152, 0.0722)) * m.a : 0.0;
+  float k = u_mode < 0.5 ? m.a : u_mode < 1.5 ? 1.0 - m.a : u_mode < 2.5 ? luma : 1.0 - luma;
+  return c * k;
+}`,
+  },
+};
+
+/** a displacement: the pixels of the layer moved by the colours of another layer (red: x, green: y) */
+export const displace: EffectType<{ source: string | null; amount: number }> = {
+  type: 'fx.displace', title: 'Displacement', category: 'Effects', stage: 'layer',
+  description: 'bends the layer with the colours of another layer: glass, heat haze, liquid',
+  props: {
+    source: { type: 'layer', default: null, nullable: true, label: 'Map layer', animatable: false, description: 'mid grey moves nothing; red pushes along x, green along y' },
+    amount: { type: 'number', default: 40, step: 1, unit: 'px', label: 'Amount' },
+  },
+  gl: {
+    code: `vec4 effect(vec2 uv) {
+  vec4 m = texture(u_source, uv);
+  vec2 d = m.a > 0.0 ? (m.rg / m.a - 0.5) * 2.0 * m.a : vec2(0.0);
+  return texture(uImage, uv + d * u_amount * uScale / uRes * vec2(1.0, -1.0));
+}`,
+  },
+};
+
+/** colour fringes towards the edges of the frame, like a lens */
+export const chromatic: EffectType<{ amount: number }> = {
+  type: 'look.chromatic', title: 'Chromatic aberration', category: 'Finishing', stage: 'finish',
+  description: 'red and blue drift apart towards the edges, like a cheap lens or a glitch',
+  props: { amount: { type: 'number', default: 4, min: 0, max: 60, step: 0.5, unit: 'px', label: 'Spread' } },
+  gl: {
+    code: `vec4 effect(vec2 uv) {
+  vec2 dir = (uv - 0.5) * u_amount * uScale / uRes * 2.0;
+  vec4 c = texture(uImage, uv);
+  return vec4(texture(uImage, uv + dir).r, c.g, texture(uImage, uv - dir).b, c.a);
+}`,
+  },
+};
+
+/** a colour grade in linear light: exposure of the shadows and highlights, saturation, temperature */
+export const grade: EffectType<{ lift: number; gain: number; saturation: number; temperature: number }> = {
+  type: 'look.grade', title: 'Colour grade', category: 'Finishing', stage: 'finish',
+  description: 'warms or cools, lifts the shadows, tames the highlights and sets the saturation of the whole picture',
+  props: {
+    lift: { type: 'number', default: 0, min: -0.2, max: 0.2, step: 0.005, label: 'Shadows' },
+    gain: { type: 'number', default: 1, min: 0, max: 2, step: 0.01, unit: 'x', label: 'Highlights' },
+    saturation: { type: 'number', default: 1, min: 0, max: 2, step: 0.01, unit: 'x', label: 'Saturation' },
+    temperature: { type: 'number', default: 0, min: -1, max: 1, step: 0.01, label: 'Temperature', description: 'negative cools, positive warms' },
+  },
+  gl: {
+    code: `vec4 effect(vec2 uv) {
+  vec4 c = texture(uImage, uv);
+  if (c.a <= 0.0) return c;
+  vec3 s = c.rgb / c.a;
+  s = s * u_gain + u_lift * (1.0 - s);
+  s *= vec3(1.0 + 0.12 * u_temperature, 1.0, 1.0 - 0.12 * u_temperature);
+  float l = dot(s, vec3(0.2126, 0.7152, 0.0722));
+  s = max(mix(vec3(l), s, u_saturation), 0.0);
+  return vec4(s * c.a, c.a);
+}`,
+  },
+};

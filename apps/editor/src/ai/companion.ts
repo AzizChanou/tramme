@@ -89,7 +89,7 @@ export async function* companionTurn(
     } else if (ev.type === 'tool') {
       const item = SILENT.has(ev.name) ? '' : uid();
       if (item) yield { type: 'item', item: { id: item, role: 'assistant', tool: { name: ev.name, summary: TOOLS.find((t) => t.name === ev.name)?.label(ev.input ?? {}) ?? ev.name } } };
-      const result = await runner.run(ev.name, ev.input ?? {});
+      const result = await runner.run(ev.name, ev.input ?? {}, signal);
       yield* runner.events.splice(0);
       if (item) yield { type: 'tool-done', id: item, error: !!result.isError };
       await fetch(`${link.url}/tool-result`, { method: 'POST', headers: headers(link), body: JSON.stringify({ callId: ev.callId, result }), signal });

@@ -2,7 +2,7 @@
 
 import { signal } from '@preact/signals';
 import { useRef, useState } from 'preact/hooks';
-import { addLayer, applyOps, layerActive, moveLayer, pointer, removeLayer, type Asset, type TrammeDoc, type Layer, type NodeType, type Op, type TokenType } from '@tramme/core';
+import { addLayer, applyOps, layerActive, moveLayer, pointer, removeLayer, type Asset, type TrammeDoc, type Layer, type NodeType, type Op, type PresetType, type TokenType } from '@tramme/core';
 import { comp, commit, S, select, viewDoc, toast, uiTime } from '../state.ts';
 import { flatTree, freshId, layerName, parentOf, subtree, commonStem, folderOf, imagesIn } from '../model.ts';
 import { ColorField, openMenu, Swatch, TextInput, resolveColor, type MenuItem } from './controls.tsx';
@@ -11,7 +11,7 @@ import { preview } from '../preview.ts';
 import { fromLottie } from '@tramme/interop';
 import { transcribeAsset, transcriptIdOf } from '../speech.ts';
 import { safeName, takenPaths, upload } from '../files.ts';
-import { m, t } from '../i18n/index.ts';
+import { m, t, tr } from '../i18n/index.ts';
 
 const tab = signal<'layers' | 'assets' | 'tokens'>('layers');
 const collapsed = signal<Set<string>>(new Set());
@@ -56,6 +56,13 @@ export function newLayer(doc: TrammeDoc, compId: string, node: NodeType, extra: 
   };
 }
 
+/** a preset as a layer of the open composition: centred when it has no position */
+function presetLayer(p: PresetType): Layer {
+  const c = S.doc.peek().compositions[S.compId.peek()];
+  const tr0 = p.layer.transform ?? {};
+  return { ...structuredClone(p.layer), name: tr(p.title ?? p.name), transform: { ...structuredClone(tr0), position: tr0.position ?? [c.width / 2, c.height / 2] } } as Layer;
+}
+
 /** add a layer above the selection (same parent), or at the top of the root */
 export function insertLayer(layer: Layer, base?: string) {
   const doc = S.doc.peek(), compId = S.compId.peek(), c = doc.compositions[compId];
@@ -81,6 +88,14 @@ export function addLayerMenu(e: MouseEvent | DOMRect) {
   for (const [cat, nodes] of groups) {
     items.push({ section: t(cat) });
     for (const n of nodes) items.push({ label: t(n.title), icon: kindIcon(n.type), onClick: () => insertLayer(newLayer(S.doc.peek(), S.compId.peek(), n)) });
+  }
+  // ready-made layers: the editor's and the project's plugins'
+  const presets = reg.listPresets().filter(({ preset }) => reg.hasNode(preset.layer.type));
+  const sections = new Map<string, typeof presets>();
+  for (const p of presets) { const cat = p.preset.category ?? m('panel.presets'); if (!sections.has(cat)) sections.set(cat, []); sections.get(cat)!.push(p); }
+  for (const [cat, list] of sections) {
+    items.push({ section: t(cat) });
+    for (const { preset } of list) items.push({ label: tr(preset.title ?? preset.name), icon: kindIcon(preset.layer.type), onClick: () => insertLayer(presetLayer(preset), preset.name) });
   }
   openMenu(e as MouseEvent, items);
 }

@@ -2,7 +2,7 @@
 
 Where the plugin system goes, and in what order. The goal is not only a richer vocabulary of layers: it is to give the built-in assistant what it needs to produce impressive videos on its own. The editor gets the same abilities, since the editor and the assistant share one API.
 
-Status: steps 1 and 1b in progress (the core of both is done). Tick the boxes as steps land, and keep this file as the reference instead of re-deciding the plan.
+Status: steps 1 to 3, 6 and 9 done; steps 4, 5, 7 and 10 mostly done (masks, depth maps, phonemes, mask sequences, glTF, plugin isolation and audio processing left); steps 7b and 8 wait for decisions (a 3D library, the providers). Tick the boxes as steps land, and keep this file as the reference instead of re-deciding the plan.
 
 ## Why
 
@@ -48,13 +48,13 @@ export const meta = { name, version, api: 1 };   // manifest (step 10)
 
 - [x] `tools` export: `{ name, title?, description, input (JSON Schema), ai?, run(input, ctx) }` (`packages/core/src/tools.ts`, registered by `Registry.use`).
 - [x] `ctx` (authoring context): the live document (pending proposal included), composition, time and selection of the editor, the registry, `assetUrl`, `readText`, `writeFile` (under `assets/`), `renderStill`, `transcript`.
-- [ ] An abort signal in `ctx`, so a long analysis stops with the turn.
+- [x] An abort signal in `ctx` (`ctx.signal`), so a long analysis stops with the turn.
 - [x] A tool returns text, images (shown to the model and the user) and/or operations with a label. Operations join the pending proposal like any other, so they are validated and shown as a preview.
 - [x] Assistant: one generic tool `use_tool { name, input }`; `list_nodes` lists the tools with their input schema; the system prompt explains when to use them.
 - [x] `ai` notes (`when`, `avoid`, `example`) on nodes, effects, modifiers and tools, returned by `list_nodes`.
 - [x] Docs (document.md, "Tools" under "Node plugins") with an example tool.
-- [ ] `ai` notes on the built-in nodes and effects, so the assistant uses them with taste.
-- [ ] An example project in `examples/` whose plugin brings a tool.
+- [x] `ai` notes on the built-in nodes, effects and modifiers (`packages/nodes/src/notes.ts`, `packages/core/src/modifiers.ts`).
+- [x] An example project, `examples/night-sky`: its plugin brings a node (`sky.moon`), a tool (`sky.stars`), a workflow (`sky.night`) and French names.
 
 Done when: a project plugin exports a tool, the assistant finds it with `list_nodes`, calls it, and its operations show up as a proposal.
 
@@ -69,44 +69,54 @@ Done when: a project plugin exports a tool, the assistant finds it with `list_no
 
 ### Step 2. Recipes and style kits
 
-- [ ] Recipes are tools that return operations: they expand into ordinary layers and keyframes that stay editable (kinetic title, word-by-word reveal, chart from a CSV, map journey, transitions).
+- [x] Recipes are tools that return operations, expanded into ordinary layers and keyframes that stay editable (`apps/editor/src/recipes.ts`): `kinetic-title` (rise, pop, slide, blur), `bar-chart`, `stat` (rolling figure), `transition` (wipe, circle, bars, flash).
+- [ ] More recipes: map journey, word-by-word quote, logo reveal, list, timeline, split screen.
 - [x] The built-in templates (captions, title, keyword, lower third) are also tools of the editor's vocabulary, with the same API. `apply_template` stays for the assistant.
-- [ ] `kits` export: a motion language (colour and curve tokens, durations, stagger, fonts, transition style) that recipes read, so "in style X" stays consistent across a film.
+- [x] `kits` export: a motion language as tokens (`plate`, `ink`, `accent`, `accent2`, `enter`, `exit`, `pace`, `stagger`) applied by the `kit` tool and read by the recipes. Built-in kits: editorial, punchy, calm, neon.
+- [ ] Fonts in kits (a font file per kit, loaded with the project).
 
 ### Step 3. Quality loop
 
-- [ ] `checks` export: `check(doc, ctx) → issues` with a severity and the times and layers involved. Built-in checks: text too small or on screen too briefly to read, low contrast, outside the safe zones, over a detected face, two elements entering at once, empty stretches.
-- [ ] `review` tool for the assistant: runs the checks and returns a contact sheet (frames at key times on one image) and a motion strip (several sub-steps of one movement), so motion can be judged.
-- [ ] The system prompt asks for a review before summing up.
+- [x] `checks` export: `run(ctx) → issues` with a severity, the times and layers involved; `ctx.samples` is the composition sampled 4 times a second, each layer placed in composition space (`packages/core/src/checks.ts`). Built-in: text size, reading time, safe zone, overlapping text, text crossing an element, crowded entrances, still stretches.
+- [ ] Checks that need pixels or perception: low contrast behind text, text over a detected face (step 4).
+- [x] `check` tool: runs the checks and returns a contact sheet of the key moments; `motion` tool: a strip of frames to judge a movement (`apps/editor/src/review.ts`). Both in the `/` menu too.
+- [x] The system prompt asks for `check` before summing up; the `/review` workflow uses both tools.
 
 ### Step 4. Perception
 
 Built-in plugins whose tools analyse the material at authoring time and save the result as `json` assets. Nodes, expressions and recipes read them.
 
-- [ ] Audio: beats, onsets, tempo, sections (verse, chorus), energy per band over time; phonemes from the transcript (lip sync).
-- [ ] Video: shot changes, subject and face boxes over time, pose, segmentation masks (subject cut-out), depth.
-- [ ] Image: palette, saliency, free space for text.
-- [ ] Render-time access: `host.data(assetId)` for parsed data, expression helpers (`beat()`, `energy(band)`, `track(id)`) that read these assets deterministically.
-- [ ] Models run in the browser (transformers.js, as speech does today) or through the companion; never during a render.
+- [x] Audio (`beats` tool, `analyseAudio` in `packages/core/src/analysis.ts`): tempo, beats, bars, onsets, sections, loudness of the whole and of three bands at 50 Hz. Pure DSP, deterministic, tested on synthetic grooves.
+- [ ] Phonemes from the transcript (lip sync of drawn characters).
+- [x] Video: shot changes (`shots` tool, colour histograms), people boxes over time (`subjects` tool, YOLOS tiny through transformers.js, loaded on demand).
+- [ ] Video: pose, segmentation masks (subject cut-out), depth (they need step 5's layer inputs and mask sequences).
+- [x] Image: main colours as tokens (`palette` tool: plate, ink, accent).
+- [ ] Image: saliency and free space as data (the `subjects` text gives the free sides for now).
+- [x] Render-time access: nodes read JSON assets with `host.asset(id)`; expressions with `audio(source)` (`pulse`, `barPulse`, `hit`, `energy`, `beat`, `bar`, `phase`, `section`), mapped to the time of a sound layer; the `react` modifier for the same without code. The renderer gives the evaluator the loaded analyses.
+- [x] Checks read analyses: `text-over-subject` warns when text covers a face.
+- [x] Models run in the browser at authoring time, never during a render; the system prompt says when to use each tool.
 
 ### Step 5. Rendering
 
-- [ ] Error isolation: a node or effect that throws draws a red frame for its layer and reports the error; the rest of the frame renders.
-- [ ] Finishing effects from plugins: a GLSL pass run by the compositor on the accumulated frame (linear light). Today a plugin effect with `stage: 'finish'` is ignored (`finishOf` only knows the built-in `look.*`).
-- [ ] GPU layer effects: a GLSL pass on the layer's own texture, through a shared WebGL service (`host.gpu`) extracted from the `shader` node.
-- [ ] Layer inputs: a `layer` property type; an effect or node receives another layer rendered. Unlocks track mattes (alpha, luma), displacement, refraction, "text behind the subject" with a mask sequence.
-- [ ] Mask and depth sequences as assets, read per frame.
+- [x] Error isolation: in the preview (`isolate` renderer option), a node or effect that throws draws a red frame for its layer and is named in the error bar; the rest renders. Exports keep failing (checked with the CLI). The live preview test is still to do.
+- [x] Finishing effects in GLSL (`gl: { code }`, `stage: 'finish'`): run by the compositor on the accumulated frame in linear light, before glow and grain (ping-pong targets). Built-in: `look.chromatic`, `look.grade`.
+- [x] Layer effects in GLSL: a pass on the layer drawn alone, through one shared WebGL2 canvas (`packages/render/src/gpu.ts`); uniforms generated from the props schema, `uScale` for the preview size.
+- [x] Layer inputs: the `layer` property type (validated, picked in the inspector); GLSL effects get it as a texture of that layer drawn alone, hidden or not; `host.drawLayer(ctx, id)` for nodes. Built-in: `fx.matte` (alpha, luma, inverted), `fx.displace`.
+- [ ] Mask and depth sequences as assets, read per frame ("text behind the subject").
 
 ### Step 6. Time and state
 
-- [ ] Deterministic simulations: a node declares `simulate(state, props, dt)`; the engine caches one state per frame with checkpoints, so any frame can be rendered in any order (ropes, cloth, flocks, trails, fluids).
-- [ ] `host.layer(id)`: read-only evaluated props and transform of another layer (connectors, followers).
+- [x] Deterministic simulations: `simulate: { init, step }` on a node; the renderer steps from the in point, keeps a checkpoint every 10 frames and the last frame, and starts over after any change of the document. A frame rendered directly is byte-identical to the same frame reached after others (checked with the CLI).
+- [x] `host.layer(id)`: evaluated props and transform of another layer; `host.state()` for the simulation.
+- [x] Built-in `follow` node: a dot following another layer on a spring, with a trail.
+- [ ] More simulated nodes: rope, cloth, flock, fluid, physics of rigid shapes.
 
 ### Step 7. 3D and camera
 
 - [ ] A WebGL node service for plugins (own context, drawn into the layer).
 - [ ] glTF models with animation, studio lighting, turntables, exploded views.
-- [ ] A virtual camera with depth for 2.5D: layers at a depth, parallax, depth of field; photo to 2.5D with a depth map from step 4.
+- [x] A virtual camera for 2.5D: `camera` on the composition (pan, zoom, perspective, focus, blur) and `transform.depth` on layers: parallax and depth blur, in the inspector and the schema.
+- [ ] Photo to 2.5D from a depth map (step 4's depth).
 
 ### Step 8. Generated assets
 
@@ -115,15 +125,16 @@ Built-in plugins whose tools analyse the material at authoring time and save the
 ### Step 9. Editor surfaces
 
 - [x] Plugin tools in the editor: the chat's `/` menu runs the same tools (form generated from the input schema), see step 1b.
-- [ ] Viewport handles declared by nodes (`handles(props)`: points, radii, angles), dragged in the viewport.
-- [ ] Presets in the add menu (layers and effect stacks).
-- [ ] Export hooks (`export.svg`, `export.lottie`) so plugin nodes are not dropped from vector exports.
+- [x] Viewport handles declared by nodes (`handles(props)`: points and distances in local space), drawn as accent diamonds and dragged like the frame's handles (a key at the current time when animated). Built-in: the rectangle's corner radius; the example's moon radius.
+- [x] Presets in the add menu (`presets` export, ready-made layers with effects and motion). Built-in: neon title, frosted card, light leak, spotlight.
+- [ ] Effect-stack presets (several effects applied to the selection at once).
+- [x] Export hooks (`export.svg`, `export.lottie`) so plugin nodes are not dropped from vector exports.
 
 ### Step 10. Ecosystem
 
-- [ ] `meta` manifest with an API version, checked at load.
-- [ ] `@tramme/plugin`: the types and a `definePlugin()` helper; the assistant writes plugins against it.
-- [ ] A user library of plugins shared between projects; a plugin is copied into the project when used, so `.tramme` archives stay self-contained.
+- [x] `meta` manifest (`name`, `version`, `description`, `api`), the API version checked at load (`PLUGIN_API`): a newer plugin is refused with a clear message.
+- [x] `@tramme/plugin` (`packages/plugin`): every type a plugin exports and `definePlugin()`.
+- [x] A library of plugins shared between projects (`/api/library` in the Worker, R2 `library/plugins/`); tools `library-add` and `library-use` (assistant and `/` menu); a plugin is copied into the project when used, so archives stay self-contained.
 - [ ] Isolation of untrusted plugins (worker with OffscreenCanvas) for projects from unknown sources.
 - [ ] Audio processing (EQ, reverb, gain envelopes) mixed in the browser with an `OfflineAudioContext` for exports.
 

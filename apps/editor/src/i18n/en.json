@@ -467,7 +467,8 @@
     "enable": "Enable",
     "finishingEffects": "Finishing effects",
     "nLayersSelected": "{n} layers selected.",
-    "inspectTheFirst": "Inspect the first"
+    "inspectTheFirst": "Inspect the first",
+    "camera": "Camera (2.5D)"
   },
   "panel": {
     "text": "Text",
@@ -524,7 +525,8 @@
     "others": "Others",
     "invalidJsonValue": "Invalid JSON value",
     "assets": "Assets",
-    "tokens": "Tokens"
+    "tokens": "Tokens",
+    "presets": "Presets"
   },
   "models": {
     "loading": "Loading…",
@@ -643,7 +645,8 @@
     "proposalPreview": "Proposal preview",
     "proposalHidden": "Proposal hidden",
     "showOriginal": "Show original",
-    "showProposal": "Show proposal"
+    "showProposal": "Show proposal",
+    "editName": "Edit {name}"
   },
   "export": {
     "exportCancelled": "export cancelled",
@@ -652,5 +655,22 @@
     "fromFpsBroughtDown": "{from} fps brought down to {to} fps (GIF limit)",
     "webcodecsUnavailableInThis": "WebCodecs unavailable in this browser",
     "noVideoCodecAvailable": "no video codec available for {w}×{h}"
+  },
+  "review": {
+    "issues": "{warnings} warning(s), {notes} note(s):",
+    "noIssue": "No issue found. The contact sheet shows the key moments.",
+    "contactSheet": "Contact sheet of the key moments",
+    "motionStrip": "Movement from {from} to {to} s"
+  },
+  "perception": {
+    "beatsDone": "Music analysed: {tempo} bpm, {beats} beats, {bars} bars, {sections} section change(s). The assistant can now cut and animate on the beat.",
+    "noPulse": "No steady pulse in this sound; {hits} hits found, and its loudness over time.",
+    "shotsDone": "{cuts} cut(s) found between shots.",
+    "subjectsDone": "People found in {seen} of {looks} look(s). The checks now warn when text covers a face.",
+    "paletteDone": "Main colours: {colours}. They are now the plate, ink and accent tokens."
+  },
+  "library": {
+    "kept": "Plugin kept in the library: {name}. Other projects can use it.",
+    "used": "Plugin {name} added to this project."
   }
 }

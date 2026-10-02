@@ -11,6 +11,7 @@ import { PROVIDER_LABEL, providerOf, REMOTE } from '@tramme/assistant';
 import { ModelPicker } from './ModelPicker.tsx';
 import { aiRoute, aiSettings, aiStatus, ask, routeLabel, chat, chatId, chats, decided, deleteChat, newChat, openChat, refreshStatus, runTool, saveChat, setAiSettings, stop as stopAi, type ChatMeta } from '../ai/index.ts';
 import { fieldsOf, inputLine, inputOf, listCommands, matchCommands, parseCommand, ready, type Command, type Field } from '../ai/commands.ts';
+import { refreshLibrary } from '../library.ts';
 import { acceptProposal, comp, propose, rejectProposal, S, toast, uiTime } from '../state.ts';
 import { ago, describeOp, layerName, timecode } from '../model.ts';
 import { Icon } from './icons.tsx';
@@ -69,7 +70,7 @@ export async function runCommand(cmd: Command, input: Record<string, unknown>) {
   if (running.peek()) return;
   const line = inputLine(input);
   chat.value = [...chat.value, { id: uid(), role: 'user', text: `/${cmd.name}${line ? ` · ${line}` : ''}`, context: contextLine().text }];
-  await consume(() => runTool(cmd.name, input));
+  await consume((signal) => runTool(cmd.name, input, signal));
 }
 
 /** shows the events of a turn (the assistant's, or a tool run alone) as they come, then saves the conversation */
@@ -415,7 +416,7 @@ function CommandField({ f, value, onChange }: { f: Field; value: unknown; onChan
   const shown = value ?? f.default;
   let control;
   if (f.kind === 'boolean') control = <Toggle on={!!shown} onChange={onChange} />;
-  else if (f.options) control = <Select value={shown === undefined ? '' : String(shown)} options={[...(f.required ? [] : [['', '—'] as [string, string]]), ...f.options.map(([v, l]) => [v, f.kind === 'enum' ? tr(l) : l] as [string, string])]} onChange={(v) => onChange(v || undefined)} />;
+  else if (f.options) control = <Select value={shown === undefined ? '' : String(shown)} options={[...(f.required ? [] : [['', '—'] as [string, string]]), ...f.options.map(([v, l]) => [v, f.kind === 'enum' || f.kind === 'kit' ? tr(l) : l] as [string, string])]} onChange={(v) => onChange(v || undefined)} />;
   else {
     const num = f.kind === 'number' || f.kind === 'integer';
     control = (
@@ -470,10 +471,12 @@ export function Assistant({ style }: { style?: Record<string, string | number> }
   const found = typing && !menuOff ? matchCommands(commands, typing[1], tr).slice(0, 30) : [];
   const matches = [...found.filter((c) => c.kind === 'tool'), ...found.filter((c) => c.kind === 'prompt')];
   const menu = matches.length > 0;
+  // the library's plugins, fresh for its pickers whenever the menu opens
+  useEffect(() => { if (menu) refreshLibrary(); }, [menu]);
   const parsed = menu ? null : parseCommand(text, commands);
   const cmd = parsed?.cmd ?? null;
   const values = cmd && form.name === cmd.name ? form.values : {};
-  const fields = cmd?.kind === 'tool' ? fieldsOf(cmd.input, S.doc.value, S.compId.value) : [];
+  const fields = cmd?.kind === 'tool' ? fieldsOf(cmd.input, S.doc.value, S.compId.value, reg) : [];
   const input = inputOf(fields, values);
   const direct = cmd?.kind === 'tool' && !parsed!.rest && ready(fields, input);
   const pick = (c: Command) => { setText(`/${c.name} `); setHi(0); setForm({ name: c.name, values: {} }); area.current?.focus(); };

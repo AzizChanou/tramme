@@ -216,7 +216,16 @@ class Exporter {
         return out;
       }
       case 'audio': return null;
-      default:
+      default: {
+        // a plugin node may give its Lottie shapes, from its props at the in point
+        const ex = this.reg.node(layer.type).export?.lottie;
+        if (ex) {
+          if (Object.values(layer.props ?? {}).some((v) => propKind(v) !== 'static')) this.warn(`animated properties of "${name}": frozen at its first frame in Lottie`);
+          const items = ex(this.ev.layerAt(id, range[0], compId).props) as Json[];
+          items.push({ ty: 'tr', p: { a: 0, k: [0, 0] }, a: { a: 0, k: [0, 0] }, s: { a: 0, k: [100, 100] }, r: { a: 0, k: 0 }, o: { a: 0, k: 100 } });
+          return { ...this.base(compId, id, layer, range, ind, 4), ks: this.transform(compId, id, layer, range), shapes: [{ ty: 'gr', nm: name, it: items }] };
+        }
+      }
         this.warn(`"${name}" (${layer.type}) has no Lottie equivalent: left out`);
         return null;
     }

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { compileExpr, cubicBezier, Evaluator, mixColor, sampleKeyframes, type TrammeDoc } from '../src/index.ts';
+import { audioReader, compileExpr, cubicBezier, Evaluator, mixColor, sampleKeyframes, type TrammeDoc } from '../src/index.ts';
 import { makeDoc, registry } from './fixtures.ts';
 
 describe('curves and interpolation', () => {
@@ -33,7 +33,7 @@ describe('curves and interpolation', () => {
 describe('expressions', () => {
   const scope = (over = {}) => ({
     t: 2, frame: 60, fps: 30, value: 5, comp: { width: 10, height: 10, duration: 1, fps: 30 },
-    prop: () => 0, token: () => 0, marker: () => ({ t: 0, frame: 0 }), ease: (_: unknown, x: number) => x, ...over,
+    prop: () => 0, token: () => 0, marker: () => ({ t: 0, frame: 0 }), ease: (_: unknown, x: number) => x, audio: () => audioReader(null, 0), ...over,
   });
 
   it('an expression or a body with return', () => {
@@ -62,7 +62,7 @@ describe('evaluation', () => {
     expect(f0.layers.map((l) => l.id)).toEqual(['bg']);
     expect(f0.background).toBe('#1C1917');
     expect(f0.layers[0].props.fill).toBe('#F5F0E8');
-    expect(f0.layers[0].transform).toEqual({ anchor: [0, 0], position: [0, 0], scale: [1, 1], rotation: 0, opacity: 1 });
+    expect(f0.layers[0].transform).toEqual({ anchor: [0, 0], position: [0, 0], scale: [1, 1], rotation: 0, opacity: 1, depth: 0 });
     const f = ev().frame(2.5);
     expect(f.layers.map((l) => l.id)).toEqual(['bg', 'grp']);
     expect(f.layers[1].children.map((l) => l.id)).toEqual(['a', 'b']);

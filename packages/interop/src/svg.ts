@@ -144,6 +144,8 @@ class SvgWriter {
       }
       case 'group': case 'audio': return '';
       default:
+        // a plugin node may say how it looks in SVG
+        if (L.node.export?.svg) return L.node.export.svg(L.props);
         this.warn(`"${L.layer.name ?? L.id}" (${L.layer.type}) is drawn by code: left out of the SVG`);
         return '';
     }

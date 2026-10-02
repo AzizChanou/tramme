@@ -58,7 +58,7 @@ class Preview {
 
   async start() {
     try {
-      this.renderer = await Renderer.open(S.doc.peek(), editorRegistry(), new URL(S.docUrl.peek(), location.href).href, this.canvas, { compId: compIdOf(S.doc.peek()), raster: 'gpu', scale: S.previewScale.peek(), preserve: false });
+      this.renderer = await Renderer.open(S.doc.peek(), editorRegistry(), new URL(S.docUrl.peek(), location.href).href, this.canvas, { compId: compIdOf(S.doc.peek()), raster: 'gpu', scale: S.previewScale.peek(), preserve: false, isolate: true });
       this.applied = S.doc.peek();
       setRegistry(this.renderer.registry);
       this.pluginTours();
@@ -198,7 +198,9 @@ class Preview {
       this.docSamples = frame.motionBlur.samples;
       // a video frame still decoding: drawn again as soon as it is there
       if (r.incomplete) r.settle().then((waited) => { if (waited && !S.playing.peek()) this.invalidate(); });
-      if (S.renderError.peek()?.startsWith('render')) S.renderError.value = null;
+      // a layer or effect that failed is drawn as a red frame: say which and why
+      if (r.errors.size) S.renderError.value = `render: ${[...r.errors].map(([id, m]) => `${id}: ${m}`).join(' · ')}`;
+      else if (S.renderError.peek()?.startsWith('render')) S.renderError.value = null;
       // still for a moment: the sharp picture, with its motion blur, at the still size
       const blurred = (this.sharpSamples() ?? frame.motionBlur.samples) > 1;
       if (!moving && (blurred || r.scale < still)) {

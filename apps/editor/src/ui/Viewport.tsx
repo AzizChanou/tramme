@@ -5,7 +5,7 @@
 
 import { signal } from '@preact/signals';
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'preact/hooks';
-import { Evaluator, layerActive, propKind, type Composition, type TrammeDoc, type EvaluatedLayer, type Rect, type Vec2 } from '@tramme/core';
+import { Evaluator, layerActive, propKind, type Composition, type TrammeDoc, type EvaluatedLayer, type Handle, type Rect, type Vec2 } from '@tramme/core';
 import { localMatrix } from '@tramme/render';
 import { comp, commit, draft, cancelDraft, S, select, viewDoc, previewDoc, toast } from '../state.ts';
 import { decide } from './Assistant.tsx';
@@ -218,6 +218,21 @@ export function Viewport() {
     }, () => { if (last !== null) commit(t('viewport.rotate'), opsFor(id, 'transform.rotation', last)); else cancelDraft(); });
   };
 
+  /** a handle the node declares: a point or a distance in the layer's local space, for one of its properties */
+  const dragHandle = (e: PointerEvent, g: Geo, h: Handle) => {
+    const id = selected[0];
+    if (!canEdit(id, h.prop)) return;
+    e.stopPropagation();
+    const inv = g.matrix.inverse();
+    let last: unknown = null;
+    track((ev2) => {
+      const p = toComp(ev2), q = inv.transformPoint(new DOMPoint(p[0], p[1]));
+      const [fx, fy] = h.from ?? [0, 0];
+      last = h.kind === 'distance' ? Math.round(Math.hypot(q.x - fx, q.y - fy) * (h.factor ?? 1) * 10) / 10 : [Math.round(q.x * 10) / 10, Math.round(q.y * 10) / 10];
+      draft(opsFor(id, h.prop, last));
+    }, () => { if (last !== null) commit(t('viewport.editName', { name: t(g.layer.node.props[h.prop]?.label ?? h.prop) }), opsFor(id, h.prop, last)); else cancelDraft(); });
+  };
+
   /** move the view; `tap` runs when the pointer was released without moving (a tap on the background) */
   const dragPan = (e: PointerEvent, tap?: () => void) => {
     const x0 = e.clientX, y0 = e.clientY, p0 = pan.value;
@@ -338,6 +353,10 @@ export function Viewport() {
               {corners(geo.bounds).map((cn, i) => {
                 const p = pts[i];
                 return <rect key={i} class="gizmo-handle" x={p[0] - handleR} y={p[1] - handleR} width={handleR * 2} height={handleR * 2} style={{ cursor: i % 2 ? 'nesw-resize' : 'nwse-resize' }} onPointerDown={(e) => dragScale(e as unknown as PointerEvent, geo, cn)} />;
+              })}
+              {(() => { try { return geo.layer.node.handles?.(geo.layer.props as never) ?? []; } catch { return []; } })().map((h, i) => {
+                const p = apply(geo.matrix, h.at);
+                return <rect key={`h${i}`} class="gizmo-handle node-handle" x={p[0] - handleR} y={p[1] - handleR} width={handleR * 2} height={handleR * 2} transform={`rotate(45 ${p[0]} ${p[1]})`} style={{ cursor: 'move' }} onPointerDown={(e) => dragHandle(e as unknown as PointerEvent, geo, h)}><title>{t(geo.layer.node.props[h.prop]?.label ?? h.prop)}</title></rect>;
               })}
               <circle class="gizmo-anchor" cx={anchor[0]} cy={anchor[1]} r={4 / scale} />
               <line class="gizmo-anchor" x1={anchor[0] - 7 / scale} y1={anchor[1]} x2={anchor[0] + 7 / scale} y2={anchor[1]} />

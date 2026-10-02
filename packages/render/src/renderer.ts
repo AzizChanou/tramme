@@ -6,7 +6,7 @@
 import { assertValid, DocSchema, Evaluator, parseColor, type Composition, type TrammeDoc, type EvaluatedEffect, type EvaluatedFrame, type Host, type Registry } from '@tramme/core';
 import { AssetStore } from './assets.ts';
 import { CanvasPool, drawFrame, drawLayers, type DrawEnv, type HostFactory } from './canvas2d.ts';
-import { Compositor, type Finish, type Look } from './compositor.ts';
+import { Compositor, type Finish, type FinishPass, type Look } from './compositor.ts';
 
 export interface RenderOptions {
   /** sub-frames: overrides the composition's motion blur (1 for a fast preview) */
@@ -59,6 +59,8 @@ export interface RendererOptions {
   scale?: number;
   /** false: the picture is read right after drawing, never later (preview): one copy less per frame */
   preserve?: boolean;
+  /** true (the editor's preview): a layer or effect that fails is drawn as a red frame and listed in `errors`, the rest renders; exports keep failing */
+  isolate?: boolean;
 }
 
 export class Renderer {
@@ -87,6 +89,11 @@ export class Renderer {
   /** what the last frame drawn was missing (video frames being decoded) */
   private pending: Promise<unknown>[] = [];
   private preserve = true;
+  private isolate = false;
+  /** what failed in the last frame drawn (isolate mode): layer id -> message */
+  readonly errors = new Map<string, string>();
+  /** simulations: a state every CHECKPOINT frames from the in point, and the last one computed */
+  private sims = new Map<string, { checkpoints: Map<number, unknown>; last: { frame: number; state: unknown } | null }>();
 
   private constructor(base: Registry, docUrl: string, out: HTMLCanvasElement, raster: 'cpu' | 'gpu', doc: TrammeDoc) {
     this.base = base;
@@ -102,6 +109,7 @@ export class Renderer {
     const r = new Renderer(base, docUrl, out, opts.raster ?? 'cpu', doc);
     r.scale = opts.scale ?? 1;
     r.preserve = opts.preserve ?? true;
+    r.isolate = opts.isolate ?? false;
     await r.setDoc(doc, { compId: opts.compId });
     return r;
   }
@@ -124,13 +132,16 @@ export class Renderer {
     if (!trusted) assertValid(doc, registry);
     this.doc = doc;
     this.registry = registry;
-    this.evaluator = new Evaluator(doc, registry);
+    // analyses (JSON assets) reach the expressions and modifiers that follow the music
+    this.evaluator = new Evaluator(doc, registry, { data: (id) => (this.assets.has(id) ? this.assets.get(id) : undefined) });
     this.compId = compId ?? (doc.compositions[this.compId] ? this.compId : doc.root);
     const comp = this.evaluator.comp(this.compId);
     const resized = !this.comp || comp.width !== this.comp.width || comp.height !== this.comp.height;
     this.comp = comp;
     if (resized) this.resize();
     if (reload.length) this.loadedLayers = new WeakSet();
+    // a simulation may read anything of the document: computed again after any change
+    this.sims.clear();
     await this.loadLayers();
   }
 
@@ -183,12 +194,67 @@ export class Renderer {
       assetUrl: (id: string) => assets.url(id),
       compositionSize: (id: string) => { const c = this.doc.compositions[id]; return c ? { width: c.width, height: c.height, duration: c.duration } : null; },
       drawComposition: (ctx: CanvasRenderingContext2D, id: string, t: number) => this.drawNested(ctx, id, t),
+      drawLayer: (ctx: CanvasRenderingContext2D, id: string) => { const L = this.layerOf(id, f.t, compId); if (L) drawLayers(ctx, [{ ...L, layer: { ...L.layer, visible: true } }], this.env(f, compId)); },
+      layer: (id: string) => { const L = this.layerOf(id, f.t, compId); return L ? { props: L.props, transform: L.transform } : null; },
+      state: <T>() => this.simState(compId, layerId, f.t) as T,
       defer: (p: Promise<unknown>) => { this.pending.push(p); },
     });
   }
 
+  /**
+   * The state of a layer's simulation at the frame nearest t: stepped in
+   * order from its in point, from the closest checkpoint or the last frame
+   * computed, so playing forward costs one step a frame and a jump at most
+   * CHECKPOINT steps once the way there was computed.
+   */
+  private simState(compId: string, id: string, t: number): unknown {
+    const comp = this.doc.compositions[compId], layer = comp?.layers[id];
+    const sim = layer && this.registry.hasNode(layer.type) ? this.registry.node(layer.type).simulate : undefined;
+    if (!sim) return undefined;
+    const CHECKPOINT = 10, fps = comp.fps, start = layer.in ?? 0;
+    const target = Math.max(0, Math.round((t - start) * fps));
+    const key = `${compId}/${id}`;
+    let c = this.sims.get(key);
+    if (!c) { c = { checkpoints: new Map(), last: null }; this.sims.set(key, c); }
+    const at = (frame: number) => {
+      const time = start + frame / fps;
+      return { props: this.evaluator.layerAt(id, time, compId).props, host: this.hostFactory({ t: time, frame: Math.round(time * fps) }, compId)(id) };
+    };
+    if (c.last?.frame === target) return c.last.state;
+    // where to start: the last frame computed if it is just behind, else the highest checkpoint at or before the target
+    let frame = -1, state: unknown;
+    if (c.last && c.last.frame < target && target - c.last.frame <= CHECKPOINT) ({ frame, state } = c.last);
+    else {
+      for (let k = Math.floor(target / CHECKPOINT) * CHECKPOINT; k >= 0; k -= CHECKPOINT) if (c.checkpoints.has(k)) { frame = k; state = c.checkpoints.get(k); break; }
+      // checkpoints are made in order: the highest one may lie before an older last frame
+      if (c.last && c.last.frame < target && c.last.frame > frame) ({ frame, state } = c.last);
+    }
+    if (frame < 0) {
+      const { props, host } = at(0);
+      frame = 0; state = sim.init(props, host);
+      c.checkpoints.set(0, state);
+    }
+    while (frame < target) {
+      const { props, host } = at(frame + 1);
+      state = sim.step(state, props, 1 / fps, host);
+      frame++;
+      if (frame % CHECKPOINT === 0) c.checkpoints.set(frame, state);
+    }
+    c.last = { frame, state };
+    return state;
+  }
+
+  /** a layer at time t even when hidden or out of its range (layer inputs), or null */
+  private layerOf(id: string, t: number, compId: string) {
+    try { return this.doc.compositions[compId]?.layers[id] ? this.evaluator.layerAt(id, t, compId) : null; } catch { return null; }
+  }
+
   private env(frame: { t: number; frame: number }, compId = this.compId): DrawEnv {
-    return { host: this.hostFactory(frame, compId), registry: this.registry, pool: this.pool, scale: [this.sx, this.sy] };
+    return {
+      host: this.hostFactory(frame, compId), registry: this.registry, pool: this.pool, scale: [this.sx, this.sy], t: frame.t,
+      layerAt: (id) => this.layerOf(id, frame.t, compId),
+      ...(this.isolate ? { onError: (id: string, e: Error) => { this.errors.set(id, e.message); } } : {}),
+    };
   }
 
   /** a nested composition at its local time: background plate, then its layers */
@@ -242,7 +308,7 @@ export class Renderer {
     const times = subTimes(t, n, opts.shutter ?? frame.motionBlur.shutter, this.comp);
     let i = 0;
     return () => {
-      if (i === 0) { this.compositor.begin(); this.pending = []; }
+      if (i === 0) { this.compositor.begin(); this.pending = []; this.errors.clear(); }
       if (i < times.length) {
         const ts = times[i++];
         this.drawScene(ts === t ? frame : this.evaluator.frame(ts, this.compId));
@@ -257,7 +323,13 @@ export class Renderer {
     const { fx, seed } = finishOf(frame.effects, frame.frame);
     const bg = frame.background ? parseColor(frame.background) : null;
     const look: Look = { bg: bg ? [toLin(bg[0] / 255), toLin(bg[1] / 255), toLin(bg[2] / 255)] : null, checker: opts.checker };
-    this.compositor.finish(fx, look, seed, { hud: opts.hud ?? null, toFbo: opts.toFbo });
+    // finishing effects of plugins written in GLSL
+    const passes: FinishPass[] = frame.effects.flatMap((e) => {
+      const type = this.registry.hasEffect(e.type) ? this.registry.effect(e.type) : null;
+      return type?.stage === 'finish' && type.gl ? [{ code: type.gl.code, schema: type.props, props: e.props }] : [];
+    });
+    const onError = this.isolate ? (e: Error) => { this.errors.set('$comp.effects', e.message); } : (e: Error) => { throw e; };
+    this.compositor.finish(fx, look, seed, { hud: opts.hud ?? null, toFbo: opts.toFbo, passes, t: frame.t, scale: (this.sx + this.sy) / 2, onError });
     this.lastSeed = seed;
     return frame;
   }

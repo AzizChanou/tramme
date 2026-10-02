@@ -26,6 +26,8 @@ export const rect: NodeType<RectProps> = {
     return p;
   },
   bounds: ({ size: [w, h] }) => ({ x: -w / 2, y: -h / 2, w, h }),
+  // the corner radius, dragged along the top edge from the corner
+  handles: ({ size: [w, h], radius }) => [{ prop: 'radius', kind: 'distance', at: [w / 2 - Math.min(radius, Math.abs(w) / 2, Math.abs(h) / 2), -h / 2], from: [w / 2, -h / 2] }],
   render: { canvas2d(ctx, p, host) { fillStroke(ctx, rect.path!(p, host)!, p); } },
 };
 

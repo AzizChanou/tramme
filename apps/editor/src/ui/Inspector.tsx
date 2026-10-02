@@ -3,7 +3,7 @@
 // shown by colour and switched from its menu.
 
 import { useMemo, useState } from 'preact/hooks';
-import { Evaluator, getAt, pointer, propKind, sheetIssues, TRANSFORM_SCHEMA, MOTION_BLUR_SCHEMA, type TrammeDoc, type Paint, type Prop, type PropDef, type PropSchema, type Token } from '@tramme/core';
+import { Evaluator, getAt, pointer, propKind, sheetIssues, TRANSFORM_SCHEMA, MOTION_BLUR_SCHEMA, CAMERA_SCHEMA, type TrammeDoc, type Paint, type Prop, type PropDef, type PropSchema, type Token } from '@tramme/core';
 import { comp, commit, draft, cancelDraft, S, viewDoc, select, uiTime } from '../state.ts';
 import { addModifierOps, editAtOps, fixedOps, folderOf, imagesIn, keyAtOps, keyIndexAt, keysOf, removeKeyOps, removeModifierOps, setAtOps, snap, freshId, fmtSeconds } from '../model.ts';
 import { modsOf, modifierParams } from '@tramme/core';
@@ -275,6 +275,12 @@ function Field({ def, value, ctx, label, onDraft, onCommit }: { def: PropDef; va
       const opts = Object.entries(ctx.doc.compositions).filter(([id]) => id !== ctx.compId).map(([id, c]) => [id, c.name] as [string, string]);
       return <Select value={String(value ?? '')} options={[['', t('inspector.none')], ...opts]} onChange={(v) => onCommit(v || null)} />;
     }
+    case 'layer': {
+      // a layer of the same composition (mattes, displacement maps)
+      const layers = ctx.doc.compositions[ctx.compId]?.layers ?? {};
+      const opts = Object.entries(layers).map(([id, l]) => [id, l.name ?? id] as [string, string]);
+      return <Select value={String(value ?? '')} options={[['', t('inspector.none')], ...opts]} onChange={(v) => onCommit(v || null)} />;
+    }
     case 'color':
       return value === null ? <NullPaint onSet={() => onCommit('#FFFFFF')} /> : <ColorField value={rawColor(value)} tokens={ctx.tokens} onDraft={onDraft} onCommit={onCommit} />;
     case 'paint':
@@ -500,6 +506,11 @@ function CompInspector({ ctx }: { ctx: Ctx }) {
         {c.motionBlur
           ? <SchemaRows ctx={ctx} schema={MOTION_BLUR_SCHEMA} basePath={`${cp}/motionBlur`} baseAddress="$comp.motionBlur" />
           : <button class="btn sm" onClick={() => commit(t('common.motionBlur'), [{ op: 'add', path: `${cp}/motionBlur`, value: { samples: 8, shutter: 0.5 } }])}><Icon name="plus" />{t('inspector.enable')}</button>}
+      </Section>
+      <Section id="camera" title={t('inspector.camera')}>
+        {c.camera
+          ? <SchemaRows ctx={ctx} schema={CAMERA_SCHEMA} basePath={`${cp}/camera`} baseAddress="$comp.camera" />
+          : <button class="btn sm" onClick={() => commit(t('inspector.camera'), [{ op: 'add', path: `${cp}/camera`, value: {} }])}><Icon name="plus" />{t('inspector.enable')}</button>}
       </Section>
       <EffectsSection ctx={ctx} base={cp} address="$comp.effects" effects={c.effects || []} stage="finish" title={t('inspector.finishingEffects')} />
     </>

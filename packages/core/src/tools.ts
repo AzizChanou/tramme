@@ -8,7 +8,7 @@
 import type { Op } from './ops.ts';
 import type { Registry } from './registry.ts';
 import type { Transcript } from './transcript.ts';
-import type { TrammeDoc } from './types.ts';
+import type { Token, TrammeDoc } from './types.ts';
 
 /** notes for the assistant on a node, effect, modifier or tool: when to reach for it */
 export interface AiNotes {
@@ -39,17 +39,21 @@ export interface ToolContext {
   assetUrl(id: string): string;
   /** a text file of the project, or null when there is none */
   readText(path: string): Promise<string | null>;
-  /** writes a file under assets/ (data the tool computed) and returns its path; a new file is declared as an asset by the tool's operations */
+  /** writes a file under assets/ (data the tool computed) or a plugin under plugins/ (.js, .mjs) and returns its path; a new file is declared as an asset by the tool's operations */
   writeFile(path: string, data: Blob | string): Promise<string>;
   /** a still of a composition at time t (pending proposal included), as a JPEG data URL */
   renderStill(t: number, compId?: string): Promise<string>;
   /** the transcript of a sound or video asset (made when missing), or of a transcript asset */
   transcript(assetId: string): Promise<Transcript>;
+  /** aborted when the user stops the turn: a long analysis should stop too */
+  signal: AbortSignal;
 }
 
 export interface ToolOutput {
   /** what the tool found or did, for the assistant */
   text?: string;
+  /** what the user reads when they run it from the / menu, in their language (text by default) */
+  notice?: string;
   /** pictures shown to the assistant and the user (data URLs) */
   images?: { url: string; caption?: string }[];
   /** changes to the document, added to the pending proposal */
@@ -87,6 +91,20 @@ export interface PromptType {
   prompt: string;
 }
 
+/**
+ * A style kit: a motion language as design tokens (colours, curves, pace),
+ * applied to a document by the kit tool. Recipes and dressings read these
+ * tokens, so a film keeps one look. Usual names: plate (background), ink
+ * (text), accent, accent2 (colours); enter, exit (curves); pace (seconds of
+ * an entrance), stagger (seconds between siblings).
+ */
+export interface KitType {
+  name: string;
+  title?: string;
+  description: string;
+  tokens: Record<string, Token>;
+}
+
 export const TOOL_NAME = /^[A-Za-z][\w.-]{0,63}$/;
 
 /** a tool's result in one shape (a string is its text) */
@@ -97,6 +115,7 @@ export function toolOutput(r: unknown): ToolOutput {
   const o = r as Record<string, unknown>;
   const out: ToolOutput = {};
   if (typeof o.text === 'string') out.text = o.text;
+  if (typeof o.notice === 'string') out.notice = o.notice;
   if (typeof o.label === 'string') out.label = o.label;
   if (Array.isArray(o.ops)) out.ops = o.ops as Op[];
   if (Array.isArray(o.reload)) out.reload = o.reload.filter((x): x is string => typeof x === 'string');

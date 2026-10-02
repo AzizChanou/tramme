@@ -143,6 +143,23 @@ describe('worker: projects in R2', () => {
     });
   }
 
+  it('keeps plugins in a library shared by the projects', async () => {
+    const { call } = setup();
+    expect(await (await call('/api/library')).json()).toEqual([]);
+    const code = "export const meta = { name: 'brand', api: 1 };";
+    expect((await call('/api/library/brand.js', { method: 'PUT', body: code })).status).toBe(200);
+    expect((await call('/api/library')).ok).toBe(true);
+    const list = (await (await call('/api/library')).json()) as { name: string; size: number }[];
+    expect(list.map((x) => `${x.name}:${x.size}`)).toEqual([`brand.js:${code.length}`]);
+    const got = await call('/api/library/brand.js');
+    expect(got.headers.get('content-type')).toMatch(/javascript/);
+    expect(await got.text()).toBe(code);
+    expect((await call('/api/library/Bad%20Name.js', { method: 'PUT', body: code })).status).toBe(400);
+    expect((await call('/api/library/missing.js')).status).toBe(404);
+    expect((await call('/api/library/brand.js', { method: 'DELETE' })).status).toBe(200);
+    expect(await (await call('/api/library')).json()).toEqual([]);
+  });
+
   it('a large file (video) arrives in parts', async () => {
     const { call } = setup();
     const m = (await (await call('/api/projects', post({ name: 'Video' }))).json()) as Manifest;
