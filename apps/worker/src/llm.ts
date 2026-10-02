@@ -41,7 +41,8 @@ export async function llm(req: Request, env: Env, provider: string, rest: string
   return new Response(up.body, { status: up.status, headers: down });
 }
 
-export interface ModelInfo { id: string; label: string }
+/** effort: the model takes an effort level (OpenRouter's listing says it reasons) */
+export interface ModelInfo { id: string; label: string; effort?: true }
 
 /** the models worth offering: chat models, without dated copies, audio, images or embeddings */
 function keep(provider: Remote, list: any[]): ModelInfo[] {
@@ -60,9 +61,9 @@ function keep(provider: Remote, list: any[]): ModelInfo[] {
       .filter((id) => /^(glm-|chatglm)/i.test(id) && !/(embedding|cogview|cogvideo|audio|tts|image)/i.test(id))
       .map((id) => ({ id, label: id }));
   }
-  // OpenRouter: only the models that take tools
+  // OpenRouter: only the models that take tools; those that reason take an effort level
   return list.filter((m) => Array.isArray(m.supported_parameters) && m.supported_parameters.includes('tools'))
-    .map((m) => ({ id: String(m.id), label: String(m.name ?? m.id) }));
+    .map((m) => ({ id: String(m.id), label: String(m.name ?? m.id), ...(m.supported_parameters.includes('reasoning') ? { effort: true as const } : {}) }));
 }
 
 /** asked again at most every 10 minutes (per Worker instance) */

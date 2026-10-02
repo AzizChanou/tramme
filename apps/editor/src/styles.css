@@ -631,6 +631,9 @@ svg.i.flip { transform: rotate(180deg); }
 .model-pick:hover { color: var(--text); background: var(--field-hover); }
 .model-pick.wide { height: 28px; max-width: 240px; min-width: 180px; justify-content: space-between; padding: 0 6px 0 9px; font-size: 12px; }
 .models-pop { width: 300px; max-width: calc(100vw - 16px); display: flex; flex-direction: column; gap: 6px; padding: 8px; }
+.model-effort { padding-bottom: 4px; border-bottom: 1px solid var(--line); }
+.model-effort .seg { display: flex; margin: 2px 4px 0; }
+.model-effort .seg button { flex: 1 1 0; min-width: 0; padding-inline: 4px; white-space: nowrap; }
 .models-pop > .field { height: 28px; gap: 6px; padding-left: 8px; }
 .models-pop > .field svg.i { width: 14px; height: 14px; color: var(--text-3); }
 .models-list { max-height: min(420px, 60vh); overflow: auto; display: flex; flex-direction: column; gap: 6px; }

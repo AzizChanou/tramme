@@ -14,9 +14,10 @@ export const DEFAULT_MODEL = 'claude-opus-5-5';
 /** models that think when they need to (adaptive thinking) */
 export const ADAPTIVE = new Set(['claude-opus-5-5', 'claude-sonnet-5-5']);
 
-/** how hard the adaptive models work on a turn: thinking depth, care, checks (Opus 5.5 defaults to medium) */
+/** how hard a model works on a turn: thinking depth, care, checks (Opus 5.5 alone would run at medium) */
 export const EFFORTS = ['low', 'medium', 'high', 'xhigh', 'max'] as const;
 export type Effort = typeof EFFORTS[number];
+/** Claude's level when none is chosen; the other models keep their own default */
 export const DEFAULT_EFFORT: Effort = 'high';
 
 // ── other models ─────────────────────────────────────────────
@@ -48,6 +49,37 @@ export function providerOf(model: string): Provider {
 export const modelName = (model: string) => (providerOf(model) === 'anthropic' ? model : model.slice(model.indexOf(':') + 1));
 /** a short name to show */
 export const modelLabel = (model: string) => MODELS.find(([id]) => id === model)?.[1] ?? modelName(model).replace(/^models\//, '');
+
+/** the levels the providers of the chat format share (reasoning_effort, OpenRouter's reasoning.effort) */
+const CHAT_EFFORTS: Effort[] = ['low', 'medium', 'high'];
+
+/**
+ * The effort levels a model offers, none when it has no such setting. Claude
+ * Opus and Sonnet: all five. In the chat format, the reasoning models: OpenAI's
+ * o-series and GPT-5 (not their chat variants), Gemini 2.5 and later, the
+ * OpenRouter models whose listing says they reason (`reasons`), gpt-oss on a
+ * local server. Haiku, Z.AI and the other models: none.
+ */
+export function effortLevels(model: string, reasons = false): Effort[] {
+  const name = modelName(model).toLowerCase().replace(/^models\//, '');
+  switch (providerOf(model)) {
+    case 'anthropic': return ADAPTIVE.has(model) ? [...EFFORTS] : [];
+    case 'openai': return /^(o\d|gpt-5)/.test(name) && !/chat/.test(name) ? CHAT_EFFORTS : [];
+    case 'gemini': return /^gemini-(2\.5|[3-9])/.test(name) ? CHAT_EFFORTS : [];
+    case 'openrouter': return reasons ? CHAT_EFFORTS : [];
+    case 'local': return /gpt-oss/.test(name) ? CHAT_EFFORTS : [];
+    default: return [];
+  }
+}
+
+/** the level a model works at: the one chosen for it, otherwise high for Claude and nothing for the others (their own default) */
+export function effortFor(model: string, chosen: Record<string, Effort | undefined>, reasons = false): Effort | undefined {
+  const levels = effortLevels(model, reasons);
+  if (!levels.length) return undefined;
+  const c = chosen[model];
+  if (c && levels.includes(c)) return c;
+  return providerOf(model) === 'anthropic' ? DEFAULT_EFFORT : undefined;
+}
 
 /** default port of the local companion (tramme agent) */
 export const COMPANION_PORT = 4317;

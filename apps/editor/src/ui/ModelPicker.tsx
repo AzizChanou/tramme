@@ -3,15 +3,55 @@
 // LM Studio). A search narrows long lists (OpenRouter offers hundreds).
 
 import { useEffect, useRef, useState } from 'preact/hooks';
-import { MODELS, modelLabel, PROVIDER_LABEL, providerOf, REMOTE } from '@tramme/assistant';
-import { aiModels, aiSettings, aiStatus, loadModels, setAiSettings, type ModelOption } from '../ai/index.ts';
+import { MODELS, modelLabel, PROVIDER_LABEL, providerOf, REMOTE, type Effort } from '@tramme/assistant';
+import { aiModels, aiSettings, aiStatus, currentEffort, loadModels, modelEfforts, setAiSettings, setEffort, type ModelOption } from '../ai/index.ts';
 import { toast } from '../state.ts';
-import { Popover } from './controls.tsx';
+import { Popover, Seg } from './controls.tsx';
 import { Icon } from './icons.tsx';
 import { t } from '../i18n/index.ts';
 
 /** beyond this, a group asks for a narrower search */
 const SHOWN = 40;
+
+const EFFORT_LABEL: Record<Effort, () => string> = {
+  low: () => t('settings.effortLow'),
+  medium: () => t('settings.effortMedium'),
+  high: () => t('settings.effortHigh'),
+  xhigh: () => t('settings.effortXhigh'),
+  max: () => t('settings.effortMax'),
+};
+
+/** the model's effort, for the model button's tooltip ('' when it has no levels) */
+function effortTitle(model: string): string {
+  const options = effortOptions(model), current = currentEffort(model) ?? '';
+  return options.length ? t('settings.effortIs', { level: options.find(([v]) => v === current)?.[1] ?? '' }) : '';
+}
+
+/** the levels offered for a model, with its own default for the models other than Claude */
+function effortOptions(model: string): [string, string][] {
+  const levels = modelEfforts(model);
+  if (!levels.length) return [];
+  return [...(providerOf(model) === 'anthropic' ? [] : [['', t('settings.effortDefault')] as [string, string]]), ...levels.map((l): [string, string] => [l, EFFORT_LABEL[l]()])];
+}
+
+/**
+ * The effort level of the chosen model, for the models that have levels:
+ * in the settings, and at the top of the model menu. Claude's levels start
+ * at high; the other models also offer their own default.
+ */
+export function EffortPicker({ inMenu = false }: { inMenu?: boolean }) {
+  const model = aiSettings.value.model;
+  const options = effortOptions(model);
+  if (!options.length) return inMenu ? null : <span class="faint">{t('settings.effortNone')}</span>;
+  const seg = <Seg value={currentEffort(model) ?? ''} options={options} onChange={(v) => setEffort(model, (v || null) as Effort | null)} />;
+  if (!inMenu) return seg;
+  return (
+    <div class="model-group model-effort" title={t('settings.effortHint')}>
+      <div class="model-group-title">{t('settings.effortOfName', { name: modelLabel(model) })}</div>
+      {seg}
+    </div>
+  );
+}
 
 function Group({ title, options, current, query, pick, note }: { title: string; options: ModelOption[] | null; current: string; query: string; pick: (id: string) => void; note?: preact.ComponentChildren }) {
   const q = query.trim().toLowerCase();
@@ -52,15 +92,16 @@ export function ModelPicker({ wide = false }: { wide?: boolean }) {
   const firstVisible = () => (anchor ? (anchor.ownerDocument.querySelector('.models-pop .model-opt') as HTMLElement | null) : null);
   return (
     <>
-      <button class={`model-pick${wide ? ' wide' : ''}`} data-tour={wide ? undefined : 'assistant-model'} title={t('models.modelProvider', { provider: t(PROVIDER_LABEL[providerOf(model)]) })} onClick={(e) => setAnchor(anchor ? null : (e.currentTarget as HTMLElement))}>
+      <button class={`model-pick${wide ? ' wide' : ''}`} data-tour={wide ? undefined : 'assistant-model'} title={[t('models.modelProvider', { provider: t(PROVIDER_LABEL[providerOf(model)]) }), effortTitle(model)].filter(Boolean).join(' · ')} onClick={(e) => setAnchor(anchor ? null : (e.currentTarget as HTMLElement))}>
         <span>{modelLabel(model)}</span><Icon name="chevronDown" />
       </button>
       {anchor && (
         <Popover anchor={anchor} onClose={() => setAnchor(null)} class="models-pop" align="right">
           <div class="field"><Icon name="search" /><input ref={search} value={query} placeholder={t('models.searchForAModel')} onInput={(e) => setQuery((e.target as HTMLInputElement).value)}
             onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); if (typed) pick(typed); else firstVisible()?.click(); } }} /></div>
+          <EffortPicker inMenu />
           <div class="models-list">
-            {typed && <button class="model-opt" onClick={() => pick(typed)}><span>{t('models.useName', { name: typed })}</span></button>}
+            {typed &&<button class="model-opt" onClick={() => pick(typed)}><span>{t('models.useName', { name: typed })}</span></button>}
             <Group title="Claude" options={MODELS.map(([id, label]) => ({ id, label }))} current={model} query={query} pick={pick} />
             {configured.map((p) => {
               const list = models.remote[p];

@@ -121,6 +121,8 @@ export class ServerSession {
   messages: Message[] = [];
   /** chat models that refused images: they get a note instead */
   private noVision = new Set<string>();
+  /** chat models that refused an effort level: they run at their own */
+  private noEffort = new Set<string>();
   /** parts of the request the API refused in this session */
   private refused = new Set<Feature>();
 
@@ -159,7 +161,7 @@ export class ServerSession {
     for (let step = 0; step < MAX_STEPS; step++) {
       const { content, stop, invalid, declined } = providerOf(model) === 'anthropic'
         ? yield* this.request(model, system, opts.effort ?? DEFAULT_EFFORT, signal)
-        : yield* this.chat(model, system, signal, opts.target!, turnStart);
+        : yield* this.chat(model, system, signal, opts.target!, turnStart, opts.effort);
       // empty text blocks are refused when sent back
       const kept = content.filter((b) => !(b.type === 'text' && !b.text));
       this.messages.push({ role: 'assistant', content: kept.length ? kept : [{ type: 'text', text: '…' }] });
@@ -192,10 +194,12 @@ export class ServerSession {
   }
 
   /** one streamed request to a model of the chat format; yields the text as it comes, returns the content blocks */
-  private async *chat(model: string, system: string, signal: AbortSignal, target: ChatTarget, turnStart: number): AsyncGenerator<AiEvent, Answer> {
+  private async *chat(model: string, system: string, signal: AbortSignal, target: ChatTarget, turnStart: number, effort?: Effort): AsyncGenerator<AiEvent, Answer> {
     let res: Response | null = null;
     for (let attempt = 0; ; attempt++) {
-      const body = { model: modelName(model), stream: true, messages: toChat(this.messages, system, { vision: !this.noVision.has(model), gemini: providerOf(model) === 'gemini', imagesFrom: turnStart }), tools: CHAT_TOOLS };
+      // the effort level: reasoning_effort, or OpenRouter's own field
+      const level = effort && !this.noEffort.has(model) ? (providerOf(model) === 'openrouter' ? { reasoning: { effort } } : { reasoning_effort: effort }) : {};
+      const body = { model: modelName(model), stream: true, messages: toChat(this.messages, system, { vision: !this.noVision.has(model), gemini: providerOf(model) === 'gemini', imagesFrom: turnStart }), tools: CHAT_TOOLS, ...level };
       try {
         res = await fetch(`${target.url}/chat/completions`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body), signal });
       } catch (e) {
@@ -207,6 +211,8 @@ export class ServerSession {
       try { const j = await res.json(); const err = Array.isArray(j) ? j[0]?.error : j.error; message = err?.message ?? (typeof err === 'string' ? err : message); } catch { /* not JSON */ }
       // a model without vision: once more, the images replaced by a note
       if (res.status === 400 && !this.noVision.has(model) && /image|vision|multimodal/i.test(message)) { this.noVision.add(model); continue; }
+      // a level the model does not take: once more at its own
+      if (res.status === 400 && Object.keys(level).length && /reasoning|effort/i.test(message)) { this.noEffort.add(model); continue; }
       if ((res.status === 429 || res.status >= 500) && attempt < 2) { await backoff(res, attempt); continue; }
       throw new ApiFailure(res.status, message);
     }

@@ -68,7 +68,7 @@ const filePath = (path: string) => path.split('/').map(encodeURIComponent).join(
 export const api = {
   config: () => call<ServerConfig>('/api/config'),
   /** models of the providers with a key on the server */
-  models: () => call<Record<string, { id: string; label: string }[] | { error: string }>>('/api/models'),
+  models: () => call<Record<string, { id: string; label: string; effort?: true }[] | { error: string }>>('/api/models'),
 
   // ── projects ───────────────────────────────────────────────
   list: () => call<Manifest[]>('/api/projects'),

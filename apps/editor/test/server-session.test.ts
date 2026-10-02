@@ -171,6 +171,30 @@ describe('assistant, server path', () => {
     expect(sent[2].body.thinking.block_binding).toBeDefined();
   });
 
+  it('gives the chat-format models their effort level, in each provider\'s field, and drops it when refused', async () => {
+    const said = () => new Response('data: {"choices":[{"delta":{"content":"ok"},"finish_reason":"stop"}]}\n\ndata: [DONE]\n\n', { headers: { 'content-type': 'text/event-stream' } });
+    const chatTurn = (s: ServerSession, model: string, effort?: 'low' | 'high') => drain(s.turn('Hi', model, 'system prompt', fakeRunner().runner, new AbortController().signal, { target: { url: '/api/llm/x' }, effort }));
+
+    let sent = serve(said);
+    await chatTurn(new ServerSession(), 'openai:gpt-5', 'low');
+    expect(sent[0].body.reasoning_effort).toBe('low');
+
+    sent = serve(said);
+    await chatTurn(new ServerSession(), 'openrouter:deepseek/deepseek-r1', 'high');
+    expect(sent[0].body.reasoning).toEqual({ effort: 'high' });
+    expect(sent[0].body.reasoning_effort).toBeUndefined();
+
+    sent = serve(said);
+    await chatTurn(new ServerSession(), 'openai:gpt-5');
+    expect(sent[0].body).not.toHaveProperty('reasoning_effort');
+
+    const s = new ServerSession();
+    sent = serve(() => refusedWith("Unsupported value: 'reasoning_effort' does not support 'low' with this model."), said, said);
+    await chatTurn(s, 'local:gpt-oss:20b', 'low');
+    await chatTurn(s, 'local:gpt-oss:20b', 'low');
+    expect(sent.map((x) => x.body.reasoning_effort)).toEqual(['low', undefined, undefined]);
+  });
+
   it('says when Claude declines, and keeps only the text of an answer another model took over', async () => {
     serve(() => answer([{ text: 'Sorry.' }], 'refusal', { stop_details: { type: 'refusal', category: null, explanation: 'not allowed' } }));
     const events = await go(new ServerSession(), fakeRunner().runner);

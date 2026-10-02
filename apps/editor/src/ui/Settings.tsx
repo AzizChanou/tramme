@@ -3,7 +3,7 @@
 
 import type { ComponentChildren } from 'preact';
 import { useState } from 'preact/hooks';
-import { ModelPicker } from './ModelPicker.tsx';
+import { EffortPicker, ModelPicker } from './ModelPicker.tsx';
 import { aiSettings, aiStatus, refreshStatus, setAiSettings } from '../ai/index.ts';
 import { previewInfo } from '../preview.ts';
 import { DEFAULT_PREFERENCES, prefs, resetPrefs, setLanguage, setPrefs, settingsOpen, type Preferences } from '../settings.ts';
@@ -114,7 +114,7 @@ function Assistant() {
         <ModelPicker wide />
       </Row>
       <Row label={t('settings.effort')} hint={t('settings.effortHint')}>
-        <Seg value={a.effort} options={[['low', t('settings.effortLow')], ['medium', t('settings.effortMedium')], ['high', t('settings.effortHigh')], ['xhigh', t('settings.effortXhigh')], ['max', t('settings.effortMax')]]} onChange={(v) => setAiSettings({ effort: v as typeof a.effort })} />
+        <EffortPicker />
       </Row>
       <Row label={t('common.accessToClaude')} hint={t('settings.automaticTheLocalCompanion')}>
         <Seg value={a.prefer} options={[['auto', t('common.automatic')], ['companion', t('common.companion')], ['server', t('common.server')]]} onChange={(v) => setAiSettings({ prefer: v as typeof a.prefer })} />

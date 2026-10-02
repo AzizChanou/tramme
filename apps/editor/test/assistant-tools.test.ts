@@ -1,7 +1,38 @@
 import { describe, expect, it } from 'vitest';
+import { effortFor, effortLevels } from '@tramme/assistant';
 import { builtinRegistry } from '@tramme/nodes';
 import { inputIssues, vocabularyDetail, vocabularyIndex } from '../src/ai/answers.ts';
 import { REVIEW_TOOLS } from '../src/review.ts';
+
+describe('effort levels', () => {
+  it('are offered by the models that have them, and only those', () => {
+    expect(effortLevels('claude-opus-5-5')).toEqual(['low', 'medium', 'high', 'xhigh', 'max']);
+    expect(effortLevels('claude-haiku-4-5-20251001')).toEqual([]);
+    expect(effortLevels('openai:gpt-5')).toEqual(['low', 'medium', 'high']);
+    expect(effortLevels('openai:o4-mini')).toEqual(['low', 'medium', 'high']);
+    expect(effortLevels('openai:gpt-5-chat-latest')).toEqual([]);
+    expect(effortLevels('openai:gpt-4.1')).toEqual([]);
+    expect(effortLevels('gemini:gemini-2.5-pro')).toEqual(['low', 'medium', 'high']);
+    expect(effortLevels('gemini:models/gemini-3-flash')).toEqual(['low', 'medium', 'high']);
+    expect(effortLevels('gemini:gemini-2.0-flash')).toEqual([]);
+    expect(effortLevels('openrouter:deepseek/deepseek-r1')).toEqual([]);
+    expect(effortLevels('openrouter:deepseek/deepseek-r1', true)).toEqual(['low', 'medium', 'high']);
+    expect(effortLevels('local:gpt-oss:20b')).toEqual(['low', 'medium', 'high']);
+    expect(effortLevels('local:qwen3:8b')).toEqual([]);
+    expect(effortLevels('zai:glm-4-plus')).toEqual([]);
+  });
+
+  it('follow the choice made for each model; otherwise high for Claude, the model\'s own for the others', () => {
+    const chosen = { 'claude-opus-5-5': 'max', 'openai:gpt-5': 'low', 'gemini:gemini-2.5-pro': 'xhigh' } as const;
+    expect(effortFor('claude-opus-5-5', chosen)).toBe('max');
+    expect(effortFor('claude-sonnet-5-5', chosen)).toBe('high');
+    expect(effortFor('openai:gpt-5', chosen)).toBe('low');
+    expect(effortFor('openai:o4-mini', chosen)).toBeUndefined();
+    // a level the model does not have: its default
+    expect(effortFor('gemini:gemini-2.5-pro', chosen)).toBeUndefined();
+    expect(effortFor('claude-haiku-4-5-20251001', { 'claude-haiku-4-5-20251001': 'high' })).toBeUndefined();
+  });
+});
 
 describe("the assistant's tools", () => {
   it('refuses an input that does not match the tool, saying what is wrong', () => {

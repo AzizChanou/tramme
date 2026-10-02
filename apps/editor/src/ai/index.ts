@@ -5,7 +5,7 @@
 // straight from the browser. The conversation is shared by all of them.
 
 import { computed, signal } from '@preact/signals';
-import { COMPANION_PORT, DEFAULT_EFFORT, DEFAULT_MODEL, EFFORTS, LOCAL_URL, MODELS, PROVIDER_LABEL, providerOf, REMOTE, setTranslator, systemPrompt, TOOLS, userPrompt, type Effort, type Provider, type TurnContext } from '@tramme/assistant';
+import { COMPANION_PORT, DEFAULT_MODEL, EFFORTS, effortFor, effortLevels, LOCAL_URL, MODELS, PROVIDER_LABEL, providerOf, REMOTE, setTranslator, systemPrompt, TOOLS, userPrompt, type Effort, type Provider, type TurnContext } from '@tramme/assistant';
 import { CHAT, CHAT_INDEX, chatPath } from '@tramme/project';
 import type { TrammeDoc } from '@tramme/core';
 import reference from '../../../../docs/document.md';
@@ -26,18 +26,19 @@ export interface AiSettings {
   token: string;
   /** where local models answer (OpenAI format): Ollama by default, LM Studio on :1234 */
   localUrl: string;
-  /** how hard Opus and Sonnet work on a turn */
-  effort: Effort;
+  /** the effort level chosen for each model that has levels; none chosen: high for Claude, the model's own default for the others */
+  efforts: Record<string, Effort>;
 }
 
 const KEY = 'tramme.assistant';
 function loadSettings(): AiSettings {
-  const d: AiSettings = { model: DEFAULT_MODEL, prefer: 'auto', companionUrl: `http://127.0.0.1:${COMPANION_PORT}`, token: '', localUrl: LOCAL_URL, effort: DEFAULT_EFFORT };
+  const d: AiSettings = { model: DEFAULT_MODEL, prefer: 'auto', companionUrl: `http://127.0.0.1:${COMPANION_PORT}`, token: '', localUrl: LOCAL_URL, efforts: {} };
   try {
     // the settings kept under the tool's former name (model, companion token) are taken over
     const s = { ...d, ...JSON.parse(localStorage.getItem(KEY) ?? localStorage.getItem('emotion.assistant') ?? '{}') } as AiSettings;
     if (typeof s.model !== 'string' || (providerOf(s.model) === 'anthropic' && !MODELS.some(([id]) => id === s.model))) s.model = d.model;
-    if (!EFFORTS.includes(s.effort)) s.effort = d.effort;
+    const efforts = s.efforts && typeof s.efforts === 'object' ? s.efforts : {};
+    s.efforts = Object.fromEntries(Object.entries(efforts).filter(([, e]) => EFFORTS.includes(e)));
     return s;
   } catch { return d; }
 }
@@ -66,9 +67,27 @@ interface Status {
 }
 export const aiStatus = signal<Status>({ companion: 'checking', server: null, remote: {}, local: 'unknown' });
 
-export interface ModelOption { id: string; label: string }
+/** effort: the provider says the model reasons, so it takes an effort level (OpenRouter) */
+export interface ModelOption { id: string; label: string; effort?: boolean }
 /** models offered by each provider besides Claude (filled when the model menu opens) */
 export const aiModels = signal<{ remote: Partial<Record<Remote, ModelOption[] | { error: string }>>; local: ModelOption[] }>({ remote: {}, local: [] });
+
+/** whether OpenRouter's listing says this model reasons */
+function reasons(model: string): boolean {
+  if (providerOf(model) !== 'openrouter') return false;
+  const list = aiModels.value.remote.openrouter;
+  return Array.isArray(list) && !!list.find((o) => `openrouter:${o.id}` === model)?.effort;
+}
+
+/** the effort levels the model offers (none: no choice to show) */
+export const modelEfforts = (model: string) => effortLevels(model, reasons(model));
+/** the level the model works at; undefined: its own default */
+export const currentEffort = (model: string) => effortFor(model, aiSettings.value.efforts, reasons(model));
+/** the level chosen for a model; null: back to its default */
+export function setEffort(model: string, effort: Effort | null) {
+  const { [model]: _, ...rest } = aiSettings.peek().efforts;
+  keepSettings({ efforts: effort ? { ...rest, [model]: effort } : rest });
+}
 
 export type Route = 'companion' | 'server' | 'remote' | 'local';
 
@@ -143,6 +162,8 @@ export async function refreshStatus(quiet = false) {
   if (local) aiModels.value = { ...aiModels.peek(), local };
   if (quiet && JSON.stringify(next) === JSON.stringify(aiStatus.peek())) return;
   aiStatus.value = next;
+  // an OpenRouter model: its listing says whether it takes an effort level
+  if (providerOf(aiSettings.peek().model) === 'openrouter' && next.remote.openrouter && !aiModels.peek().remote.openrouter) loadModels().catch(() => {});
 }
 
 // ── conversations ────────────────────────────────────────────
@@ -313,7 +334,7 @@ export async function* ask(p: AskPayload, signal: AbortSignal): AsyncGenerator<A
   if (route !== 'companion' && !session.server.messages.length) notes.unshift(...earlier());
   const prompt = userPrompt(p.text, p.context, notes);
   const system = systemPrompt(reference);
-  const { model, effort } = aiSettings.peek();
+  const model = aiSettings.peek().model, effort = currentEffort(model);
   if (route === 'companion') yield* companionTurn(link(), { prompt, system, model, effort, sessionId: session.companion, images }, runner, signal, (id) => { session.companion = id; });
   else {
     const target = route === 'local' ? { url: localBase() } : route === 'remote' ? { url: `/api/llm/${providerOf(model)}` } : undefined;

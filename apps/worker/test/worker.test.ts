@@ -196,7 +196,7 @@ describe('other model providers', () => {
       if (url.endsWith('/chat/completions')) return new Response('data: {"choices":[{"delta":{"content":"ok"}}]}\n\ndata: [DONE]\n\n', { headers: { 'content-type': 'text/event-stream' } });
       if (url.startsWith('https://api.openai.com')) return Response.json({ data: [{ id: 'gpt-5' }, { id: 'gpt-5-2025-08-07' }, { id: 'gpt-4o-realtime-preview' }, { id: 'text-embedding-3-large' }, { id: 'o4-mini' }] });
       if (url.startsWith('https://api.z.ai')) return Response.json({ data: [{ id: 'glm-4-plus' }, { id: 'glm-4-flash' }, { id: 'embedding-3' }, { id: 'cogvideox' }] });
-      return Response.json({ data: [{ id: 'deepseek/deepseek-chat', name: 'DeepSeek: Chat', supported_parameters: ['tools'] }, { id: 'some/no-tools', name: 'No tools', supported_parameters: [] }] });
+      return Response.json({ data: [{ id: 'deepseek/deepseek-chat', name: 'DeepSeek: Chat', supported_parameters: ['tools'] }, { id: 'deepseek/deepseek-r1', name: 'DeepSeek: R1', supported_parameters: ['tools', 'reasoning'] }, { id: 'some/no-tools', name: 'No tools', supported_parameters: [] }] });
     }) as typeof fetch;
     try {
       const config = await (await call('/api/config')).json() as { llm: Record<string, boolean> };
@@ -217,9 +217,10 @@ describe('other model providers', () => {
       expect(missing.status).toBe(503);
       expect(((await missing.json()) as { error: string }).error).toContain('GEMINI_API_KEY');
 
-      const models = await (await call('/api/models')).json() as Record<string, { id: string }[]>;
+      const models = await (await call('/api/models')).json() as Record<string, { id: string; effort?: true }[]>;
       expect(models.openai.map((m) => m.id)).toEqual(['gpt-5', 'o4-mini']);
-      expect(models.openrouter.map((m) => m.id)).toEqual(['deepseek/deepseek-chat']);
+      // the models that reason say so: they take an effort level
+      expect(models.openrouter.map((m) => [m.id, !!m.effort])).toEqual([['deepseek/deepseek-chat', false], ['deepseek/deepseek-r1', true]]);
       expect(models.zai.map((m) => m.id)).toEqual(['glm-4-flash', 'glm-4-plus']);
       expect(models.gemini).toBeUndefined();
     } finally { globalThis.fetch = real; }

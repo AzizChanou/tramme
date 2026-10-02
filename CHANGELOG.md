@@ -31,7 +31,7 @@ Until 1.0.0, the document format and the APIs may still change between minor ver
 - The assistant knows when each built-in node, effect and modifier fits (notes in `list_nodes`).
 - Example project "Night sky": a project plugin with a node, a tool and a workflow.
 - Plugins roadmap: `docs/plugins-roadmap.md`.
-- Assistant effort setting (Settings, Assistant): how hard Claude Opus and Sonnet work on each message, `high` by default (Opus 5.5 alone would run at `medium`). Both the server path and the local companion use it.
+- Assistant effort levels, chosen for each model next to the model menu and in the settings: Claude Opus and Sonnet (low to max, `high` by default, where Opus 5.5 alone would run at `medium`), and the reasoning models of the other providers (OpenAI o-series and GPT-5, Gemini 2.5 and later, OpenRouter models that reason, gpt-oss on a local server: low, medium, high, or the model's own default). A model that refuses its level runs at its own.
 
 ### Changed
 
