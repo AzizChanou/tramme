@@ -2,9 +2,11 @@
 // schema of its properties and how to draw itself. The editor's inspector is
 // generated from these schemas, the validator checks documents against them,
 // and the evaluator fills in their defaults. Effects follow the same shape.
+// Plugins may also bring authoring tools for the assistant (tools.ts).
 
 import type { Asset, Vec2 } from './types.ts';
 import { BUILTIN_MODIFIERS, type ModifierType } from './modifiers.ts';
+import { TOOL_NAME, type AiNotes, type PromptType, type ToolType } from './tools.ts';
 
 export type PropType =
   | 'number' | 'vec2' | 'bool'
@@ -109,6 +111,8 @@ export interface NodeType<P = any> {
   title: string;
   category: string;
   description?: string;
+  /** notes for the assistant */
+  ai?: AiNotes;
   props: PropSchema;
   /** accepts children (rendered in the node's local space) */
   container?: boolean;
@@ -127,6 +131,8 @@ export interface EffectType<P = any> {
   title: string;
   category: string;
   description?: string;
+  /** notes for the assistant */
+  ai?: AiNotes;
   props: PropSchema;
   /** 'finish': applied once to the whole composed frame (compositor); 'layer': to one layer */
   stage: 'finish' | 'layer';
@@ -143,10 +149,24 @@ export interface EffectType<P = any> {
   };
 }
 
+/** a tool and who brought it ('tramme', or a plugin's id) */
+export interface ToolEntry { tool: ToolType; from: string }
+
+/** what a plugin module may export to extend the vocabulary */
+export interface PluginModule {
+  nodes?: NodeType[];
+  effects?: EffectType[];
+  modifiers?: ModifierType[];
+  tools?: ToolType[];
+  prompts?: PromptType[];
+}
+
 export class Registry {
   private nodes = new Map<string, NodeType>();
   private effects = new Map<string, EffectType>();
   private modifiers = new Map<string, ModifierType>(BUILTIN_MODIFIERS.map((m) => [m.type, m]));
+  private tools = new Map<string, ToolEntry>();
+  private prompts = new Map<string, { prompt: PromptType; from: string }>();
 
   register(...nodes: NodeType[]): this {
     for (const n of nodes) {
@@ -187,16 +207,41 @@ export class Registry {
     return e;
   }
   listNodes() { return [...this.nodes.values()]; }
+  registerTool(...tools: ToolType[]): this {
+    for (const t of tools) {
+      if (this.tools.has(t.name)) throw new Error(`tool already registered: ${t.name}`);
+      this.tools.set(t.name, { tool: t, from: 'tramme' });
+    }
+    return this;
+  }
+  hasTool(name: string) { return this.tools.has(name); }
+  tool(name: string): ToolEntry {
+    const t = this.tools.get(name);
+    if (!t) throw new Error(`unknown tool: ${name}`);
+    return t;
+  }
+  listTools() { return [...this.tools.values()]; }
+  registerPrompt(...prompts: PromptType[]): this {
+    for (const p of prompts) {
+      if (this.prompts.has(p.name)) throw new Error(`workflow already registered: ${p.name}`);
+      this.prompts.set(p.name, { prompt: p, from: 'tramme' });
+    }
+    return this;
+  }
+  /** the workflows offered in the chat (/name), and who brought them */
+  listPrompts() { return [...this.prompts.values()]; }
   /** a copy that can take more plugins without touching this one */
   clone(): Registry {
     const r = new Registry();
     for (const n of this.nodes.values()) r.nodes.set(n.type, n);
     for (const e of this.effects.values()) r.effects.set(e.type, e);
     for (const m of this.modifiers.values()) r.modifiers.set(m.type, m);
+    for (const [k, t] of this.tools) r.tools.set(k, t);
+    for (const [k, p] of this.prompts) r.prompts.set(k, p);
     return r;
   }
-  /** register what a plugin module exports (`nodes`, `effects`); a plugin may replace its own earlier version */
-  use(mod: { nodes?: NodeType[]; effects?: EffectType[]; modifiers?: ModifierType[] }, from: string): this {
+  /** register what a plugin module exports (`nodes`, `effects`, `modifiers`, `tools`, `prompts`); a plugin may replace its own earlier version */
+  use(mod: PluginModule, from: string): this {
     for (const n of mod.nodes || []) {
       if (!n || typeof n.type !== 'string' || !n.props || !n.render) throw new Error(`plugin ${from}: malformed node`);
       this.nodes.set(n.type, n);
@@ -205,6 +250,14 @@ export class Registry {
     for (const m of mod.modifiers || []) {
       if (!m || typeof m.apply !== 'function') throw new Error(`plugin ${from}: malformed modifier`);
       this.modifiers.set(m.type, m);
+    }
+    for (const t of mod.tools || []) {
+      if (!t || typeof t.name !== 'string' || !TOOL_NAME.test(t.name) || typeof t.run !== 'function' || typeof t.description !== 'string') throw new Error(`plugin ${from}: malformed tool${t && typeof t.name === 'string' ? ` "${t.name}"` : ''}`);
+      this.tools.set(t.name, { tool: t, from });
+    }
+    for (const p of mod.prompts || []) {
+      if (!p || typeof p.name !== 'string' || !TOOL_NAME.test(p.name) || typeof p.prompt !== 'string' || typeof p.description !== 'string') throw new Error(`plugin ${from}: malformed workflow${p && typeof p.name === 'string' ? ` "${p.name}"` : ''}`);
+      this.prompts.set(p.name, { prompt: p, from });
     }
     return this;
   }

@@ -239,6 +239,11 @@ async function cmdNodes(file?: string) {
   for (const e of reg.listEffects()) console.log(`${e.type.padEnd(16)} ${e.title} (${e.stage === 'finish' ? 'composition' : 'layer'}) : ${Object.keys(e.props).join(', ')}`);
   console.log('\nmodificateurs');
   for (const m of reg.listModifiers()) console.log(`${m.type.padEnd(16)} ${m.title} : ${Object.keys(m.params).join(', ')}`);
+  const tools = reg.listTools();
+  if (tools.length) {
+    console.log('\noutils');
+    for (const { tool, from } of tools) console.log(`${tool.name.padEnd(16)} ${tool.title ?? tool.description} (${from}) : ${Object.keys((tool.input?.properties ?? {}) as object).join(', ')}`);
+  }
 }
 
 function cmdSchema() {

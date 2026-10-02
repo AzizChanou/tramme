@@ -1,0 +1,53 @@
+// The editor's vocabulary: the engine's nodes and effects, plus the editor's
+// own tools (the ready-made dressings) and workflows. They reach the
+// assistant (use_tool) and the chat's / menu the same way as those a
+// project's plugins bring.
+
+import type { PromptType, ToolContext, ToolType } from '@tramme/core';
+import { builtinRegistry } from '@tramme/nodes';
+import { TEMPLATES, type TemplateArgs } from './templates.ts';
+
+const at = { type: 'number', minimum: 0, title: 'Start (s)', description: 'composition time; the current time by default' };
+const duration = { type: 'number', minimum: 0.1, title: 'Duration (s)' };
+const place = { enum: ['top', 'center', 'bottom'], title: 'Place' };
+
+/** the transcript the captions read: the one of the edit when there is one */
+function transcriptOf(ctx: ToolContext): string | undefined {
+  const ids = Object.entries(ctx.doc.assets).filter(([id, a]) => a.type === 'json' && id.startsWith('transcription-')).map(([id]) => id);
+  return ids.find((id) => id.endsWith('-edit')) ?? ids[0];
+}
+
+function templateTool(name: string, properties: Record<string, unknown>, required: string[] = []): ToolType<Partial<TemplateArgs>> {
+  const tpl = TEMPLATES[name];
+  return {
+    name, title: tpl.title, description: tpl.description,
+    input: { type: 'object', properties, required },
+    run(input, ctx) {
+      const transcript = name === 'captions' ? input.transcript ?? transcriptOf(ctx) : input.transcript;
+      return tpl.build(ctx.doc, ctx.compId, { ...input, at: input.at ?? ctx.time, transcript });
+    },
+  };
+}
+
+export const EDITOR_TOOLS: ToolType[] = [
+  templateTool('captions', { transcript: { type: 'string', format: 'asset', assetType: 'json', title: 'Transcript' }, at, duration, place }),
+  templateTool('title', { text: { type: 'string', title: 'Text' }, subtitle: { type: 'string', title: 'Subtitle' }, at, duration, place }, ['text']),
+  templateTool('keyword', { text: { type: 'string', title: 'Text' }, at, duration, place }, ['text']),
+  templateTool('lower-third', { text: { type: 'string', title: 'Name' }, subtitle: { type: 'string', title: 'Role' }, at, duration }, ['text']),
+];
+
+export const EDITOR_PROMPTS: PromptType[] = [
+  {
+    name: 'dress', title: 'Dress a talking video', description: 'cuts, captions, titles and keywords on a video where someone speaks',
+    prompt: 'Dress the talking video of this project, following your guide for talking videos: ask about the format and the tone if I have not said them, read the transcript, cut the silences and hesitations, add captions, section titles and keywords at the right moments, then check with frames.',
+  },
+  {
+    name: 'review', title: 'Review the composition', description: 'checks the key moments and fixes what is wrong',
+    prompt: 'Review the composition: render frames at its key moments (entrances, transitions, the busiest moments) and look for text too small, too brief or with too little contrast, elements outside the safe zones or over a face, overlaps, and empty stretches. Propose fixes for what you find, then check them.',
+  },
+];
+
+/** the base vocabulary of the editor, before a document's plugins */
+export function editorRegistry() {
+  return builtinRegistry().registerTool(...EDITOR_TOOLS).registerPrompt(...EDITOR_PROMPTS);
+}

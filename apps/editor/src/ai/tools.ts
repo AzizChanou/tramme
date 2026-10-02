@@ -1,11 +1,11 @@
 // The assistant's tools, run here in the editor whichever way Claude is
 // reached: the document (with the assistant's pending proposal applied), the
-// node vocabulary, the engine's values, stills from the same renderer, and the
-// project's text files. The document itself only changes through proposals
-// the user applies.
+// node vocabulary, the engine's values, stills from the same renderer, the
+// project's text files, and the tools its plugins bring. The document itself
+// only changes through proposals the user applies.
 
-import { applyOps, Evaluator, isTranscript, pointer, remapTranscript, silences, validate, type TrammeDoc, type Op, type Registry, type Transcript } from '@tramme/core';
-import { builtinRegistry } from '@tramme/nodes';
+import { applyOps, Evaluator, isTranscript, pointer, remapTranscript, silences, toolInputIssues, toolOutput, validate, type TrammeDoc, type Op, type Registry, type ToolContext, type Transcript } from '@tramme/core';
+import { editorRegistry } from '../vocabulary.ts';
 import { DOCUMENT, isChatPath, MANIFEST, pathIssue, srcPath } from '@tramme/project';
 import { Renderer, VideoFrames } from '@tramme/render';
 import type { ToolResult } from '@tramme/assistant';
@@ -41,7 +41,7 @@ export class ToolRunner {
   /** a renderer of its own (never the preview's), on the given document */
   private async rendererFor(doc: TrammeDoc, compId?: string): Promise<Renderer> {
     const base = new URL(S.docUrl.peek(), location.href).href;
-    if (!this.renderer) this.renderer = await Renderer.open(doc, builtinRegistry(), base, this.canvas, { compId, raster: 'gpu' });
+    if (!this.renderer) this.renderer = await Renderer.open(doc, editorRegistry(), base, this.canvas, { compId, raster: 'gpu' });
     else await this.renderer.setDoc(doc, { compId: compId ?? doc.root, trusted: true });
     return this.renderer;
   }
@@ -190,9 +190,11 @@ ${r.content[0].type === 'text' ? r.content[0].text : ''}`);
         case 'get_document': return text(JSON.stringify(this.liveDoc()));
         case 'list_nodes': {
           const reg = await this.registry(this.liveDoc());
-          const nodes = reg.listNodes().map((n) => ({ type: n.type, title: n.title, category: n.category, container: !!n.container, props: n.props }));
-          const effects = reg.listEffects().map((e) => ({ type: e.type, title: e.title, stage: e.stage, props: e.props }));
-          return text(JSON.stringify({ nodes, effects }));
+          const nodes = reg.listNodes().map((n) => ({ type: n.type, title: n.title, category: n.category, container: !!n.container, ...(n.ai ? { ai: n.ai } : {}), props: n.props }));
+          const effects = reg.listEffects().map((e) => ({ type: e.type, title: e.title, stage: e.stage, ...(e.ai ? { ai: e.ai } : {}), props: e.props }));
+          const modifiers = reg.listModifiers().map((m) => ({ type: m.type, title: m.title, description: m.description, ...(m.ai ? { ai: m.ai } : {}), params: m.params }));
+          const tools = reg.listTools().map(({ tool: x, from }) => ({ name: x.name, from, description: x.description, ...(x.ai ? { ai: x.ai } : {}), input: x.input ?? { type: 'object' } }));
+          return text(JSON.stringify({ nodes, effects, modifiers, tools }));
         }
         case 'evaluate': {
           const doc = this.liveDoc();
@@ -214,6 +216,7 @@ ${r.content[0].type === 'text' ? r.content[0].text : ''}`);
         case 'get_transcript': return await this.transcript(String(input.asset ?? ''), input.from, input.to, !!input.words);
         case 'media_frame': return await this.mediaFrame(String(input.asset ?? ''), Number(input.t ?? 0));
         case 'cut_media': return await this.cut(input);
+        case 'use_tool': return await this.useTool(String(input.name ?? ''), input.input ?? {});
         case 'apply_template': {
           const tpl = TEMPLATES[String(input.template)];
           if (!tpl) return text(`unknown template: ${input.template} (${Object.keys(TEMPLATES).join(', ')})`, true);
@@ -228,7 +231,8 @@ ${r.content[0].type === 'text' ? r.content[0].text : ''}`);
     }
   }
 
-  private async still(t: number, compId: string | undefined, caption?: string): Promise<ToolResult> {
+  /** a still of the live document, as a JPEG data URL */
+  private async stillUrl(t: number, compId?: string): Promise<string> {
     const doc = this.liveDoc();
     const id = compId && doc.compositions[compId] ? compId : doc.root;
     const r = await this.rendererFor(doc, id);
@@ -239,9 +243,65 @@ ${r.content[0].type === 'text' ? r.content[0].text : ''}`);
     const copy = document.createElement('canvas');
     copy.width = this.canvas.width; copy.height = this.canvas.height;
     copy.getContext('2d')!.drawImage(this.canvas, 0, 0);
-    const url = copy.toDataURL('image/jpeg', 0.86);
+    return copy.toDataURL('image/jpeg', 0.86);
+  }
+
+  private async still(t: number, compId: string | undefined, caption?: string): Promise<ToolResult> {
+    const url = await this.stillUrl(t, compId);
     this.events.push({ type: 'item', item: { id: uid(), role: 'assistant', image: { url, caption: `${t.toFixed(2)} s${caption ? ` · ${caption}` : ''}` } } });
     return { content: [{ type: 'image', data: url.slice(url.indexOf(',') + 1), mimeType: 'image/jpeg' }] };
+  }
+
+  // ── tools brought by the project's plugins ───────────────────
+  private toolContext(doc: TrammeDoc, registry: Registry): ToolContext {
+    const compId = doc.compositions[S.compId.peek()] ? S.compId.peek() : doc.root;
+    return {
+      doc, compId, registry,
+      time: S.time.peek(),
+      selection: S.selection.peek().filter((id) => doc.compositions[compId].layers[id]),
+      assetUrl: (id) => { const a = doc.assets[id]; if (!a) throw new Error(`unknown asset: ${id}`); return this.urlOf(a.src); },
+      readText: async (path) => (await api.readText(S.project.peek().id, path))?.text ?? null,
+      writeFile: async (path, data) => {
+        const bad = pathIssue(path);
+        if (bad || !path.startsWith('assets/')) throw new Error(`${path}: ${bad ?? 'a tool writes under assets/ only'}`);
+        await api.write(S.project.peek().id, path, typeof data === 'string' ? new Blob([data], { type: /\.json$/i.test(path) ? 'application/json' : 'text/plain' }) : data);
+        return path;
+      },
+      renderStill: (t, id) => this.stillUrl(t, id),
+      transcript: async (id) => (await this.readTranscript(id)).t,
+    };
+  }
+
+  /** a tool of the project's plugins: its text and images for the assistant, its operations added to the proposal */
+  private async useTool(name: string, input: unknown): Promise<ToolResult> {
+    const doc = this.liveDoc(), reg = await this.registry(doc);
+    if (!reg.hasTool(name)) {
+      const names = reg.listTools().map((e) => e.tool.name);
+      return text(`unknown tool: ${name}. ${names.length ? `Tools of this project: ${names.join(', ')}.` : 'This project has no tools (list_nodes).'}`, true);
+    }
+    const { tool, from } = reg.tool(name);
+    const issues = toolInputIssues(tool.input, input);
+    if (issues.length) return text(`input refused by ${name}:\n${issues.join('\n')}`, true);
+    let out;
+    try { out = toolOutput(await tool.run(input, this.toolContext(doc, reg))); }
+    catch (e) { return text(`${name} (plugin ${from}) failed: ${(e as Error).message}`, true); }
+    const content: ToolResult['content'] = [];
+    for (const img of out.images ?? []) {
+      const m = /^data:(image\/(?:png|jpeg|webp|gif));base64,/.exec(img.url);
+      if (!m) continue;
+      this.events.push({ type: 'item', item: { id: uid(), role: 'assistant', image: { url: img.url, caption: img.caption ?? tool.title ?? name } } });
+      content.push({ type: 'image', data: img.url.slice(m[0].length), mimeType: m[1] });
+    }
+    if (out.reload?.length) this.events.push({ type: 'reload', assets: out.reload });
+    const lines = out.text ? [out.text] : [];
+    if (out.ops?.length) {
+      const r = await this.propose(out.label ?? tool.title ?? name, out.ops);
+      const said = r.content[0]?.type === 'text' ? r.content[0].text : '';
+      if (r.isError) return text([...lines, said].join('\n'), true);
+      lines.push(said);
+    }
+    content.unshift({ type: 'text', text: lines.join('\n') || `${name}: done.` });
+    return { content };
   }
 
   private async propose(label: string, ops: Op[]): Promise<ToolResult> {

@@ -8,6 +8,18 @@ Until 1.0.0, the document format and the APIs may still change between minor ver
 
 ## [Unreleased]
 
+### Added
+
+- Plugin tools: a project plugin can export `tools` that the assistant runs with `use_tool` (analyses, layouts, generators). A tool answers with text and images and may propose changes, which join the assistant's proposal.
+- Notes for the assistant (`ai: { when, avoid, example }`) on nodes, effects, modifiers and tools; `list_nodes` and `tramme nodes` now list modifiers and tools too.
+- Chat commands: typing `/` lists the tools and workflows (`/captions`, `/title`, `/keyword`, `/lower-third`, `/dress`, `/review`, and those of the project's plugins). A tool with its form filled runs at once, without a model; words after the command hand it to the assistant.
+- Plugin workflows: a project plugin can export `prompts`, instructions for the assistant picked from the `/` menu.
+- Plugins roadmap: `docs/plugins-roadmap.md`.
+
+### Fixed
+
+- On phones, the assistant's message box no longer slips under the tab bar when the conversation is long.
+
 ## [0.1.0] - 2026-10-02
 
 First public release.

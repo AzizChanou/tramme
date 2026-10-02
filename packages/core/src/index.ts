@@ -14,3 +14,4 @@ export * from './modifiers.ts';
 export * from './sequence.ts';
 export * from './audio.ts';
 export * from './transcript.ts';
+export * from './tools.ts';

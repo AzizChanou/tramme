@@ -72,7 +72,7 @@ export const TOOLS: ToolDef[] = [
   },
   {
     name: 'list_nodes',
-    description: "The available node and effect types (built-in and the project's plugins), with their property schemas and default values.",
+    description: "The vocabulary of the project: node, effect and modifier types (built-in and the project's plugins) with their property schemas, default values and notes on when to use them, and the tools the plugins bring (run them with use_tool).",
     schema: z.object({}),
     label: () => t('Reading the node vocabulary'),
   },
@@ -182,6 +182,20 @@ TOOLS.push(
   },
 );
 
+// ── tools brought by the project's plugins ──
+// One generic tool, so the definitions sent to the model stay the same
+// whatever the project holds (prompt caching keeps working); list_nodes
+// gives each plugin tool with its input schema.
+TOOLS.push({
+  name: 'use_tool',
+  description: "Runs a tool brought by the project's plugins (list_nodes lists them, with their input schema and when to use them): analyses of the media, ready-made layouts, generators. A tool may answer with text and images, and may propose changes, which add up to your pending proposal like propose_changes.",
+  schema: z.object({
+    name: z.string().describe('name of the tool, as list_nodes gives it'),
+    input: z.record(z.string(), z.any()).optional().describe("the tool's input, matching its schema"),
+  }),
+  label: (i) => t('Tool: {name}', { name: i.name }),
+});
+
 /** tools whose activity is shown as a proposal card rather than a line */
 export const SILENT = new Set(['propose_changes', 'discard_proposal']);
 
@@ -195,7 +209,8 @@ Rules:
 - When the request is about "this", "this layer", "here", "now": it means the selection and the current time given in the message context.
 - Check your work: after a proposal, render one or two frames (render_still) at the times that matter and fix what needs fixing. Be thrifty: no more frames than needed.
 - Use the existing design tokens (colors, curves) rather than hard-coded values, and follow the style already in the document.
-- For what the existing nodes cannot do, write a node plugin (write_file, for example plugins/my-node.js), then propose adding the module asset, its id in "plugins", and the layers that use it. Rendering must stay a pure function of time.
+- Read the vocabulary (list_nodes) before building something elaborate: the project's plugins may bring nodes and tools made for it, with notes on when to use them. When a tool fits (use_tool), prefer it to writing many operations by hand.
+- For what the existing nodes cannot do, write a node plugin (write_file, for example plugins/my-node.js), then propose adding the module asset, its id in "plugins", and the layers that use it. Rendering must stay a pure function of time. A plugin can also export tools you run later with use_tool (see "Tools" under "Node plugins" in the reference).
 - Reply in the user's language, briefly: what you changed and why, without repeating the list of operations.
 
 Dressing a video where someone speaks:

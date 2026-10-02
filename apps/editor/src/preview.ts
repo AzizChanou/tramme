@@ -15,7 +15,7 @@ export const previewInfo = signal({ scale: 1, still: 1, motion: 0.5 });
 
 import { effect, signal } from '@preact/signals';
 import { audioClips, type TrammeDoc, type EvaluatedFrame } from '@tramme/core';
-import { builtinRegistry } from '@tramme/nodes';
+import { editorRegistry } from './vocabulary.ts';
 import { Renderer } from '@tramme/render';
 import { comp, compIdOf, S, setRegistry, setTime, viewDoc } from './state.ts';
 import { prefs } from './settings.ts';
@@ -58,7 +58,7 @@ class Preview {
 
   async start() {
     try {
-      this.renderer = await Renderer.open(S.doc.peek(), builtinRegistry(), new URL(S.docUrl.peek(), location.href).href, this.canvas, { compId: compIdOf(S.doc.peek()), raster: 'gpu', scale: S.previewScale.peek(), preserve: false });
+      this.renderer = await Renderer.open(S.doc.peek(), editorRegistry(), new URL(S.docUrl.peek(), location.href).href, this.canvas, { compId: compIdOf(S.doc.peek()), raster: 'gpu', scale: S.previewScale.peek(), preserve: false });
       this.applied = S.doc.peek();
       setRegistry(this.renderer.registry);
       this.pluginTours();

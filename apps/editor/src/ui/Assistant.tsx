@@ -5,18 +5,19 @@
 
 import { signal } from '@preact/signals';
 import type { ComponentChildren } from 'preact';
-import { useEffect, useLayoutEffect, useRef, useState } from 'preact/hooks';
-import type { ChatItem } from '../api.ts';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'preact/hooks';
+import type { AiEvent, ChatItem } from '../api.ts';
 import { PROVIDER_LABEL, providerOf, REMOTE } from '@tramme/assistant';
 import { ModelPicker } from './ModelPicker.tsx';
-import { aiRoute, aiSettings, aiStatus, ask, routeLabel, chat, chatId, chats, decided, deleteChat, newChat, openChat, refreshStatus, saveChat, setAiSettings, stop as stopAi, type ChatMeta } from '../ai/index.ts';
+import { aiRoute, aiSettings, aiStatus, ask, routeLabel, chat, chatId, chats, decided, deleteChat, newChat, openChat, refreshStatus, runTool, saveChat, setAiSettings, stop as stopAi, type ChatMeta } from '../ai/index.ts';
+import { fieldsOf, inputLine, inputOf, listCommands, matchCommands, parseCommand, ready, type Command, type Field } from '../ai/commands.ts';
 import { acceptProposal, comp, propose, rejectProposal, S, toast, uiTime } from '../state.ts';
 import { ago, describeOp, layerName, timecode } from '../model.ts';
 import { Icon } from './icons.tsx';
 import { attachFiles, attaching, attachmentUrl, pending, removePending, type Attachment } from '../attachments.ts';
-import { Popover, Seg } from './controls.tsx';
+import { Popover, Seg, Select, Toggle } from './controls.tsx';
 import { preview } from '../preview.ts';
-import { m, t } from '../i18n/index.ts';
+import { m, t, tr } from '../i18n/index.ts';
 
 export { chat };
 const running = signal(false);
@@ -50,21 +51,35 @@ function update(id: string, fn: (it: ChatItem) => ChatItem) {
   chat.value = chat.value.map((it) => (it.id === id ? fn(it) : it));
 }
 
-export async function send(text: string) {
+/** a message for the assistant; command: the tool or workflow it was written with (/name) */
+export async function send(text: string, command?: { cmd: Command; input?: Record<string, unknown> }) {
   const atts = pending.peek();
   if ((!text.trim() && !atts.length) || running.peek() || attaching.peek()) return;
   if (!text.trim()) text = atts.length > 1 ? t('assistant.hereAreSomeFiles') : t('assistant.hereIsAFile');
   pending.value = [];
   const ctx = contextLine();
   chat.value = [...chat.value, { id: uid(), role: 'user', text, context: ctx.text, ...(atts.length ? { attachments: atts.map(({ path, name, kind, asset }) => ({ path, name, kind, asset })) } : {}) }];
+  const ds = [...decisions].map(([id, status]) => ({ id, status }));
+  decisions.clear();
+  await consume((signal) => ask({ text, context: ctx.data, doc: S.doc.peek(), decisions: ds, attachments: atts, command: command?.cmd, commandInput: command?.input }, signal));
+}
+
+/** a tool of the / menu run at once, without the assistant */
+export async function runCommand(cmd: Command, input: Record<string, unknown>) {
+  if (running.peek()) return;
+  const line = inputLine(input);
+  chat.value = [...chat.value, { id: uid(), role: 'user', text: `/${cmd.name}${line ? ` · ${line}` : ''}`, context: contextLine().text }];
+  await consume(() => runTool(cmd.name, input));
+}
+
+/** shows the events of a turn (the assistant's, or a tool run alone) as they come, then saves the conversation */
+async function consume(start: (signal: AbortSignal) => AsyncGenerator<AiEvent>) {
   running.value = true;
   turnStart.value = Date.now();
   streaming.value = null;
   controller = new AbortController();
-  const ds = [...decisions].map(([id, status]) => ({ id, status }));
-  decisions.clear();
   try {
-    for await (const ev of ask({ text, context: ctx.data, doc: S.doc.peek(), decisions: ds, attachments: atts }, controller.signal)) {
+    for await (const ev of start(controller.signal)) {
       if (ev.type === 'item') { chat.value = [...chat.value, ev.item]; streaming.value = ev.item.text !== undefined ? ev.item.id : null; }
       else if (ev.type === 'text') { update(ev.id, (it) => ({ ...it, text: (it.text ?? '') + ev.delta })); streaming.value = ev.id; }
       else if (ev.type === 'thinking') update(ev.id, (it) => ({ ...it, thinking: it.thinking && { ...it.thinking, text: it.thinking.text + ev.delta } }));
@@ -366,6 +381,67 @@ function Access() {
   );
 }
 
+/** the commands matching what follows the /, tools first then workflows (the order the keys move in) */
+function CommandMenu({ list, hi, onHover, onPick }: { list: Command[]; hi: number; onHover: (i: number) => void; onPick: (c: Command) => void }) {
+  const ref = useRef<HTMLDivElement>(null);
+  useLayoutEffect(() => { ref.current?.querySelector('.command-row.on')?.scrollIntoView({ block: 'nearest' }); }, [hi]);
+  const row = (c: Command, i: number) => (
+    <button key={c.name} role="option" aria-selected={i === hi} class={`command-row${i === hi ? ' on' : ''}`}
+      onMouseDown={(e) => { e.preventDefault(); onPick(c); }} onMouseEnter={() => onHover(i)}>
+      <span class="command-icon"><Icon name={c.kind === 'tool' ? 'wand' : 'chat'} /></span>
+      <span class="command-text">
+        <span class="command-line"><span class="command-title">{tr(c.title)}</span><span class="command-name">/{c.name}</span></span>
+        <span class="command-desc">{tr(c.description)}</span>
+      </span>
+      {c.from !== 'tramme' && <span class="command-from" title={c.from}>{c.from}</span>}
+    </button>
+  );
+  const tools = list.filter((c) => c.kind === 'tool').length;
+  return (
+    <div class="command-menu">
+      <div class="command-list" role="listbox" ref={ref}>
+        {tools > 0 && <div class="command-section">{t('assistant.tools')}</div>}
+        {list.slice(0, tools).map((c, i) => row(c, i))}
+        {tools < list.length && <div class="command-section">{t('assistant.workflows')}</div>}
+        {list.slice(tools).map((c, i) => row(c, tools + i))}
+      </div>
+      <div class="command-keys"><span><kbd>↑</kbd><kbd>↓</kbd> {t('assistant.keysMove')}</span><span><kbd>↵</kbd> {t('assistant.keysPick')}</span><span><kbd>Esc</kbd> {t('assistant.keysClose')}</span></div>
+    </div>
+  );
+}
+
+/** a field of a tool's form */
+function CommandField({ f, value, onChange }: { f: Field; value: unknown; onChange: (v: unknown) => void }) {
+  const shown = value ?? f.default;
+  let control;
+  if (f.kind === 'boolean') control = <Toggle on={!!shown} onChange={onChange} />;
+  else if (f.options) control = <Select value={shown === undefined ? '' : String(shown)} options={[...(f.required ? [] : [['', '—'] as [string, string]]), ...f.options.map(([v, l]) => [v, f.kind === 'enum' ? tr(l) : l] as [string, string])]} onChange={(v) => onChange(v || undefined)} />;
+  else {
+    const num = f.kind === 'number' || f.kind === 'integer';
+    control = (
+      <div class={`field${num ? ' num' : ''}`}>
+        <input value={shown === undefined ? '' : String(shown)} inputMode={num ? 'decimal' : undefined} spellcheck={false}
+          onInput={(e) => onChange((e.target as HTMLInputElement).value)} />
+      </div>
+    );
+  }
+  return <label class="command-field" title={f.description ? tr(f.description) : undefined}><span class="lbl">{tr(f.label)}{f.required ? ' *' : ''}</span>{control}</label>;
+}
+
+/** the command written in the message box: its form (tools) or what it does (workflows) */
+function CommandCard({ cmd, fields, values, onChange, onRun, canRun, busy }: { cmd: Command; fields: Field[]; values: Record<string, unknown>; onChange: (k: string, v: unknown) => void; onRun: () => void; canRun: boolean; busy: boolean }) {
+  return (
+    <div class="command-card">
+      <div class="command-head"><Icon name={cmd.kind === 'tool' ? 'wand' : 'chat'} /><b>{tr(cmd.title)}</b><span class="faint">{tr(cmd.description)}</span></div>
+      {fields.length > 0 && <div class="command-fields">{fields.map((f) => <CommandField key={f.key} f={f} value={values[f.key]} onChange={(v) => onChange(f.key, v)} />)}</div>}
+      <div class="command-actions">
+        <span class="faint">{cmd.kind === 'tool' ? t('assistant.commandHint') : t('assistant.workflowHint')}</span>
+        {cmd.kind === 'tool' && <button class="btn sm primary" disabled={!canRun || busy} onClick={onRun}><Icon name="check" />{t('assistant.run')}</button>}
+      </div>
+    </div>
+  );
+}
+
 export function Assistant({ style }: { style?: Record<string, string | number> }) {
   const [text, setText] = useState('');
   const scroller = useRef<HTMLDivElement>(null);
@@ -384,7 +460,42 @@ export function Assistant({ style }: { style?: Record<string, string | number> }
   useLayoutEffect(() => { const el = scroller.current; if (el) el.scrollTop = el.scrollHeight; }, [items.length, items.at(-1)?.text]);
   useEffect(() => { const el = area.current; if (el) { el.style.height = 'auto'; el.style.height = `${Math.min(180, el.scrollHeight)}px`; } }, [text]);
   const ctx = contextLine(true);
-  const submit = () => { const v = text.trim(); if (!v && !pending.peek().length) return; setText(''); send(v); };
+  // the / menu: the tools and workflows of the vocabulary (the editor's and the project's plugins)
+  const reg = S.registry.value;
+  const commands = useMemo(() => listCommands(reg), [reg]);
+  const [hi, setHi] = useState(0);
+  const [menuOff, setMenuOff] = useState(false);
+  const [form, setForm] = useState<{ name: string; values: Record<string, unknown> }>({ name: '', values: {} });
+  const typing = /^\/([\w.-]*)$/.exec(text);
+  const found = typing && !menuOff ? matchCommands(commands, typing[1], tr).slice(0, 30) : [];
+  const matches = [...found.filter((c) => c.kind === 'tool'), ...found.filter((c) => c.kind === 'prompt')];
+  const menu = matches.length > 0;
+  const parsed = menu ? null : parseCommand(text, commands);
+  const cmd = parsed?.cmd ?? null;
+  const values = cmd && form.name === cmd.name ? form.values : {};
+  const fields = cmd?.kind === 'tool' ? fieldsOf(cmd.input, S.doc.value, S.compId.value) : [];
+  const input = inputOf(fields, values);
+  const direct = cmd?.kind === 'tool' && !parsed!.rest && ready(fields, input);
+  const pick = (c: Command) => { setText(`/${c.name} `); setHi(0); setForm({ name: c.name, values: {} }); area.current?.focus(); };
+  const run = () => { if (!cmd || !direct || busy) return; setText(''); runCommand(cmd, input); };
+  const submit = () => {
+    const v = text.trim();
+    if (!v && !pending.peek().length) return;
+    if (direct) { run(); return; }
+    if (cmd?.kind === 'tool' && !parsed!.rest) { toast(t('assistant.fillRequired')); return; }
+    if (/^\/[\w.-]+$/.test(v) && !cmd) { toast(t('assistant.noCommand')); return; }
+    if (!available) return;
+    setText('');
+    send(v, cmd ? { cmd, input } : undefined);
+  };
+  const keyDown = (e: KeyboardEvent) => {
+    if (menu) {
+      if (e.key === 'ArrowDown' || e.key === 'ArrowUp') { e.preventDefault(); setHi((i) => (i + (e.key === 'ArrowDown' ? 1 : matches.length - 1)) % matches.length); return; }
+      if ((e.key === 'Enter' && !e.shiftKey) || e.key === 'Tab') { e.preventDefault(); pick(matches[Math.min(hi, matches.length - 1)]); return; }
+      if (e.key === 'Escape') { e.preventDefault(); setMenuOff(true); return; }
+    }
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); submit(); }
+  };
   const files = useRef<HTMLInputElement>(null);
   const [dropping, setDropping] = useState(false);
   const join = (list: FileList | File[] | null | undefined) => { const f = Array.from(list ?? []); if (f.length) attachFiles(f); };
@@ -414,6 +525,7 @@ export function Assistant({ style }: { style?: Record<string, string | number> }
               {available && <Icon name="chat" />}
               {available && <div>{t('assistant.askForAChange')}</div>}
               {available && <div class="suggest">{SUGGESTIONS.map((s) => <button key={s} onClick={() => send(s)}>{s}</button>)}</div>}
+              {commands.length > 0 && <div class="faint">{t('assistant.slashHint')}</div>}
               {chats.value.length > 0 && (
                 <div class="recent-chats">
                   <span class="faint">{t('assistant.resumeAConversation')}</span>
@@ -429,7 +541,10 @@ export function Assistant({ style }: { style?: Record<string, string | number> }
         </div>
       </div>
       <div class="composer-wrap">
+        {menu && <CommandMenu list={matches} hi={Math.min(hi, matches.length - 1)} onHover={setHi} onPick={pick} />}
         <div class="composer" data-tour="assistant-composer">
+          {cmd && <CommandCard cmd={cmd} fields={fields} values={values} busy={busy} canRun={direct} onRun={run}
+            onChange={(k, v) => setForm({ name: cmd.name, values: { ...values, [k]: v } })} />}
           {(pending.value.length > 0 || attaching.value > 0) && (
             <div class="pending-files">
               {pending.value.map((a) => <FileChip key={a.path} a={a} onRemove={() => removePending(a.path)} />)}
@@ -437,16 +552,17 @@ export function Assistant({ style }: { style?: Record<string, string | number> }
             </div>
           )}
           <textarea ref={area} rows={1} value={text}
-            onPaste={(e) => { const imgs = Array.from(e.clipboardData?.files ?? []).filter((f) => f.type.startsWith('image/')); if (imgs.length) { e.preventDefault(); join(imgs); } }} placeholder={available ? t('assistant.askForAChange2') : t('assistant.assistantUnavailable')} disabled={!available}
-            onInput={(e) => setText((e.target as HTMLTextAreaElement).value)}
-            onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); submit(); } }} />
+            onPaste={(e) => { const imgs = Array.from(e.clipboardData?.files ?? []).filter((f) => f.type.startsWith('image/')); if (imgs.length) { e.preventDefault(); join(imgs); } }} placeholder={available ? t('assistant.askForAChange2') : t('assistant.unavailableSlash')}
+            role="combobox" aria-expanded={menu} aria-autocomplete="list"
+            onInput={(e) => { setText((e.target as HTMLTextAreaElement).value); setMenuOff(false); setHi(0); }}
+            onKeyDown={keyDown} />
           <div class="bar">
             <button class="icon-btn sm" title={t('assistant.attachImagesSoundsOr')} disabled={!available} onClick={() => files.current?.click()}><Icon name="attach" /></button>
             <input ref={files} type="file" multiple hidden accept="image/*,audio/*,video/*,.json,.svg" onChange={(e) => { join((e.target as HTMLInputElement).files); (e.target as HTMLInputElement).value = ''; }} />
             <div class="grow"><span class="chip" title={t('assistant.contextSentWithThe')}><Icon name="target" />{ctx.text}</span></div>
             {busy
               ? <button class="send stop" title={t('assistant.stop')} onClick={stop}><Icon name="stop" /></button>
-              : <button class="send" title={t('assistant.sendEnter')} disabled={(!text.trim() && !pending.value.length) || attaching.value > 0 || !available} onClick={submit}><Icon name="send" /></button>}
+              : <button class="send" title={t('assistant.sendEnter')} disabled={(!text.trim() && !pending.value.length) || attaching.value > 0 || (!available && !direct)} onClick={submit}><Icon name="send" /></button>}
           </div>
         </div>
       </div>

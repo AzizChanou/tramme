@@ -5,7 +5,7 @@
 // straight from the browser. The conversation is shared by all of them.
 
 import { computed, signal } from '@preact/signals';
-import { COMPANION_PORT, DEFAULT_MODEL, LOCAL_URL, MODELS, PROVIDER_LABEL, providerOf, REMOTE, setTranslator, systemPrompt, userPrompt, type Provider, type TurnContext } from '@tramme/assistant';
+import { COMPANION_PORT, DEFAULT_MODEL, LOCAL_URL, MODELS, PROVIDER_LABEL, providerOf, REMOTE, setTranslator, systemPrompt, TOOLS, userPrompt, type Provider, type TurnContext } from '@tramme/assistant';
 import { CHAT, CHAT_INDEX, chatPath } from '@tramme/project';
 import type { TrammeDoc } from '@tramme/core';
 import reference from '../../../../docs/document.md';
@@ -14,6 +14,7 @@ import { S } from '../state.ts';
 import { companionTurn, pairCompanion, probeCompanion, stopCompanion } from './companion.ts';
 import { ServerSession, type Message } from './server.ts';
 import { ToolRunner } from './tools.ts';
+import type { Command } from './commands.ts';
 import { describe, imageBlocks, type Attachment } from '../attachments.ts';
 import { locale, t } from '../i18n/index.ts';
 
@@ -260,7 +261,31 @@ export async function saveChat(items: ChatItem[] = chat.peek()) {
   await api.write(pid(), CHAT_INDEX, JSON.stringify(chats.peek()), { type: 'application/json' });
 }
 
-export interface AskPayload { text: string; context: TurnContext; doc: TrammeDoc; decisions: { id: string; status: string }[]; attachments?: Attachment[] }
+export interface AskPayload { text: string; context: TurnContext; doc: TrammeDoc; decisions: { id: string; status: string }[]; attachments?: Attachment[]; command?: Command; commandInput?: Record<string, unknown> }
+
+/** what the user did without the assistant (tools run from the / menu), told at the next message */
+const ranAlone: string[] = [];
+const uid = () => Math.random().toString(36).slice(2, 10);
+
+/** a tool run straight from the / menu, without a model: its activity, pictures and proposal in the conversation */
+export async function* runTool(name: string, input: Record<string, unknown>): AsyncGenerator<AiEvent> {
+  const item = uid();
+  yield { type: 'item', item: { id: item, role: 'assistant', tool: { name: 'use_tool', summary: TOOLS.find((x) => x.name === 'use_tool')!.label({ name }) } } };
+  const r = await runner.run('use_tool', { name, input });
+  yield* runner.events.splice(0);
+  yield { type: 'tool-done', id: item, error: !!r.isError };
+  const said = r.content.map((c) => (c.type === 'text' ? c.text : '')).filter(Boolean).join('\n');
+  if (r.isError) yield { type: 'error', message: said };
+  ranAlone.push(`The user ran the tool "${name}" from the / menu with ${JSON.stringify(input)}${r.isError ? ', which failed' : ''}: ${said || 'no message'}`);
+  yield { type: 'done' };
+}
+
+/** the note that tells the assistant which command the message comes with */
+function commandNote(c: Command, input?: Record<string, unknown>): string {
+  if (c.kind === 'prompt') return `The user picked the workflow "${c.title}" (/${c.name}). Follow it, adapted to what they add in their message:\n${c.prompt}`;
+  const filled = input && Object.keys(input).length ? ` They already filled in: ${JSON.stringify(input)}.` : '';
+  return `The user called the tool "${c.name}" (/${c.name}): run it with use_tool, its input taken from their message and the context (selection, time), then check the result.${filled}`;
+}
 
 /** one user message; yields the assistant's events */
 export async function* ask(p: AskPayload, signal: AbortSignal): AsyncGenerator<AiEvent> {
@@ -274,6 +299,8 @@ export async function* ask(p: AskPayload, signal: AbortSignal): AsyncGenerator<A
     ...p.decisions.map((d) => `Your proposal ${d.id} was ${d.status === 'accepted' ? 'applied' : 'rejected'} by the user.`),
     ...(dropped ? [`Your previous proposal "${dropped.label}" got no answer; it is dropped.`] : []),
   ];
+  notes.push(...ranAlone.splice(0));
+  if (p.command) notes.push(commandNote(p.command, p.commandInput));
   notes.push(...describe(p.attachments ?? [], p.doc));
   // the interface's language is the user's: the answers, proposal titles and new layer names follow it
   notes.push(`The user's interface is in ${locale === 'fr' ? 'French' : 'English'}: reply in that language, including the titles of your proposals and the names of the layers you create.`);

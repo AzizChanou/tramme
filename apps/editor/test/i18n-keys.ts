@@ -12,6 +12,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { MOTION_BLUR_SCHEMA, TRANSFORM_SCHEMA, type PropSchema } from '@tramme/core';
 import { builtinRegistry } from '@tramme/nodes';
+import { EDITOR_PROMPTS, EDITOR_TOOLS } from '../src/vocabulary.ts';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(HERE, '../../..');
@@ -49,6 +50,14 @@ export function registryKeys(): Set<string> {
   for (const m of reg.listModifiers()) { add(m.title); add((m as { description?: string }).description); schema((m as { params?: PropSchema }).params ?? {}); }
   schema(TRANSFORM_SCHEMA);
   schema(MOTION_BLUR_SCHEMA);
+  // the editor's tools and workflows, shown in the chat's / menu
+  for (const x of [...EDITOR_TOOLS, ...EDITOR_PROMPTS]) { add(x.title); add(x.description); }
+  for (const tool of EDITOR_TOOLS) {
+    for (const p of Object.values((tool.input?.properties ?? {}) as Record<string, { title?: string; description?: string; enum?: unknown[] }>)) {
+      add(p.title); add(p.description);
+      for (const v of p.enum ?? []) add(String(v));
+    }
+  }
   return keys;
 }
 

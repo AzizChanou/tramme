@@ -6,6 +6,7 @@
 
 import { hash, noise3 } from './math.ts';
 import type { PropSchema } from './registry.ts';
+import type { AiNotes } from './tools.ts';
 import type { Keyframe } from './types.ts';
 
 export interface Modifier { type: string; [param: string]: unknown }
@@ -30,6 +31,8 @@ export interface ModifierType {
   type: string;
   title: string;
   description: string;
+  /** notes for the assistant */
+  ai?: AiNotes;
   params: PropSchema;
   apply(value: unknown, params: Record<string, any>, ctx: ModifierContext): unknown;
 }

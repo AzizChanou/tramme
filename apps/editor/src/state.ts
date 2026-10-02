@@ -5,7 +5,7 @@
 import { batch, computed, effect, signal } from '@preact/signals';
 import { applyOps, History, stringifyDoc, validate, type Composition, type TrammeDoc, type Op, type Registry } from '@tramme/core';
 import { DOCUMENT, type Manifest } from '@tramme/project';
-import { builtinRegistry } from '@tramme/nodes';
+import { editorRegistry } from './vocabulary.ts';
 import { api, ApiError } from './api.ts';
 import { t } from './i18n/index.ts';
 
@@ -31,7 +31,7 @@ export const S = {
   draft: signal<TrammeDoc | null>(null),
   proposal: signal<Proposal | null>(null),
   showProposal: signal(true),
-  registry: signal<Registry>(builtinRegistry()),
+  registry: signal<Registry>(editorRegistry()),
   compId: signal(''),
   time: signal(0),
   playing: signal(false),
