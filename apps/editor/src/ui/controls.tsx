@@ -56,14 +56,15 @@ export function MenuHost() {
 // ── popover ──────────────────────────────────────────────────
 export function Popover({ anchor, onClose, children, class: cls = '', align = 'left' }: { anchor: HTMLElement; onClose: () => void; children: ComponentChildren; class?: string; align?: 'left' | 'right' }) {
   const ref = useRef<HTMLDivElement>(null);
-  const [pos, setPos] = useState<{ x: number; y: number } | null>(null);
+  const [pos, setPos] = useState<{ x: number; top?: number; bottom?: number; max: number } | null>(null);
   useLayoutEffect(() => {
     const a = anchor.getBoundingClientRect(), r = ref.current!.getBoundingClientRect();
     let x = align === 'right' ? a.right - r.width : a.left;
-    let y = a.bottom + 6;
-    if (y + r.height > innerHeight - 8) y = Math.max(8, a.top - r.height - 6);
     x = Math.max(8, Math.min(x, innerWidth - r.width - 8));
-    setPos({ x, y });
+    // below the anchor when it fits, otherwise above; neither: the side with more room, scrolled inside
+    const below = innerHeight - a.bottom - 14, above = a.top - 14;
+    const down = r.height <= below || (r.height > above && below >= above);
+    setPos(down ? { x, top: a.bottom + 6, max: below } : { x, bottom: innerHeight - a.top + 6, max: above });
   }, [anchor]);
   useEffect(() => {
     const close = (e: Event) => { if (!ref.current?.contains(e.target as Node) && !anchor.contains(e.target as Node)) onClose(); };
@@ -72,7 +73,8 @@ export function Popover({ anchor, onClose, children, class: cls = '', align = 'l
     return () => { removeEventListener('pointerdown', close); removeEventListener('keydown', key); };
   }, [anchor, onClose]);
   // at the page's level: a panel with CSS containment would otherwise place it from its own corner
-  return createPortal(<div ref={ref} class={`popover ${cls}`} style={{ left: pos?.x ?? -9999, top: pos?.y ?? -9999 }}>{children}</div>, document.body);
+  const place = pos ? { left: pos.x, top: pos.top, bottom: pos.bottom, maxHeight: pos.max } : { left: -9999, top: -9999 };
+  return createPortal(<div ref={ref} class={`popover ${cls}`} style={place}>{children}</div>, document.body);
 }
 
 // ── numbers ──────────────────────────────────────────────────

@@ -498,8 +498,9 @@ svg.i.flip { transform: rotate(180deg); }
 .mod-head .grow { flex: 1; }
 .mod-param { display: grid; grid-template-columns: 92px minmax(0, 1fr); gap: 6px; align-items: center; font-size: 11px; }
 
+/* menus and popovers float above the dialogs they open from (.modal-back: 60), below the toasts (70) */
 .menu {
-  position: fixed; z-index: 50; min-width: 180px; padding: 4px; border-radius: 8px; background: var(--raised);
+  position: fixed; z-index: 65; min-width: 180px; padding: 4px; border-radius: 8px; background: var(--raised);
   box-shadow: var(--shadow); animation: pop .12s var(--ease);
 }
 .menu button { display: flex; align-items: center; gap: 8px; width: 100%; height: 28px; padding: 0 8px; border: 0; border-radius: 5px; background: transparent; color: var(--text); text-align: left; font-size: 12px; }
@@ -508,7 +509,7 @@ svg.i.flip { transform: rotate(180deg); }
 .menu button:disabled { color: var(--text-4); background: transparent; cursor: default; }
 .menu hr { border: 0; height: 1px; background: var(--line-strong); margin: 4px 2px; }
 .menu .menu-label { padding: 6px 8px 4px; font-size: 10.5px; color: var(--text-3); font-weight: 600; letter-spacing: .03em; text-transform: uppercase; }
-.popover { position: fixed; z-index: 50; padding: 10px; border-radius: 10px; background: var(--raised); box-shadow: var(--shadow); animation: pop .12s var(--ease); }
+.popover { position: fixed; z-index: 65; overflow: auto; padding: 10px; border-radius: 10px; background: var(--raised); box-shadow: var(--shadow); animation: pop .12s var(--ease); }
 @keyframes pop { from { opacity: 0; transform: translateY(-3px) scale(.98); } }
 
 .color-pop { width: 236px; display: flex; flex-direction: column; gap: 8px; }
@@ -630,13 +631,14 @@ svg.i.flip { transform: rotate(180deg); }
 .model-pick svg.i { width: 12px; height: 12px; flex: none; }
 .model-pick:hover { color: var(--text); background: var(--field-hover); }
 .model-pick.wide { height: 28px; max-width: 240px; min-width: 180px; justify-content: space-between; padding: 0 6px 0 9px; font-size: 12px; }
-.models-pop { width: 300px; max-width: calc(100vw - 16px); display: flex; flex-direction: column; gap: 6px; padding: 8px; }
+.models-pop { width: 300px; max-width: calc(100vw - 16px); display: flex; flex-direction: column; gap: 6px; padding: 8px; overflow: hidden; }
+.models-pop > :not(.models-list) { flex: none; }
 .model-effort { padding-bottom: 4px; border-bottom: 1px solid var(--line); }
 .model-effort .seg { display: flex; margin: 2px 4px 0; }
 .model-effort .seg button { flex: 1 1 0; min-width: 0; padding-inline: 4px; white-space: nowrap; }
 .models-pop > .field { height: 28px; gap: 6px; padding-left: 8px; }
 .models-pop > .field svg.i { width: 14px; height: 14px; color: var(--text-3); }
-.models-list { max-height: min(420px, 60vh); overflow: auto; display: flex; flex-direction: column; gap: 6px; }
+.models-list { flex: 1 1 auto; min-height: 0; max-height: min(420px, 60vh); overflow: auto; display: flex; flex-direction: column; gap: 6px; }
 .model-group { display: flex; flex-direction: column; gap: 1px; }
 .model-group-title { padding: 4px 6px 2px; font-size: 10px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: var(--text-3); }
 .model-opt { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 26px; padding: 3px 8px; border: 0; border-radius: var(--radius-sm); background: transparent; color: var(--text-2); font-size: 12px; text-align: left; cursor: pointer; }

@@ -124,6 +124,8 @@ async function localModels(): Promise<ModelOption[] | null> {
 
 /** the model menu opens: what each provider offers now */
 export async function loadModels() {
+  // opened before the assistant ever looked (the settings from the home page): which keys the server has first
+  if (aiStatus.peek().server === null) await refreshStatus(true);
   const [remote, local] = await Promise.all([
     Object.values(aiStatus.peek().remote).some(Boolean) ? api.models().catch(() => ({})) : Promise.resolve({}),
     localModels(),

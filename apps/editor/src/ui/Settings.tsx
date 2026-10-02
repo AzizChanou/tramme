@@ -2,7 +2,7 @@
 // assistant reaches Claude. Opened from the top bar, the home screen or Ctrl+,.
 
 import type { ComponentChildren } from 'preact';
-import { useState } from 'preact/hooks';
+import { useEffect, useState } from 'preact/hooks';
 import { EffortPicker, ModelPicker } from './ModelPicker.tsx';
 import { aiSettings, aiStatus, refreshStatus, setAiSettings } from '../ai/index.ts';
 import { previewInfo } from '../preview.ts';
@@ -106,6 +106,8 @@ function Tours() {
 function Assistant() {
   const a = aiSettings.value, st = aiStatus.value;
   const [token, setToken] = useState(a.token);
+  // opened from the home page, before the assistant ever looked for the companion and the server
+  useEffect(() => { if (aiStatus.peek().server === null) refreshStatus(); }, []);
   const companion = { checking: t('common.searching'), ok: t('common.connected'), unpaired: t('common.tokenToPaste'), absent: t('common.notRunning') }[st.companion];
   return (
     <section class="set-section">

@@ -88,7 +88,8 @@ export function ModelPicker({ wide = false }: { wide?: boolean }) {
   // a model typed in full (openai:gpt-x, zai:glm-4-plus, local:qwen3:8b), for one the lists do not show
   const typed = /^(openai|gemini|openrouter|zai|glm|local):\S+$/.test(query.trim()) ? query.trim() : null;
   const providers = Object.keys(REMOTE) as (keyof typeof REMOTE)[];
-  const configured = providers.filter((p) => st.remote[p]), missing = providers.filter((p) => !st.remote[p]);
+  // the server's keys are known once its configuration answered (server no longer null)
+  const configured = providers.filter((p) => st.remote[p]), missing = st.server === null ? [] : providers.filter((p) => !st.remote[p]);
   const firstVisible = () => (anchor ? (anchor.ownerDocument.querySelector('.models-pop .model-opt') as HTMLElement | null) : null);
   return (
     <>
