@@ -60,4 +60,21 @@ describe('chat format', () => {
     expect(cut.result().stop).toBe('max_tokens');
     expect(() => new ChatReader().push({ error: { message: 'quota' } })).toThrow('quota');
   });
+
+  it('keeps the signatures Gemini puts on its tool calls and sends them back to Gemini only', () => {
+    const sig = { google: { thought_signature: 'c2lnbmVk' } };
+    const r = new ChatReader();
+    r.push({ choices: [{ delta: { tool_calls: [{ index: 0, id: 'g1', function: { name: 'get_document', arguments: '{}' }, extra_content: sig }] } }] });
+    r.push({ choices: [{ delta: { tool_calls: [{ index: 1, id: 'g2', function: { name: 'list_nodes', arguments: '{}' } }] }, finish_reason: 'tool_calls' }] });
+    const { content } = r.result();
+    expect(content[0]).toEqual({ type: 'tool_use', id: 'g1', name: 'get_document', input: {}, extra_content: sig });
+    expect(content[1]).not.toHaveProperty('extra_content');
+    const history: Message[] = [{ role: 'user', content: [{ type: 'text', text: 'Hi' }] }, { role: 'assistant', content }];
+    // to Gemini: its signature back, the placeholder for an unsigned call (another model's)
+    const gemini = toChat(history, 's', true, true)[2].tool_calls;
+    expect(gemini[0].extra_content).toEqual(sig);
+    expect(gemini[1].extra_content).toEqual({ google: { thought_signature: 'skip_thought_signature_validator' } });
+    // to other providers: nothing they would not know
+    expect(JSON.stringify(toChat(history, 's'))).not.toContain('extra_content');
+  });
 });

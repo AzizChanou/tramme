@@ -134,7 +134,7 @@ export class ServerSession {
   private async *chat(model: string, system: string, signal: AbortSignal, target: ChatTarget): AsyncGenerator<AiEvent, { content: Block[]; stop: string }> {
     let res: Response | null = null;
     for (let attempt = 0; ; attempt++) {
-      const body = { model: modelName(model), stream: true, messages: toChat(this.messages, system, !this.noVision.has(model)), tools: CHAT_TOOLS };
+      const body = { model: modelName(model), stream: true, messages: toChat(this.messages, system, !this.noVision.has(model), providerOf(model) === 'gemini'), tools: CHAT_TOOLS };
       try {
         res = await fetch(`${target.url}/chat/completions`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body), signal });
       } catch (e) {
@@ -169,8 +169,10 @@ export class ServerSession {
 
   /** one streamed request; yields the text as it comes, returns the content blocks */
   private async *request(model: string, system: string, signal: AbortSignal): AsyncGenerator<AiEvent, { content: Block[]; stop: string }> {
+    // the Messages API refuses fields of its own blocks it does not know (Gemini's signatures)
+    const clean = (b: Block) => (b.type === 'tool_use' && 'extra_content' in b ? { type: b.type, id: b.id, name: b.name, input: b.input } : b);
     // the cache covers the tools, the system prompt and the conversation so far
-    const messages = this.messages.map((m, i) => (i === this.messages.length - 1
+    const messages = this.messages.map((m) => ({ ...m, content: m.content.map(clean) })).map((m, i) => (i === this.messages.length - 1
       ? { ...m, content: m.content.map((b, j) => (j === m.content.length - 1 ? { ...b, cache_control: { type: 'ephemeral' } } : b)) }
       : m));
     const level = ADAPTIVE.has(model) ? this.thinkingLevel : 0;
