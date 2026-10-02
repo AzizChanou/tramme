@@ -15,7 +15,7 @@
   // Cloudflare Access protecting the app: team domain (equipe.cloudflareaccess.com)
   // and the application's audience tag (AUD), from the Zero Trust dashboard.
   // The model keys are secrets: npx wrangler secret put ANTHROPIC_API_KEY (and OPENAI_API_KEY,
-  // GEMINI_API_KEY, OPENROUTER_API_KEY for the other providers, each optional)
+  // GEMINI_API_KEY, OPENROUTER_API_KEY, ZAI_API_KEY for the other providers, each optional)
   "vars": {
     "ACCESS_TEAM_DOMAIN": "",
     "ACCESS_AUD": ""

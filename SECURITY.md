@@ -23,4 +23,4 @@ Some behaviors are documented limits, not vulnerabilities:
 
 ## Secrets
 
-API keys (`ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `GEMINI_API_KEY`, `OPENROUTER_API_KEY`) belong in Cloudflare secrets or in a local `.dev.vars` file, both ignored by git. They are never sent to the browser. Never commit them.
+API keys (`ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `GEMINI_API_KEY`, `OPENROUTER_API_KEY`, `ZAI_API_KEY`) belong in Cloudflare secrets or in a local `.dev.vars` file, both ignored by git. They are never sent to the browser. Never commit them.

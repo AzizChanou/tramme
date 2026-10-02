@@ -11,6 +11,8 @@ export interface Env {
   OPENAI_API_KEY?: string;
   GEMINI_API_KEY?: string;
   OPENROUTER_API_KEY?: string;
+  ZAI_API_KEY?: string;
+  GLM_API_KEY?: string;
   /** Workers AI: speech to text (Whisper) */
   AI?: Ai;
   /** Cloudflare Access: team domain (equipe.cloudflareaccess.com) and application audience tag */

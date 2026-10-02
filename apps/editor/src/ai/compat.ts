@@ -1,4 +1,4 @@
-// Models in the OpenAI chat format (OpenAI, Gemini, OpenRouter through the
+// Models in the OpenAI chat format (OpenAI, Gemini, OpenRouter, Z.AI through the
 // server, Ollama or LM Studio on this machine). The conversation is kept in one
 // form, the Messages API's (so the model can change during a conversation):
 // it is translated for each request, and the streamed answer comes back as the

@@ -116,7 +116,7 @@ In automatic mode, the editor takes the companion if it answers, the server othe
 
 **Other models.** The model menu (with search) also offers:
 
-- **OpenAI, Gemini, OpenRouter**, through the Worker, with their keys as Cloudflare secrets (`OPENAI_API_KEY`, `GEMINI_API_KEY`, `OPENROUTER_API_KEY`, each optional, never sent to the browser). The Worker lists their chat models (for OpenRouter, those that accept tools); a model missing from the list can be typed in full (`openai:model-name`).
+- **OpenAI, Gemini, OpenRouter, Z.AI (GLM)**, through the Worker, with their keys as Cloudflare secrets (`OPENAI_API_KEY`, `GEMINI_API_KEY`, `OPENROUTER_API_KEY`, `ZAI_API_KEY`, each optional, never sent to the browser). The Worker lists their chat models (for OpenRouter, those that accept tools); a model missing from the list can be typed in full (`openai:model-name`, `zai:glm-4-plus`).
 - **Local models** (Ollama, LM Studio), called directly by the browser at the address set in the access settings (Ollama: `http://127.0.0.1:11434/v1`). For the online editor, Ollama must accept its address (`OLLAMA_ORIGINS`).
 
 All of them speak OpenAI's chat format: the same tools, the same loop in the editor, the same conversation (you can switch models midway; a model that cannot read images gets a note in their place). Small local models follow tools less well than Claude.

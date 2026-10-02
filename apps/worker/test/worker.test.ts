@@ -187,7 +187,7 @@ describe('worker: projects in R2', () => {
 
 describe('other model providers', () => {
   it('relays a chat request with the key added, and lists the models worth offering', async () => {
-    const { call } = setup({ OPENAI_API_KEY: 'sk-test', OPENROUTER_API_KEY: 'or-test' });
+    const { call } = setup({ OPENAI_API_KEY: 'sk-test', OPENROUTER_API_KEY: 'or-test', ZAI_API_KEY: 'zai-test' });
     const seen: { url: string; auth: string | null; body?: string }[] = [];
     const real = globalThis.fetch;
     globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
@@ -195,17 +195,23 @@ describe('other model providers', () => {
       seen.push({ url, auth, body: init?.body ? await new Response(init.body).text() : undefined });
       if (url.endsWith('/chat/completions')) return new Response('data: {"choices":[{"delta":{"content":"ok"}}]}\n\ndata: [DONE]\n\n', { headers: { 'content-type': 'text/event-stream' } });
       if (url.startsWith('https://api.openai.com')) return Response.json({ data: [{ id: 'gpt-5' }, { id: 'gpt-5-2025-08-07' }, { id: 'gpt-4o-realtime-preview' }, { id: 'text-embedding-3-large' }, { id: 'o4-mini' }] });
+      if (url.startsWith('https://api.z.ai')) return Response.json({ data: [{ id: 'glm-4-plus' }, { id: 'glm-4-flash' }, { id: 'embedding-3' }, { id: 'cogvideox' }] });
       return Response.json({ data: [{ id: 'deepseek/deepseek-chat', name: 'DeepSeek: Chat', supported_parameters: ['tools'] }, { id: 'some/no-tools', name: 'No tools', supported_parameters: [] }] });
     }) as typeof fetch;
     try {
       const config = await (await call('/api/config')).json() as { llm: Record<string, boolean> };
-      expect(config.llm).toEqual({ openai: true, gemini: false, openrouter: true });
+      expect(config.llm).toEqual({ openai: true, gemini: false, openrouter: true, zai: true });
 
       const r = await call('/api/llm/openai/chat/completions', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ model: 'gpt-5', stream: true, messages: [] }) });
       expect(r.status).toBe(200);
       expect(await r.text()).toContain('"content":"ok"');
       expect(seen[0]).toMatchObject({ url: 'https://api.openai.com/v1/chat/completions', auth: 'Bearer sk-test' });
       expect(JSON.parse(seen[0].body!).model).toBe('gpt-5');
+
+      const rZai = await call('/api/llm/zai/chat/completions', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ model: 'glm-4-plus', stream: true, messages: [] }) });
+      expect(rZai.status).toBe(200);
+      expect(await rZai.text()).toContain('"content":"ok"');
+      expect(seen.find((s) => s.url.includes('api.z.ai'))).toMatchObject({ url: 'https://api.z.ai/api/paas/v4/chat/completions', auth: 'Bearer zai-test' });
 
       const missing = await call('/api/llm/gemini/chat/completions', { method: 'POST', body: '{}' });
       expect(missing.status).toBe(503);
@@ -214,6 +220,7 @@ describe('other model providers', () => {
       const models = await (await call('/api/models')).json() as Record<string, { id: string }[]>;
       expect(models.openai.map((m) => m.id)).toEqual(['gpt-5', 'o4-mini']);
       expect(models.openrouter.map((m) => m.id)).toEqual(['deepseek/deepseek-chat']);
+      expect(models.zai.map((m) => m.id)).toEqual(['glm-4-flash', 'glm-4-plus']);
       expect(models.gemini).toBeUndefined();
     } finally { globalThis.fetch = real; }
   });

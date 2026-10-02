@@ -62,12 +62,13 @@ Two paths, chosen in the editor (Assistant, settings):
 
 ## 5. Other models
 
-Optional: the assistant can also use OpenAI, Gemini or OpenRouter models. One key per provider, as a secret:
+Optional: the assistant can also use OpenAI, Gemini, OpenRouter or Z.AI (GLM) models. One key per provider, as a secret:
 
 ```sh
 npx wrangler secret put OPENAI_API_KEY -c apps/worker/wrangler.jsonc
 npx wrangler secret put GEMINI_API_KEY -c apps/worker/wrangler.jsonc
 npx wrangler secret put OPENROUTER_API_KEY -c apps/worker/wrangler.jsonc
+npx wrangler secret put ZAI_API_KEY -c apps/worker/wrangler.jsonc
 ```
 
 Only providers with a key show up in the model menu. Locally, the same names go in `apps/worker/.dev.vars`. Local models (Ollama, LM Studio) need nothing on the server: the browser calls them directly; for the online editor, start Ollama with `OLLAMA_ORIGINS=https://<your editor's address>`.
@@ -91,6 +92,7 @@ ANTHROPIC_API_KEY=
 OPENAI_API_KEY=
 GEMINI_API_KEY=
 OPENROUTER_API_KEY=
+ZAI_API_KEY=
 ```
 
 ## Limits

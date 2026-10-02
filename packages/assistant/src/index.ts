@@ -16,26 +16,28 @@ export const ADAPTIVE = new Set(['claude-opus-5-5', 'claude-sonnet-5-5']);
 
 // ── other models ─────────────────────────────────────────────
 // Claude goes through the companion or the server's Anthropic key. The others
-// speak the OpenAI chat format: OpenAI, Gemini and OpenRouter through the
+// speak the OpenAI chat format: OpenAI, Gemini, OpenRouter and Z.AI (GLM) through the
 // server (their keys are Worker secrets), local models (Ollama, LM Studio)
 // straight from the browser to this machine. A model of another provider is
-// written `provider:model` (`openai:gpt-5`, `local:llama3.1:8b`).
+// written `provider:model` (`openai:gpt-5`, `zai:glm-4-plus`, `local:llama3.1:8b`).
 
-export type Provider = 'anthropic' | 'openai' | 'gemini' | 'openrouter' | 'local';
+export type Provider = 'anthropic' | 'openai' | 'gemini' | 'openrouter' | 'zai' | 'local';
 /** providers reached through the server, with the secret holding their key */
 export const REMOTE: Record<Exclude<Provider, 'anthropic' | 'local'>, { label: string; secret: string }> = {
   openai: { label: 'OpenAI', secret: 'OPENAI_API_KEY' },
   gemini: { label: 'Gemini', secret: 'GEMINI_API_KEY' },
   openrouter: { label: 'OpenRouter', secret: 'OPENROUTER_API_KEY' },
+  zai: { label: 'Z.AI (GLM)', secret: 'ZAI_API_KEY' },
 };
-export const PROVIDER_LABEL: Record<Provider, string> = { anthropic: 'Claude', openai: 'OpenAI', gemini: 'Gemini', openrouter: 'OpenRouter', local: 'Local models' };
+export const PROVIDER_LABEL: Record<Provider, string> = { anthropic: 'Claude', openai: 'OpenAI', gemini: 'Gemini', openrouter: 'OpenRouter', zai: 'Z.AI (GLM)', local: 'Local models' };
 /** where Ollama answers by default (LM Studio: http://127.0.0.1:1234/v1) */
 export const LOCAL_URL = 'http://127.0.0.1:11434/v1';
 
 export function providerOf(model: string): Provider {
   const i = model.indexOf(':');
   const p = i > 0 ? model.slice(0, i) : '';
-  return p === 'openai' || p === 'gemini' || p === 'openrouter' || p === 'local' ? p : 'anthropic';
+  if (p === 'glm') return 'zai';
+  return p === 'openai' || p === 'gemini' || p === 'openrouter' || p === 'zai' || p === 'local' ? p : 'anthropic';
 }
 /** the model's name for its provider */
 export const modelName = (model: string) => (providerOf(model) === 'anthropic' ? model : model.slice(model.indexOf(':') + 1));

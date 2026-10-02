@@ -1,5 +1,5 @@
-// Models of other providers than Anthropic, for the assistant: OpenAI, Gemini
-// and OpenRouter all speak the OpenAI chat format. The browser sends its
+// Models of other providers than Anthropic, for the assistant: OpenAI, Gemini,
+// OpenRouter and Z.AI (GLM) all speak the OpenAI chat format. The browser sends its
 // request here, the Worker adds the key (a secret) and passes the stream back.
 // The keys never leave the Worker. Local models are reached by the browser
 // directly and never come here.
@@ -9,12 +9,13 @@
 
 import { HttpError, json, type Env } from './http.ts';
 
-type Remote = 'openai' | 'gemini' | 'openrouter';
+type Remote = 'openai' | 'gemini' | 'openrouter' | 'zai';
 
 const PROVIDERS: Record<Remote, { base: string; key: (env: Env) => string | undefined; secret: string; headers?: Record<string, string> }> = {
   openai: { base: 'https://api.openai.com/v1', key: (e) => e.OPENAI_API_KEY, secret: 'OPENAI_API_KEY' },
   gemini: { base: 'https://generativelanguage.googleapis.com/v1beta/openai', key: (e) => e.GEMINI_API_KEY, secret: 'GEMINI_API_KEY' },
   openrouter: { base: 'https://openrouter.ai/api/v1', key: (e) => e.OPENROUTER_API_KEY, secret: 'OPENROUTER_API_KEY', headers: { 'x-title': 'Tramme' } },
+  zai: { base: 'https://api.z.ai/api/paas/v4', key: (e) => e.ZAI_API_KEY ?? e.GLM_API_KEY, secret: 'ZAI_API_KEY' },
 };
 
 const isRemote = (p: string): p is Remote => p in PROVIDERS;
@@ -52,6 +53,11 @@ function keep(provider: Remote, list: any[]): ModelInfo[] {
   if (provider === 'gemini') {
     return list.map((m) => String(m.id).replace(/^models\//, ''))
       .filter((id) => /^gemini/.test(id) && !/(embedding|tts|image|live|audio|aqa|native|vision)/.test(id))
+      .map((id) => ({ id, label: id }));
+  }
+  if (provider === 'zai') {
+    return list.map((m) => String(m.id))
+      .filter((id) => /^(glm-|chatglm)/i.test(id) && !/(embedding|cogview|cogvideo|audio|tts|image)/i.test(id))
       .map((id) => ({ id, label: id }));
   }
   // OpenRouter: only the models that take tools
