@@ -2,12 +2,10 @@
 // Agent SDK on the user's machine and their Claude Code login. It streams the
 // turn back as NDJSON; each tool call is run here and its result posted back.
 
-import { SILENT, TOOLS } from '@tramme/assistant';
 import type { AiEvent } from '../api.ts';
 import type { ToolRunner } from './tools.ts';
+import { runCall, uid } from './calls.ts';
 import { t } from '../i18n/index.ts';
-
-const uid = () => Math.random().toString(36).slice(2, 10);
 
 export interface CompanionLink { url: string; token: string }
 
@@ -87,11 +85,7 @@ export async function* companionTurn(
       const id = texts.get(ev.key);
       if (id) yield { type: 'text', id, delta: ev.delta };
     } else if (ev.type === 'tool') {
-      const item = SILENT.has(ev.name) ? '' : uid();
-      if (item) yield { type: 'item', item: { id: item, role: 'assistant', tool: { name: ev.name, summary: TOOLS.find((t) => t.name === ev.name)?.label(ev.input ?? {}) ?? ev.name } } };
-      const result = await runner.run(ev.name, ev.input ?? {}, signal);
-      yield* runner.events.splice(0);
-      if (item) yield { type: 'tool-done', id: item, error: !!result.isError };
+      const result = yield* runCall(runner, ev.name, ev.input ?? {}, signal);
       await fetch(`${link.url}/tool-result`, { method: 'POST', headers: headers(link), body: JSON.stringify({ callId: ev.callId, result }), signal });
     } else if (ev.type === 'error') yield { type: 'error', message: ev.message };
     else if (ev.type === 'done') return;

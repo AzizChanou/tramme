@@ -5,7 +5,7 @@
 // straight from the browser. The conversation is shared by all of them.
 
 import { computed, signal } from '@preact/signals';
-import { COMPANION_PORT, DEFAULT_MODEL, EFFORTS, effortFor, effortLevels, LOCAL_URL, MODELS, PROVIDER_LABEL, providerOf, REMOTE, setTranslator, systemPrompt, TOOLS, userPrompt, type Effort, type Provider, type TurnContext } from '@tramme/assistant';
+import { COMPANION_PORT, DEFAULT_MODEL, EFFORTS, effortFor, effortLevels, LOCAL_URL, MODELS, PROVIDER_LABEL, providerOf, REMOTE, setTranslator, systemPrompt, userPrompt, type Effort, type Provider, type TurnContext } from '@tramme/assistant';
 import { CHAT, CHAT_INDEX, chatPath } from '@tramme/project';
 import type { TrammeDoc } from '@tramme/core';
 import reference from '../../../../docs/document.md';
@@ -14,6 +14,7 @@ import { S } from '../state.ts';
 import { companionTurn, pairCompanion, probeCompanion, stopCompanion } from './companion.ts';
 import { ServerSession, type Message } from './server.ts';
 import { ToolRunner } from './tools.ts';
+import { runCall, uid } from './calls.ts';
 import type { Command } from './commands.ts';
 import { describe, imageBlocks, type Attachment } from '../attachments.ts';
 import { locale, t } from '../i18n/index.ts';
@@ -102,6 +103,14 @@ export const aiRoute = computed<Route | null>(() => {
   return companion === 'ok' ? 'companion' : server ? 'server' : null;
 });
 
+/** what the user reads about the companion and the server's key (the assistant's access panel, the settings) */
+export function statusLabels(st: Status = aiStatus.value): { companion: string; server: string } {
+  return {
+    companion: { checking: t('common.searching'), ok: t('common.connected'), unpaired: t('common.tokenToPaste'), absent: t('common.notRunning') }[st.companion],
+    server: st.server === null ? t('common.searching') : st.server ? t('common.keySet') : t('common.noKey'),
+  };
+}
+
 /** the name of the path, for the assistant's header */
 export function routeLabel(route: Route, model: string): string {
   if (route === 'companion') return t('common.companion');
@@ -122,10 +131,13 @@ async function localModels(): Promise<ModelOption[] | null> {
   } catch { return null; }
 }
 
+/** the companion and the server looked for once if nothing did yet (the settings opened from the home page) */
+export async function ensureStatus() { if (aiStatus.peek().server === null) await refreshStatus(true); }
+
 /** the model menu opens: what each provider offers now */
 export async function loadModels() {
-  // opened before the assistant ever looked (the settings from the home page): which keys the server has first
-  if (aiStatus.peek().server === null) await refreshStatus(true);
+  // which keys the server has, before asking it for their models
+  await ensureStatus();
   const [remote, local] = await Promise.all([
     Object.values(aiStatus.peek().remote).some(Boolean) ? api.models().catch(() => ({})) : Promise.resolve({}),
     localModels(),
@@ -291,15 +303,10 @@ export interface AskPayload { text: string; context: TurnContext; doc: TrammeDoc
 
 /** what the user did without the assistant (tools run from the / menu), told at the next message */
 const ranAlone: string[] = [];
-const uid = () => Math.random().toString(36).slice(2, 10);
 
 /** a tool run straight from the / menu, without a model: its activity, pictures and proposal in the conversation */
 export async function* runTool(name: string, input: Record<string, unknown>, signal?: AbortSignal): AsyncGenerator<AiEvent> {
-  const item = uid();
-  yield { type: 'item', item: { id: item, role: 'assistant', tool: { name: 'use_tool', summary: TOOLS.find((x) => x.name === 'use_tool')!.label({ name }) } } };
-  const r = await runner.run('use_tool', { name, input }, signal);
-  yield* runner.events.splice(0);
-  yield { type: 'tool-done', id: item, error: !!r.isError };
+  const r = yield* runCall(runner, 'use_tool', { name, input }, signal);
   const said = r.content.map((c) => (c.type === 'text' ? c.text : '')).filter(Boolean).join('\n');
   if (r.isError) yield { type: 'error', message: said };
   else if (runner.notice) yield { type: 'item', item: { id: uid(), role: 'assistant', text: runner.notice } };

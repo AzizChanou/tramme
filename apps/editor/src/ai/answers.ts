@@ -23,31 +23,61 @@ function inputLine(schema?: JsonSchema): string {
   return Object.entries(props).map(([k, p]) => `${k}${required.has(k) ? '' : '?'}:${p.enum ? p.enum.join('|') : p.type ?? 'any'}`).join(', ');
 }
 
+/** an entry of the vocabulary: its name, its line in the index, its full description */
+interface Entry { name: string; head: string; props: string; ai?: AiNotes; full: Record<string, unknown> }
+type Section = 'nodes' | 'effects' | 'modifiers' | 'tools';
+const HEADINGS: Record<Section, string> = {
+  nodes: 'Nodes (type, title, category):',
+  effects: 'Effects (type, title, stage):',
+  modifiers: 'Modifiers (type, title):',
+  tools: 'Tools (run with use_tool; name(input), from):',
+};
+const withNotes = (ai?: AiNotes) => (ai ? { ai } : {});
+
+/** the vocabulary by section, each entry once, for the index and the details alike */
+function entries(reg: Registry): Record<Section, Entry[]> {
+  return {
+    nodes: reg.listNodes().map((n) => ({
+      name: n.type, head: `${n.type} "${n.title}" [${n.category}${n.container ? ', container' : ''}]`, props: propLine(n.props), ai: n.ai,
+      full: { type: n.type, title: n.title, category: n.category, container: !!n.container, ...withNotes(n.ai), props: n.props },
+    })),
+    effects: reg.listEffects().map((e) => ({
+      name: e.type, head: `${e.type} "${e.title}" [${e.stage}]`, props: propLine(e.props), ai: e.ai,
+      full: { type: e.type, title: e.title, stage: e.stage, ...withNotes(e.ai), props: e.props },
+    })),
+    modifiers: reg.listModifiers().map((m) => ({
+      name: m.type, head: `${m.type} "${m.title}"${m.description ? `: ${m.description}` : ''}`, props: propLine(m.params), ai: m.ai,
+      full: { type: m.type, title: m.title, description: m.description, ...withNotes(m.ai), params: m.params },
+    })),
+    tools: reg.listTools().map(({ tool: x, from }) => ({
+      name: x.name, head: `${x.name}(${inputLine(x.input)}) [${from}]${x.description ? `: ${x.description}` : ''}`, props: '', ai: x.ai,
+      full: { name: x.name, from, description: x.description, ...withNotes(x.ai), input: x.input ?? { type: 'object' } },
+    })),
+  };
+}
+
 /** every node, effect, modifier and tool in a line or two: properties as name:type=default, notes on when to use it */
 export function vocabularyIndex(reg: Registry): string {
   const out: string[] = [];
-  const entry = (head: string, props: string, ai?: AiNotes) => { out.push(`- ${head}${props ? `\n  props: ${props}` : ''}`); const n = notes(ai); if (n) out.push(n); };
-  out.push('Nodes (type, title, category):');
-  for (const n of reg.listNodes()) entry(`${n.type} "${n.title}" [${n.category}${n.container ? ', container' : ''}]`, propLine(n.props), n.ai);
-  out.push('', 'Effects (type, title, stage):');
-  for (const e of reg.listEffects()) entry(`${e.type} "${e.title}" [${e.stage}]`, propLine(e.props), e.ai);
-  out.push('', 'Modifiers (type, title):');
-  for (const m of reg.listModifiers()) entry(`${m.type} "${m.title}"${m.description ? `: ${m.description}` : ''}`, propLine(m.params), m.ai);
-  const tools = reg.listTools();
-  out.push('', tools.length ? 'Tools (run with use_tool; name(input), from):' : 'Tools: none.');
-  for (const { tool: x, from } of tools) entry(`${x.name}(${inputLine(x.input)}) [${from}]${x.description ? `: ${x.description}` : ''}`, '', x.ai);
+  for (const [section, list] of Object.entries(entries(reg)) as [Section, Entry[]][]) {
+    if (out.length) out.push('');
+    out.push(section === 'tools' && !list.length ? 'Tools: none.' : HEADINGS[section]);
+    for (const e of list) {
+      out.push(`- ${e.head}${e.props ? `\n  props: ${e.props}` : ''}`);
+      const n = notes(e.ai);
+      if (n) out.push(n);
+    }
+  }
   out.push('', 'list_nodes with types gives the full entries: property labels, descriptions, ranges, examples, tool input schemas.');
   return out.join('\n');
 }
 
 /** the full entries of the names asked for (JSON), and the names not found */
 export function vocabularyDetail(reg: Registry, types: string[]): string {
-  const want = new Set(types);
-  const nodes = reg.listNodes().filter((n) => want.has(n.type)).map((n) => ({ type: n.type, title: n.title, category: n.category, container: !!n.container, ...(n.ai ? { ai: n.ai } : {}), props: n.props }));
-  const effects = reg.listEffects().filter((e) => want.has(e.type)).map((e) => ({ type: e.type, title: e.title, stage: e.stage, ...(e.ai ? { ai: e.ai } : {}), props: e.props }));
-  const modifiers = reg.listModifiers().filter((m) => want.has(m.type)).map((m) => ({ type: m.type, title: m.title, description: m.description, ...(m.ai ? { ai: m.ai } : {}), params: m.params }));
-  const tools = reg.listTools().filter(({ tool: x }) => want.has(x.name)).map(({ tool: x, from }) => ({ name: x.name, from, description: x.description, ...(x.ai ? { ai: x.ai } : {}), input: x.input ?? { type: 'object' } }));
-  const found = new Set([...nodes, ...effects, ...modifiers].map((x) => x.type).concat(tools.map((x) => x.name)));
+  const want = new Set(types), all = entries(reg);
+  const pick = (list: Entry[]) => list.filter((e) => want.has(e.name));
+  const found = new Set(Object.values(all).flatMap(pick).map((e) => e.name));
   const unknown = types.filter((x) => !found.has(x));
-  return JSON.stringify({ nodes, effects, modifiers, tools, ...(unknown.length ? { unknown } : {}) });
+  const full = (s: Section) => pick(all[s]).map((e) => e.full);
+  return JSON.stringify({ nodes: full('nodes'), effects: full('effects'), modifiers: full('modifiers'), tools: full('tools'), ...(unknown.length ? { unknown } : {}) });
 }

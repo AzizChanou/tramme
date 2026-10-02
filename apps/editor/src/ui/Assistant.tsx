@@ -9,8 +9,9 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'preact/ho
 import type { AiEvent, ChatItem } from '../api.ts';
 import { PROVIDER_LABEL, providerOf, REMOTE } from '@tramme/assistant';
 import { ModelPicker } from './ModelPicker.tsx';
-import { aiRoute, aiSettings, aiStatus, ask, routeLabel, chat, chatId, chats, decided, deleteChat, newChat, openChat, refreshStatus, runTool, saveChat, setAiSettings, stop as stopAi, type ChatMeta } from '../ai/index.ts';
+import { aiRoute, aiSettings, aiStatus, ask, routeLabel, chat, chatId, chats, decided, deleteChat, newChat, openChat, refreshStatus, runTool, saveChat, setAiSettings, statusLabels, stop as stopAi, type ChatMeta } from '../ai/index.ts';
 import { fieldsOf, inputLine, inputOf, listCommands, matchCommands, parseCommand, ready, type Command, type Field } from '../ai/commands.ts';
+import { uid } from '../ai/calls.ts';
 import { refreshLibrary } from '../library.ts';
 import { acceptProposal, comp, propose, rejectProposal, S, toast, uiTime } from '../state.ts';
 import { ago, describeOp, layerName, timecode } from '../model.ts';
@@ -30,8 +31,6 @@ const lightbox = signal<string | null>(null);
 let controller: AbortController | null = null;
 /** decisions on proposals not yet reported to the agent */
 const decisions = new Map<string, string>();
-
-const uid = () => Math.random().toString(36).slice(2, 10);
 
 /** what the message is about; reactive when called during render */
 function contextLine(live = false): { text: string; data: Record<string, unknown> } {
@@ -303,14 +302,14 @@ function Settings({ anchor, onClose }: { anchor: HTMLElement; onClose: () => voi
   const [token, setToken] = useState(set.token);
   const [url, setUrl] = useState(set.companionUrl);
   const [localUrl, setLocalUrl] = useState(set.localUrl);
-  const companion = { checking: t('common.searching'), ok: t('common.connected'), unpaired: t('common.tokenToPaste'), absent: t('common.notRunning') }[st.companion];
+  const labels = statusLabels(st);
   const command = `npm run tramme -- agent --origin ${location.origin}`;
   return (
     <Popover anchor={anchor} onClose={onClose} class="ai-settings" align="right">
       <div style={{ fontWeight: 600 }}>{t('common.accessToClaude')}</div>
       <Seg value={set.prefer} options={[['auto', t('common.automatic')], ['companion', t('common.companion')], ['server', t('common.server')]]} onChange={(v) => setAiSettings({ prefer: v as typeof set.prefer })} />
       <div class="faint" style={{ lineHeight: 1.45 }}>{t('assistant.automaticTheLocalCompanion')}</div>
-      <div class="ai-line"><span class={`dot ${st.companion === 'ok' ? 'ok' : st.companion === 'checking' ? '' : 'off'}`} /><b>{t('assistant.localCompanion')}</b><span class="faint">{companion}</span></div>
+      <div class="ai-line"><span class={`dot ${st.companion === 'ok' ? 'ok' : st.companion === 'checking' ? '' : 'off'}`} /><b>{t('assistant.localCompanion')}</b><span class="faint">{labels.companion}</span></div>
       {st.companion !== 'ok' && <div class="faint" style={{ lineHeight: 1.45 }}>{t('assistant.inTheTrammeFolder')} <code class="cmd" onClick={() => navigator.clipboard?.writeText(command).then(() => toast(t('common.commandCopied')))} title={t('common.copy')}>{command}</code></div>}
       <label class="lbl">{t('assistant.tokenShownByThe')}</label>
       <div class="field"><input type="password" value={token} placeholder={t('common.pairingToken')} onInput={(e) => setToken((e.target as HTMLInputElement).value.trim())} onChange={() => setAiSettings({ token })} /></div>
@@ -318,7 +317,7 @@ function Settings({ anchor, onClose }: { anchor: HTMLElement; onClose: () => voi
         <summary class="faint">{t('assistant.companionAddress')}</summary>
         <div class="field" style={{ marginTop: 6 }}><input value={url} onInput={(e) => setUrl((e.target as HTMLInputElement).value.trim())} onChange={() => setAiSettings({ companionUrl: url })} /></div>
       </details>
-      <div class="ai-line"><span class={`dot ${st.server ? 'ok' : 'off'}`} /><b>{t('common.server')}</b><span class="faint">{st.server === null ? t('common.searching') : st.server ? t('common.keySet') : t('common.noKey')}</span></div>
+      <div class="ai-line"><span class={`dot ${st.server ? 'ok' : 'off'}`} /><b>{t('common.server')}</b><span class="faint">{labels.server}</span></div>
       <div style={{ fontWeight: 600, marginTop: 4 }}>{t('assistant.otherModels')}</div>
       {(Object.keys(REMOTE) as (keyof typeof REMOTE)[]).map((p) => <div key={p} class="ai-line"><span class={`dot ${st.remote[p] ? 'ok' : 'off'}`} /><b>{REMOTE[p].label}</b><span class="faint">{st.remote[p] ? t('common.keySet') : t('common.noKey')}</span></div>)}
       <label class="lbl">{t('assistant.localModelsOllamaLm')}</label>

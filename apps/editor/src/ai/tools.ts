@@ -10,6 +10,7 @@ import { DOCUMENT, isChatPath, MANIFEST, pathIssue, srcPath } from '@tramme/proj
 import { Renderer, VideoFrames } from '@tramme/render';
 import type { ToolResult } from '@tramme/assistant';
 import { inputIssues, vocabularyDetail, vocabularyIndex } from './answers.ts';
+import { uid } from './calls.ts';
 import { api, type AiEvent } from '../api.ts';
 import { describeOp, freshId } from '../model.ts';
 import { safeName } from '../files.ts';
@@ -18,8 +19,7 @@ import { TEMPLATES } from '../templates.ts';
 import { S } from '../state.ts';
 import { t } from '../i18n/index.ts';
 
-const uid = () => Math.random().toString(36).slice(2, 10);
-const text = (s: string, isError = false): ToolResult => ({ content: [{ type: 'text', text: s }], isError });
+const text =(s: string, isError = false): ToolResult => ({ content: [{ type: 'text', text: s }], isError });
 const STILL_WIDTH = 768;
 const TEXT_FILE = /\.(js|mjs|json|svg)$/i;
 /** a file read in parts of this many characters (about 15k tokens) */

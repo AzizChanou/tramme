@@ -4,7 +4,7 @@
 import type { ComponentChildren } from 'preact';
 import { useEffect, useState } from 'preact/hooks';
 import { EffortPicker, ModelPicker } from './ModelPicker.tsx';
-import { aiSettings, aiStatus, refreshStatus, setAiSettings } from '../ai/index.ts';
+import { aiSettings, aiStatus, ensureStatus, refreshStatus, setAiSettings, statusLabels } from '../ai/index.ts';
 import { previewInfo } from '../preview.ts';
 import { DEFAULT_PREFERENCES, prefs, resetPrefs, setLanguage, setPrefs, settingsOpen, type Preferences } from '../settings.ts';
 import { S } from '../state.ts';
@@ -106,9 +106,8 @@ function Tours() {
 function Assistant() {
   const a = aiSettings.value, st = aiStatus.value;
   const [token, setToken] = useState(a.token);
-  // opened from the home page, before the assistant ever looked for the companion and the server
-  useEffect(() => { if (aiStatus.peek().server === null) refreshStatus(); }, []);
-  const companion = { checking: t('common.searching'), ok: t('common.connected'), unpaired: t('common.tokenToPaste'), absent: t('common.notRunning') }[st.companion];
+  useEffect(() => { ensureStatus(); }, []);
+  const labels = statusLabels(st);
   return (
     <section class="set-section">
       <h3>{t('common.assistant')}</h3>
@@ -121,7 +120,7 @@ function Assistant() {
       <Row label={t('common.accessToClaude')} hint={t('settings.automaticTheLocalCompanion')}>
         <Seg value={a.prefer} options={[['auto', t('common.automatic')], ['companion', t('common.companion')], ['server', t('common.server')]]} onChange={(v) => setAiSettings({ prefer: v as typeof a.prefer })} />
       </Row>
-      <Row label={t('settings.companionToken')} hint={t('settings.localCompanionCompanionServer', { companion, server: st.server === null ? t('common.searching') : st.server ? t('common.keySet') : t('common.noKey') })}>
+      <Row label={t('settings.companionToken')} hint={t('settings.localCompanionCompanionServer', labels)}>
         <div style={{ display: 'flex', gap: 6 }}>
           <div class="field" style={{ width: 200 }}><input type="password" value={token} placeholder={t('common.pairingToken')} onInput={(e) => setToken((e.target as HTMLInputElement).value.trim())} onChange={() => setAiSettings({ token })} /></div>
           <button class="btn sm" onClick={() => { setAiSettings({ token }); refreshStatus(); }}><Icon name="loop" />{t('common.check')}</button>

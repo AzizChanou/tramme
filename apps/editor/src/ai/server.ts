@@ -10,10 +10,11 @@
 // results are cleared by the API itself (context editing), not here.
 
 import { z } from 'zod';
-import { ADAPTIVE, DEFAULT_EFFORT, modelName, providerOf, SILENT, TOOLS, type Effort, type ToolResult } from '@tramme/assistant';
+import { ADAPTIVE, DEFAULT_EFFORT, modelName, providerOf, TOOLS, type Effort, type ToolResult } from '@tramme/assistant';
 import { ChatReader, chatTools, toChat } from './compat.ts';
 import type { AiEvent } from '../api.ts';
 import type { ToolRunner } from './tools.ts';
+import { runCall, uid } from './calls.ts';
 import { t } from '../i18n/index.ts';
 
 type Block = { type: string; [k: string]: any };
@@ -22,7 +23,7 @@ export interface Message { role: 'user' | 'assistant'; content: Block[] }
 const MAX_STEPS = 40;
 /** streamed, so a long answer (thinking, a large proposal) does not time out */
 const MAX_TOKENS = 64_000;
-const uid = () => Math.random().toString(36).slice(2, 10);
+const INTERRUPTED = 'Interrupted by the user.';
 
 const TOOL_SPECS = TOOLS.map((t) => {
   const { $schema: _, ...schema } = z.toJSONSchema(t.schema) as Record<string, unknown>;
@@ -42,17 +43,18 @@ const CLEAR_OLD_RESULTS = {
 };
 
 /**
- * Parts of the request an account or a model may refuse. A 400 naming one
- * drops it for the rest of the session and the request goes again; the most
- * specific patterns come first.
+ * Parts of a request a provider, an account or a model may refuse. A 400
+ * naming one the request carried drops it for that model for the rest of the
+ * session, and the request goes again; the most specific patterns come first.
  */
-type Feature = 'context' | 'binding' | 'fallbacks' | 'hour' | 'effort' | 'display' | 'thinking';
-const REFUSED: [Feature, RegExp][] = [
+type Part = 'context' | 'hour' | 'binding' | 'fallbacks' | 'effort' | 'vision' | 'display' | 'thinking';
+const REFUSED: [Part, RegExp][] = [
   ['context', /context_management|context-management|clear_tool_uses/i],
   ['hour', /\bttl\b/i],
   ['binding', /block_binding|thinking-binding/i],
   ['fallbacks', /fallback/i],
-  ['effort', /effort|output_config/i],
+  ['effort', /effort|output_config|reasoning/i],
+  ['vision', /image|vision|multimodal/i],
   ['display', /display/i],
   ['thinking', /thinking/i],
 ];
@@ -61,6 +63,18 @@ class ApiFailure extends Error {
   status: number;
   constructor(status: number, message: string) { super(message); this.status = status; }
 }
+
+/** the error a provider answered, in the Messages API's shape or the chat format's ({ error } or [{ error }]) */
+async function errorMessage(res: Response): Promise<string> {
+  try {
+    const j = await res.json();
+    const err = Array.isArray(j) ? j[0]?.error : j.error;
+    return err?.message ?? (typeof err === 'string' ? err : `HTTP ${res.status}`);
+  } catch { return `HTTP ${res.status}`; }
+}
+
+/** a request as built for one attempt: what it carries of the parts a model may refuse */
+interface Attempt { headers?: Record<string, string>; body: unknown; parts: Part[] }
 
 /** how long to wait before trying again: what the server asks (retry-after), or more each time */
 function backoff(res: Response, attempt: number): Promise<void> {
@@ -119,12 +133,8 @@ export interface TurnOptions {
 
 export class ServerSession {
   messages: Message[] = [];
-  /** chat models that refused images: they get a note instead */
-  private noVision = new Set<string>();
-  /** chat models that refused an effort level: they run at their own */
-  private noEffort = new Set<string>();
-  /** parts of the request the API refused in this session */
-  private refused = new Set<Feature>();
+  /** the parts each model refused in this session ("model part") */
+  private refused = new Set<string>();
 
   constructor(saved?: Message[]) { if (saved) this.messages = saved; }
 
@@ -150,7 +160,37 @@ export class ServerSession {
     const last = this.messages.at(-1);
     if (last?.role !== 'assistant') return;
     const calls = last.content.filter((b) => b.type === 'tool_use');
-    if (calls.length) this.pushUser(calls.map((b) => failed(b.id, 'Interrupted by the user.')));
+    if (calls.length) this.pushUser(calls.map((b) => failed(b.id, INTERRUPTED)));
+  }
+
+  /** whether the model still takes this part of a request */
+  private takes(model: string, part: Part) { return !this.refused.has(`${model} ${part}`); }
+
+  /**
+   * Posts until the request goes through: a part the model refuses is dropped
+   * and the request built again without it, a busy server is waited for.
+   * `recover`: a last chance for a 400 (true: send again), tried first.
+   */
+  private async post(model: string, url: string, build: () => Attempt, signal: AbortSignal, recover?: (message: string) => boolean): Promise<Response> {
+    for (let attempt = 0; ;) {
+      const { headers, body, parts } = build();
+      let res: Response;
+      try {
+        res = await fetch(url, { method: 'POST', headers: { 'content-type': 'application/json', ...headers }, body: JSON.stringify(body), signal });
+      } catch (e) {
+        if ((e as Error).name === 'AbortError') throw e;
+        throw new ApiFailure(0, t('ai.urlDoesNotAnswer', { url, error: (e as Error).message }));
+      }
+      if (res.ok) return res;
+      const message = await errorMessage(res);
+      if (res.status === 400) {
+        if (recover?.(message)) continue;
+        const part = REFUSED.find(([p, re]) => parts.includes(p) && this.takes(model, p) && re.test(message))?.[0];
+        if (part) { this.refused.add(`${model} ${part}`); continue; }
+      }
+      if ((res.status === 429 || res.status === 529 || res.status >= 500) && attempt < 2) { await backoff(res, attempt++); continue; }
+      throw new ApiFailure(res.status, message);
+    }
   }
 
   async *turn(prompt: string, model: string, system: string, runner: ToolRunner, signal: AbortSignal, opts: TurnOptions = {}): AsyncGenerator<AiEvent> {
@@ -178,13 +218,9 @@ export class ServerSession {
       }
       const results: Block[] = [];
       for (const call of calls) {
-        if (signal.aborted) { results.push(failed(call.id, 'Interrupted by the user.')); continue; }
+        if (signal.aborted) { results.push(failed(call.id, INTERRUPTED)); continue; }
         if (invalid.has(call.id)) { results.push(failed(call.id, 'The input of this call was not valid JSON: nothing was run. Call again.')); continue; }
-        const item = SILENT.has(call.name) ? '' : uid();
-        if (item) yield { type: 'item', item: { id: item, role: 'assistant', tool: { name: call.name, summary: TOOLS.find((t) => t.name === call.name)?.label(call.input ?? {}) ?? call.name } } };
-        const r = await runner.run(call.name, call.input ?? {}, signal);
-        yield* runner.events.splice(0);
-        if (item) yield { type: 'tool-done', id: item, error: !!r.isError };
+        const r = yield* runCall(runner, call.name, call.input ?? {}, signal);
         results.push({ type: 'tool_result', tool_use_id: call.id, content: toApi(r), ...(r.isError ? { is_error: true } : {}) });
       }
       this.pushUser(results);
@@ -195,27 +231,19 @@ export class ServerSession {
 
   /** one streamed request to a model of the chat format; yields the text as it comes, returns the content blocks */
   private async *chat(model: string, system: string, signal: AbortSignal, target: ChatTarget, turnStart: number, effort?: Effort): AsyncGenerator<AiEvent, Answer> {
-    let res: Response | null = null;
-    for (let attempt = 0; ; attempt++) {
-      // the effort level: reasoning_effort, or OpenRouter's own field
-      const level = effort && !this.noEffort.has(model) ? (providerOf(model) === 'openrouter' ? { reasoning: { effort } } : { reasoning_effort: effort }) : {};
-      const body = { model: modelName(model), stream: true, messages: toChat(this.messages, system, { vision: !this.noVision.has(model), gemini: providerOf(model) === 'gemini', imagesFrom: turnStart }), tools: CHAT_TOOLS, ...level };
-      try {
-        res = await fetch(`${target.url}/chat/completions`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body), signal });
-      } catch (e) {
-        if ((e as Error).name === 'AbortError') throw e;
-        throw new ApiFailure(0, t('ai.urlDoesNotAnswer', { url: target.url, error: (e as Error).message }));
-      }
-      if (res.ok) break;
-      let message = `HTTP ${res.status}`;
-      try { const j = await res.json(); const err = Array.isArray(j) ? j[0]?.error : j.error; message = err?.message ?? (typeof err === 'string' ? err : message); } catch { /* not JSON */ }
-      // a model without vision: once more, the images replaced by a note
-      if (res.status === 400 && !this.noVision.has(model) && /image|vision|multimodal/i.test(message)) { this.noVision.add(model); continue; }
-      // a level the model does not take: once more at its own
-      if (res.status === 400 && Object.keys(level).length && /reasoning|effort/i.test(message)) { this.noEffort.add(model); continue; }
-      if ((res.status === 429 || res.status >= 500) && attempt < 2) { await backoff(res, attempt); continue; }
-      throw new ApiFailure(res.status, message);
-    }
+    const res = await this.post(model, `${target.url}/chat/completions`, () => {
+      const vision = this.takes(model, 'vision'), level = effort && this.takes(model, 'effort') ? effort : undefined;
+      return {
+        // a model without vision gets a note instead of the images; one without levels runs at its own
+        parts: ['vision', ...(level ? ['effort' as const] : [])],
+        body: {
+          model: modelName(model), stream: true, tools: CHAT_TOOLS,
+          messages: toChat(this.messages, system, { vision, gemini: providerOf(model) === 'gemini', imagesFrom: turnStart }),
+          // the effort level: reasoning_effort, or OpenRouter's own field
+          ...(level ? (providerOf(model) === 'openrouter' ? { reasoning: { effort: level } } : { reasoning_effort: level }) : {}),
+        },
+      };
+    }, signal);
     const reader = new ChatReader();
     let textId = '', thinkId = '';
     for await (const ev of sse(res.body!)) {
@@ -234,9 +262,11 @@ export class ServerSession {
     return reader.result();
   }
 
-  /** the request's body: the conversation as it was sent before, plus what the session still accepts */
-  private body(model: string, system: string, effort: Effort): { body: Record<string, unknown>; betas: string[] } {
-    const on = (f: Feature) => !this.refused.has(f);
+  /** a Messages API request: the conversation as it was sent before, plus the parts the model still takes */
+  private attempt(model: string, system: string, effort: Effort): Attempt {
+    const parts: Part[] = [];
+    // a part is sent while the model takes it, and noted as sent
+    const on = (part: Part) => this.takes(model, part) && !!parts.push(part);
     const adaptive = ADAPTIVE.has(model);
     // the Messages API refuses fields of its own blocks it does not know (Gemini's signatures)
     const clean = (b: Block) => (b.type === 'tool_use' && 'extra_content' in b ? { type: b.type, id: b.id, name: b.name, input: b.input } : b);
@@ -251,12 +281,14 @@ export class ServerSession {
       // a block that would not match its history any more is dropped rather than failing the request
       if (on('binding')) { thinking.block_binding = { prefix_mismatch_behavior: 'drop_block' }; betas.push('thinking-binding-controls-2026-08-01'); }
     }
-    if (on('context')) betas.push('context-management-2025-06-27');
+    const context = on('context');
+    if (context) betas.push('context-management-2025-06-27');
     // a request Claude declines is run again by another model, on the server
     const fallbacks = adaptive && on('fallbacks');
     if (fallbacks) betas.push('server-side-fallback-2026-07-01');
     return {
-      betas,
+      parts,
+      headers: { 'anthropic-version': '2023-06-01', ...(betas.length ? { 'anthropic-beta': betas.join(',') } : {}) },
       body: {
         model, max_tokens: MAX_TOKENS, stream: true,
         // the system prompt is cached an hour: the user often takes longer than 5 minutes between two messages
@@ -264,7 +296,7 @@ export class ServerSession {
         tools: TOOL_SPECS, messages,
         ...(thinking ? { thinking } : {}),
         ...(adaptive && on('effort') ? { output_config: { effort } } : {}),
-        ...(on('context') ? { context_management: { edits: [CLEAR_OLD_RESULTS] } } : {}),
+        ...(context ? { context_management: { edits: [CLEAR_OLD_RESULTS] } } : {}),
         ...(fallbacks ? { fallbacks: 'default' } : {}),
       },
     };
@@ -272,27 +304,10 @@ export class ServerSession {
 
   /** one streamed request; yields the text as it comes, returns the content blocks */
   private async *request(model: string, system: string, effort: Effort, signal: AbortSignal): AsyncGenerator<AiEvent, Answer> {
-    let res: Response | null = null;
     let stripped = false;
-    for (let attempt = 0; ; attempt++) {
-      const { body, betas } = this.body(model, system, effort);
-      res = await fetch('/api/claude/v1/messages', {
-        method: 'POST',
-        headers: { 'content-type': 'application/json', 'anthropic-version': '2023-06-01', ...(betas.length ? { 'anthropic-beta': betas.join(',') } : {}) },
-        body: JSON.stringify(body), signal,
-      });
-      if (res.ok) break;
-      let message = `HTTP ${res.status}`;
-      try { const j = await res.json(); message = j.error?.message ?? j.error ?? message; } catch { /* not JSON */ }
-      if (res.status === 400) {
-        // thinking that no longer matches its history (the conversation was changed elsewhere): sent without it, once
-        if (!stripped && /signature/i.test(message)) { stripped = true; this.stripThinking(); attempt--; continue; }
-        const part = REFUSED.find(([f, re]) => !this.refused.has(f) && re.test(message));
-        if (part) { this.refused.add(part[0]); attempt--; continue; }
-      }
-      if ((res.status === 429 || res.status === 529 || res.status >= 500) && attempt < 2) { await backoff(res, attempt); continue; }
-      throw new ApiFailure(res.status, message);
-    }
+    // thinking that no longer matches its history (the conversation was changed elsewhere): sent without it, once
+    const recover = (message: string) => !stripped && /signature/i.test(message) && (stripped = true, this.stripThinking(), true);
+    const res = await this.post(model, '/api/claude/v1/messages', () => this.attempt(model, system, effort), signal, recover);
     const blocks: Block[] = [];
     const json: string[] = [];
     const items: string[] = [];
