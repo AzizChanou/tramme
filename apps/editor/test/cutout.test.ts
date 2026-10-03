@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { applyOps, Evaluator, validate, type TrammeDoc } from '@tramme/core';
 import { newProject } from '@tramme/project';
 import { cutoutLayers, gate, keep, peopleAt, steady } from '../src/cutout.ts';
+import { fieldsOf, inputOf } from '../src/ai/commands.ts';
 import { editorRegistry } from '../src/vocabulary.ts';
 
 const reg = editorRegistry();
@@ -88,6 +89,18 @@ describe('the cut-out of a person', () => {
   it('cuts the haze of the matte and fills its nearly full values', () => {
     expect([...keep(new Uint8ClampedArray([0, 10, 128, 245, 255]), null)]).toEqual([0, 0, 128, 255, 255]);
     expect([...keep(new Uint8ClampedArray([255, 255]), new Float32Array([0, 0.5]))]).toEqual([0, 127]);
+  });
+
+  it('asks for nothing that it can work out: the video, the subject, the pace of the looks', () => {
+    const doc = project(), root = doc.root, input = reg.tool('cutout').tool.input;
+    const auto = (selection: string[] = []) => inputOf(fieldsOf(input, doc, root, reg, selection), {});
+    // the only video, though not selected; only videos are offered
+    expect(auto()).toEqual({ layer: 'clip', subject: 'person', every: 0.5 });
+    expect(fieldsOf(input, doc, root, reg).find((f) => f.key === 'layer')?.options).toEqual([['clip', 'Clip']]);
+    // two videos: the selected one, none when neither is
+    doc.compositions[root].layers.broll = { type: 'video', props: { video: 'clip' } };
+    expect(auto(['broll']).layer).toBe('broll');
+    expect(auto(['title']).layer).toBeUndefined();
   });
 
   it('steadies the flicker of the edges, not the movements', () => {

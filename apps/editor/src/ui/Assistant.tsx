@@ -88,7 +88,8 @@ async function consume(start: (signal: AbortSignal) => AsyncGenerator<AiEvent>) 
       else if (ev.type === 'text') { update(ev.id, (it) => ({ ...it, text: (it.text ?? '') + ev.delta })); streaming.value = ev.id; }
       else if (ev.type === 'thinking') update(ev.id, (it) => ({ ...it, thinking: it.thinking && { ...it.thinking, text: it.thinking.text + ev.delta } }));
       else if (ev.type === 'thinking-done') update(ev.id, (it) => ({ ...it, thinking: it.thinking && { ...it.thinking, done: true, ms: Date.now() - (it.thinking.start ?? Date.now()) } }));
-      else if (ev.type === 'tool-done') update(ev.id, (it) => ({ ...it, tool: it.tool && { ...it.tool, done: true, error: ev.error } }));
+      else if (ev.type === 'tool-done') update(ev.id, (it) => ({ ...it, tool: it.tool && { ...it.tool, done: true, error: ev.error, progress: undefined } }));
+      else if (ev.type === 'tool-progress') update(ev.id, (it) => ({ ...it, tool: it.tool && { ...it.tool, progress: ev.progress } }));
       else if (ev.type === 'proposal') {
         propose({ id: ev.id, label: ev.label, ops: ev.ops });
         const card = { id: ev.id, label: ev.label, count: ev.ops.length, status: 'pending' as const, lines: ev.ops.slice(0, 40).map((o) => `${o.op}\t${describeOp(S.doc.peek(), o)}`) };
@@ -281,7 +282,13 @@ function Item({ it }: { it: ChatItem }) {
   );
   if (it.tool) {
     const run = !it.tool.done;
-    return <div class={`activity${run ? ' running' : ''}`}><Icon name={run ? 'spinner' : it.tool.error ? 'alert' : 'check'} />{it.tool.summary}</div>;
+    const p = run ? it.tool.progress : undefined, pct = p ? Math.min(100, Math.round((100 * p.done) / Math.max(p.total, 1e-9))) : 0;
+    return (
+      <div class={`activity${run ? ' running' : ''}`}>
+        <Icon name={run ? 'spinner' : it.tool.error ? 'alert' : 'check'} />{it.tool.summary}
+        {p && <span class="tool-progress"><span class="progress"><i style={{ width: `${pct}%` }} /></span><span class="mono">{p.step ? `${p.step} ` : ''}{pct} %</span></span>}
+      </div>
+    );
   }
   if (it.image) return <div class="msg assistant"><div class="shot" onClick={() => { lightbox.value = it.image!.url; }}><img src={it.image.url} alt={it.image.caption} loading="lazy" /></div><div class="shot-cap">{it.image.caption}</div></div>;
   if (it.proposal) return <ProposalCard p={it.proposal} />;
@@ -456,7 +463,7 @@ function CommandField({ f, value, onChange }: { f: Field; value: unknown; onChan
     const num = f.kind === 'number' || f.kind === 'integer';
     control = (
       <div class={`field${num ? ' num' : ''}`}>
-        <input value={shown === undefined ? '' : String(shown)} inputMode={num ? 'decimal' : undefined} spellcheck={false}
+        <input value={shown === undefined ? '' : String(shown)} inputMode={num ? 'decimal' : undefined} spellcheck={false} placeholder={f.required ? undefined : t('assistant.auto')}
           onInput={(e) => onChange((e.target as HTMLInputElement).value)} />
       </div>
     );
@@ -511,7 +518,7 @@ export function Assistant({ style }: { style?: Record<string, string | number> }
   const parsed = menu ? null : parseCommand(text, commands);
   const cmd = parsed?.cmd ?? null;
   const values = cmd && form.name === cmd.name ? form.values : {};
-  const fields = cmd?.kind === 'tool' ? fieldsOf(cmd.input, S.doc.value, S.compId.value, reg) : [];
+  const fields = cmd?.kind === 'tool' ? fieldsOf(cmd.input, S.doc.value, S.compId.value, reg, S.selection.value) : [];
   const input = inputOf(fields, values);
   const direct = cmd?.kind === 'tool' && !parsed!.rest && ready(fields, input);
   const pick = (c: Command) => { setText(`/${c.name} `); setHi(0); setForm({ name: c.name, values: {} }); area.current?.focus(); };

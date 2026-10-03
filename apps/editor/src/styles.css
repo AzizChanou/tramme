@@ -539,6 +539,10 @@ svg.i.flip { transform: rotate(180deg); }
 .activity { display: flex; align-items: center; gap: 7px; font-size: 11px; color: var(--text-3); }
 .activity svg.i { width: 12px; height: 12px; }
 .activity.running svg.i { animation: spin 1s linear infinite; }
+/* how far a long tool is, after its line: a bar and the step */
+.activity .tool-progress { display: flex; align-items: center; gap: 7px; }
+.activity .tool-progress .progress { width: 64px; }
+.activity .tool-progress .mono { font-variant-numeric: tabular-nums; }
 @keyframes spin { to { transform: rotate(360deg); } }
 .shot { border-radius: 6px; overflow: hidden; box-shadow: 0 0 0 1px var(--line-strong); max-width: 160px; cursor: zoom-in; background: var(--media); }
 .shot img { display: block; width: 100%; }

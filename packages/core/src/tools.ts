@@ -47,6 +47,8 @@ export interface ToolContext {
   transcript(assetId: string): Promise<Transcript>;
   /** aborted when the user stops the turn: a long analysis should stop too */
   signal: AbortSignal;
+  /** how far a long tool is (done of total, in any unit, and the step it is at): shown on its activity line */
+  progress?(done: number, total: number, step?: string): void;
 }
 
 export interface ToolOutput {

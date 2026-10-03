@@ -349,6 +349,7 @@
     "stop": "Stop",
     "sendEnter": "Send (Enter)",
     "run": "Run",
+    "auto": "auto",
     "commandHint": "Runs right away. Or write what you want after the command, and the assistant does it.",
     "workflowHint": "Add your wishes after the command, then send it to the assistant.",
     "slashHint": "Type / for the tools and workflows.",
@@ -785,6 +786,8 @@
     "subjectsDone": "People found in {seen} of {looks} look(s). The checks now warn when text covers a face.",
     "paletteDone": "Main colours: {colours}. They are now the plate, ink and accent tokens.",
     "cutoutDone": "Cut out over {frames} frames ({from} to {to} s). Put the titles between the video and its cut-out: they pass behind the subject.",
+    "cutoutLooking": "finding the people",
+    "cutoutMatting": "cutting out",
     "cutoutLabel": "Cut-out of {name}",
     "cutoutMask": "{name} · mask",
     "cutoutSubject": "{name} · cut-out"

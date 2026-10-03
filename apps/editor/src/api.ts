@@ -14,7 +14,7 @@ export interface ChatItem {
   /** user: files joined to the message (files of the project) */
   attachments?: { path: string; name: string; kind: 'image' | 'audio' | 'video' | 'file'; asset?: string }[];
   /** assistant activity: tool name and short description */
-  tool?: { name: string; summary: string; done?: boolean; error?: boolean };
+  tool?: { name: string; summary: string; done?: boolean; error?: boolean; progress?: ToolProgress };
   /** a still the assistant rendered (data URL) */
   image?: { url: string; caption: string };
   /** what the assistant thinks before answering (summary streamed by the API); start and duration in ms */
@@ -23,10 +23,14 @@ export interface ChatItem {
   proposal?: { id: string; label: string; count: number; status: 'pending' | 'accepted' | 'rejected'; lines: string[] };
 }
 
+/** how far a running tool is */
+export interface ToolProgress { done: number; total: number; step?: string }
+
 export type AiEvent =
   | { type: 'item'; item: ChatItem }
   | { type: 'text'; id: string; delta: string }
   | { type: 'tool-done'; id: string; error?: boolean }
+  | { type: 'tool-progress'; id: string; progress: ToolProgress }
   | { type: 'thinking'; id: string; delta: string }
   | { type: 'thinking-done'; id: string }
   | { type: 'proposal'; id: string; label: string; ops: Op[] }

@@ -131,6 +131,7 @@ const shots: ToolType<{ asset?: string; sensitivity?: number }> = {
       for await (const frame of sink.canvasesAtTimestamps(times)) {
         if (ctx.signal.aborted) throw new Error('stopped');
         const at = times[i++];
+        ctx.progress?.(i, times.length);
         if (!frame) continue;
         g.drawImage(frame.canvas as CanvasImageSource, 0, 0, W, H);
         const h = histogram(g, W, H);
@@ -236,6 +237,7 @@ const subjects: ToolType<{ asset?: string; every?: number }> = {
         for await (const f of sink.canvasesAtTimestamps(times)) {
           if (ctx.signal.aborted) throw new Error('stopped');
           const at = times[i++];
+          ctx.progress?.(i, times.length);
           if (f) await look(at, f.canvas as CanvasImageSource, (f.canvas as HTMLCanvasElement).width, (f.canvas as HTMLCanvasElement).height);
         }
       } finally {

@@ -47,11 +47,13 @@ export interface Field { key: string; kind: FieldKind; label: string; descriptio
 /**
  * The form of a tool, from its input schema: one field per top-level
  * property. `format: 'asset'` (with `assetType`, one type or a list) picks an asset of the
- * document, `format: 'layer'` a layer of the composition, `format: 'kit'` a
+ * document, `format: 'layer'` a layer of the composition (with `layerType`,
+ * one type or a list, only those, the selected one or the only one filled in
+ * already), `format: 'kit'` a
  * style kit of the vocabulary, `format: 'plugin'` a plugin of the project,
  * `format: 'library'` a plugin of the shared library.
  */
-export function fieldsOf(schema: JsonSchema | undefined, doc: TrammeDoc, compId: string, reg?: Registry): Field[] {
+export function fieldsOf(schema: JsonSchema | undefined, doc: TrammeDoc, compId: string, reg?: Registry, selection: string[] = []): Field[] {
   const props = (schema?.properties ?? {}) as Record<string, JsonSchema>;
   const required = new Set((schema?.required ?? []) as string[]);
   return Object.entries(props).map(([key, p]) => {
@@ -64,8 +66,11 @@ export function fieldsOf(schema: JsonSchema | undefined, doc: TrammeDoc, compId:
       return { ...base, kind: 'asset', options };
     }
     if (p.format === 'layer') {
-      const c = doc.compositions[compId];
-      return { ...base, kind: 'layer', options: Object.entries(c?.layers ?? {}).map(([id, l]) => [id, l.name ?? id] as [string, string]) };
+      const types = p.layerType === undefined ? null : ([] as unknown[]).concat(p.layerType);
+      const options = Object.entries(doc.compositions[compId]?.layers ?? {}).filter(([, l]) => !types || types.includes(l.type)).map(([id, l]) => [id, l.name ?? id] as [string, string]);
+      // a typed pick needs no answer when it is plain: the selected layer of that type, or the only one
+      const auto = types && base.default === undefined ? (selection.find((id) => options.some(([o]) => o === id)) ?? (options.length === 1 ? options[0][0] : undefined)) : undefined;
+      return { ...base, kind: 'layer', options, ...(auto ? { default: auto } : {}) };
     }
     if (p.format === 'plugin') return { ...base, kind: 'plugin', options: (doc.plugins ?? []).filter((id) => doc.assets[id]?.type === 'module').map((id) => [id, doc.assets[id].name ?? id] as [string, string]) };
     if (p.format === 'library') return { ...base, kind: 'library', options: libraryList.value.map((x) => [x.name, x.name] as [string, string]) };

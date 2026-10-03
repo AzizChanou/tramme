@@ -60,6 +60,8 @@ async function hubFile(url: string): Promise<ArrayBuffer> {
 }
 
 type Matting = (picture: HTMLCanvasElement) => Promise<Uint8ClampedArray>;
+/** reports how far the work is (seconds of the span done, of all), at most once a percent */
+type Progress = (done: number, total: number, step: string) => void;
 const MATTING: Partial<Record<Subject, () => Promise<Matting>>> = {};
 
 /** the matte of a picture, 0..255 per pixel at its size: on the GPU (WebGPU), on the processor when the GPU refuses the model */
@@ -201,7 +203,7 @@ export function peopleAt(looks: Look[], t: number, shot: number): Box[] {
 }
 
 /** a first, quick pass over [from, to) of a track: its shots (a frame's time → its shot) and the people, looked for at each cut and every `every` s within a shot */
-async function lookForPeople(track: InputVideoTrack, from: number, to: number, every: number, [w, h]: number[], signal: AbortSignal): Promise<{ shotAt: Map<number, number>; looks: Look[] }> {
+async function lookForPeople(track: InputVideoTrack, from: number, to: number, every: number, [w, h]: number[], signal: AbortSignal, progress: Progress): Promise<{ shotAt: Map<number, number>; looks: Look[] }> {
   const look = canvas(w, h), sink = new CanvasSink(track, { width: w, height: h, fit: 'fill', poolSize: 2 });
   const shotAt = new Map<number, number>(), looks: Look[] = [];
   let shot = 0, seen: Float32Array | null = null, last = -Infinity;
@@ -212,6 +214,7 @@ async function lookForPeople(track: InputVideoTrack, from: number, to: number, e
     seen = hist;
     if (cut) shot++;
     shotAt.set(Math.round(f.timestamp * 1000), shot);
+    progress(f.timestamp - from, to - from, t('perception.cutoutLooking'));
     if (cut || f.timestamp - last >= every) {
       looks.push({ t: f.timestamp, shot, boxes: await peopleIn(look.c) });
       last = f.timestamp;
@@ -221,7 +224,7 @@ async function lookForPeople(track: InputVideoTrack, from: number, to: number, e
 }
 
 /** the mask video of the subject in [from, to) of a file: white where it is, black elsewhere and outside that span, timed like the file */
-async function matteVideo(url: string, from: number, to: number, subject: Subject, every: number, signal: AbortSignal): Promise<{ blob: Blob; frames: number; empty: number }> {
+async function matteVideo(url: string, from: number, to: number, subject: Subject, every: number, signal: AbortSignal, progress: Progress): Promise<{ blob: Blob; frames: number; empty: number }> {
   if (typeof VideoEncoder === 'undefined') throw new Error('this browser cannot encode video (WebCodecs)');
   const matte = await matting(subject);
   const input = new Input({ source: new UrlSource(url), formats: ALL_FORMATS });
@@ -234,7 +237,7 @@ async function matteVideo(url: string, from: number, to: number, subject: Subjec
     // even sizes: what the encoders take
     const sized = (side: number) => { const k = Math.min(1, side / Math.max(iw, ih)); return [Math.max(2, Math.round((iw * k) / 2) * 2), Math.max(2, Math.round((ih * k) / 2) * 2)]; };
     const [pw, ph] = sized(PROC), [W, H] = sized(MASK);
-    const people = subject === 'person' ? await lookForPeople(track, from, to, every, sized(LOOK), signal) : null;
+    const people = subject === 'person' ? await lookForPeople(track, from, to, every, sized(LOOK), signal, progress) : null;
     const picture = canvas(pw, ph), small = canvas(pw, ph), out = canvas(W, H);
     out.g.imageSmoothingQuality = 'high';
     const sink = new CanvasSink(track, { width: pw, height: ph, fit: 'fill', poolSize: 2 });
@@ -272,6 +275,7 @@ async function matteVideo(url: string, from: number, to: number, subject: Subjec
         await video.add(f.timestamp, f.duration);
         end = f.timestamp + f.duration;
         frames++;
+        progress(end - from, to - from, t('perception.cutoutMatting'));
       }
       if (!frames) throw new Error(`no picture between ${from.toFixed(2)} and ${to.toFixed(2)} s of the file`);
       await black(end, duration);
@@ -293,12 +297,12 @@ const cutout: ToolType<{ layer?: string; subject?: Subject; behind?: string; fro
   input: {
     type: 'object',
     properties: {
-      layer: { type: 'string', format: 'layer', title: 'Video layer', description: 'the footage to cut out (the selected video by default)' },
-      subject: { enum: ['person', 'any'], title: 'Subject', description: 'person: only the people found in the picture (by default); any: the main subject, whatever it is (a car, an object)' },
+      layer: { type: 'string', format: 'layer', layerType: 'video', title: 'Video layer', description: 'the footage to cut out (the selected video by default)' },
+      subject: { enum: ['person', 'any'], default: 'person', title: 'Subject', description: 'person: only the people found in the picture (by default); any: the main subject, whatever it is (a car, an object)' },
       behind: { type: 'string', format: 'layer', title: 'Behind the subject', description: 'a layer (a title) put between the video and the subject' },
       from: { type: 'number', minimum: 0, title: 'From (s)', description: 'composition time (the start of the video layer by default)' },
       to: { type: 'number', minimum: 0, title: 'To (s)', description: 'composition time (the end of the video layer by default)' },
-      every: { type: 'number', minimum: 0.1, maximum: 2, title: 'Every (s)', description: 'time between two looks for the people within a shot (0.5 s by default); shorter for quick inserts between shots, slower' },
+      every: { type: 'number', minimum: 0.1, maximum: 2, default: LOOK_EVERY, title: 'Every (s)', description: 'time between two looks for the people within a shot (0.5 s by default); shorter for quick inserts between shots, slower' },
     },
   },
   ai: {
@@ -316,13 +320,18 @@ const cutout: ToolType<{ layer?: string; subject?: Subject; behind?: string; fro
     const start = typeof l.props?.start === 'number' ? l.props.start : 0, lin = l.in ?? 0, lout = l.out ?? c.duration;
     const a = Math.max(lin, from ?? lin), b = Math.min(lout, to ?? lout);
     if (b <= a) throw new Error(`nothing to cut out: ${source} shows from ${r2(lin)} to ${r2(lout)} s`);
-    const { blob, frames, empty } = await matteVideo(ctx.assetUrl(asset), start + a - lin, start + b - lin, subject, every, ctx.signal);
-    // one mask per layer: run again, it is rewritten
+    // one mask per layer: run again, it is rewritten. The layers are laid out first: a wrong input fails before the long work
     const mask = `cutout-${source}`.slice(0, 64);
+    const { ops, matte, front } = cutoutLayers(ctx.doc, ctx.compId, source, mask, behind);
+    let shown = '';
+    const progress: Progress = (done, total, step) => {
+      const at = `${step} ${Math.floor((100 * done) / total)}`;
+      if (at !== shown) { shown = at; ctx.progress?.(done, total, step); }
+    };
+    const { blob, frames, empty } = await matteVideo(ctx.assetUrl(asset), start + a - lin, start + b - lin, subject, every, ctx.signal, progress);
     const src = await ctx.writeFile(`assets/cutout/${source}.mp4`, blob);
     const had = !!ctx.doc.assets[mask];
     const asAsset: Op = { op: had ? 'replace' : 'add', path: pointer('assets', mask), value: { type: 'video', src, name: t('perception.cutoutMask', { name: ctx.doc.assets[asset].name ?? asset }) } };
-    const { ops, matte, front } = cutoutLayers(ctx.doc, ctx.compId, source, mask, behind);
     const who = subject === 'person' ? 'person' : 'subject';
     return {
       ops: [asAsset, ...ops], reload: had ? [mask] : [], label: t('perception.cutoutLabel', { name: l.name ?? source }),

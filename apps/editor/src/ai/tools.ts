@@ -37,6 +37,8 @@ export class ToolRunner {
   private canvas = document.createElement('canvas');
   /** events for the conversation (images, proposals, reloads), read after each tool */
   events: AiEvent[] = [];
+  /** where a running tool reports how far it is (set by the call that runs it) */
+  onProgress: ((done: number, total: number, step?: string) => void) | null = null;
 
   /** the document the tools see: the user's, plus the pending proposal */
   liveDoc(): TrammeDoc {
@@ -286,6 +288,7 @@ ${r.content[0].type === 'text' ? r.content[0].text : ''}`);
       renderStill: (t, id) => this.stillUrl(t, id),
       transcript: async (id) => (await this.readTranscript(id)).t,
       signal: this.signal,
+      progress: (done, total, step) => this.onProgress?.(done, total, step),
     };
   }
 

@@ -349,6 +349,7 @@
     "stop": "Arrêter",
     "sendEnter": "Envoyer (Entrée)",
     "run": "Exécuter",
+    "auto": "auto",
     "commandHint": "S'exécute tout de suite. Ou écrivez ce que vous voulez après la commande, et l'assistant s'en charge.",
     "workflowHint": "Ajoutez vos souhaits après la commande, puis envoyez-la à l'assistant.",
     "slashHint": "Tapez / pour les outils et les workflows.",
@@ -785,6 +786,8 @@
     "subjectsDone": "Personnes trouvées dans {seen} regard(s) sur {looks}. Les contrôles signalent désormais un texte sur un visage.",
     "paletteDone": "Couleurs principales : {colours}. Elles sont maintenant les tokens fond, encre et accent.",
     "cutoutDone": "Détourage sur {frames} images ({from} à {to} s). Placez les titres entre la vidéo et son détourage : ils passent derrière le sujet.",
+    "cutoutLooking": "recherche des personnes",
+    "cutoutMatting": "détourage",
     "cutoutLabel": "Détourage de {name}",
     "cutoutMask": "{name} · masque",
     "cutoutSubject": "{name} · détourage"
