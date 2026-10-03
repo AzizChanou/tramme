@@ -4,7 +4,7 @@
 
 import type { TrammeDoc } from '@tramme/core';
 import { builtinRegistry } from '@tramme/nodes';
-import { Renderer, type RenderOptions } from '@tramme/render';
+import { encodeWav, mixComposition, Renderer, type RenderOptions } from '@tramme/render';
 
 const q = new URLSearchParams(location.search);
 const docUrl = new URL(q.get('doc') || '', location.href).href;
@@ -52,6 +52,15 @@ const api = {
     ctx.imageSmoothingQuality = 'high';
     ctx.drawImage(out, 0, 0, small.width, small.height);
     return dataUrl(small);
+  },
+  /** the sound over [from, to] through the mixer of the editor, as a WAV in base64; null when there is none */
+  async mix(from: number, to: number): Promise<string | null> {
+    const buf = await mixComposition(renderer.doc, renderer.compId, (id) => renderer.assets.url(id), { from, to });
+    if (!buf) return null;
+    const bytes = encodeWav(buf);
+    let s = '';
+    for (let i = 0; i < bytes.length; i += 0x8000) s += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+    return btoa(s);
   },
   /** stream frames [f0, f1) over the WebSocket: 'yuv' (4:2:0 BT.709) or 'rgba' (straight alpha); returns ms per frame */
   async capture(f0: number, f1: number, opts: RenderOptions = {}, kind: 'yuv' | 'rgba' = 'yuv'): Promise<number> {

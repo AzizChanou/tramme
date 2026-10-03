@@ -4,6 +4,7 @@
 // muted (mixed like an audio layer, in the preview and the exports).
 
 import type { NodeType, Vec2, VideoAsset } from '@tramme/core';
+import { SOUND_PROPS } from './sound.ts';
 
 interface VideoProps {
   video: string | null;
@@ -24,8 +25,8 @@ export const video: NodeType<VideoProps> = {
     start: { type: 'number', default: 0, min: 0, step: 0.01, unit: 's', label: 'Start in the file', animatable: false, description: "the video time shown at the layer's in point (used for cuts)" },
     size: { type: 'vec2', default: [1920, 1080], label: 'Frame', unit: 'px' },
     fit: { type: 'enum', default: 'cover', options: ['cover', 'contain', 'fill'], label: 'Fit mode' },
-    gain: { type: 'number', default: 0, step: 0.5, unit: 'dB', label: 'Volume', animatable: false },
-    muted: { type: 'bool', default: false, label: 'Muted', animatable: false },
+    muted: { type: 'bool', default: false, label: 'Muted', animatable: false, group: 'Sound' },
+    ...SOUND_PROPS,
   },
   path({ size: [w, h] }) { const p = new Path2D(); p.rect(-w / 2, -h / 2, w, h); return p; },
   bounds: ({ size: [w, h] }) => ({ x: -w / 2, y: -h / 2, w, h }),

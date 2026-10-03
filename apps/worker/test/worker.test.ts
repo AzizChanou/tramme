@@ -6,12 +6,12 @@ import type { Env } from '../src/http.ts';
 
 /** just enough of an R2 bucket, in memory */
 function memoryBucket() {
-  const store = new Map<string, { data: Uint8Array; etag: string; type?: string; uploaded: Date }>();
+  const store = new Map<string, { data: Uint8Array; etag: string; type?: string; uploaded: Date; custom?: Record<string, string> }>();
   let n = 0;
   const uploadsMap = new Map<string, { key: string; parts: Map<number, Uint8Array>; type?: string }>();
   const meta = (key: string) => {
     const o = store.get(key)!;
-    return { key, size: o.data.byteLength, etag: o.etag, httpEtag: `"${o.etag}"`, uploaded: o.uploaded, httpMetadata: { contentType: o.type } };
+    return { key, size: o.data.byteLength, etag: o.etag, httpEtag: `"${o.etag}"`, uploaded: o.uploaded, httpMetadata: { contentType: o.type }, customMetadata: o.custom };
   };
   const body = (key: string) => {
     const o = store.get(key)!;
@@ -21,11 +21,11 @@ function memoryBucket() {
     store,
     async head(key: string) { return store.has(key) ? meta(key) : null; },
     async get(key: string) { return store.has(key) ? body(key) : null; },
-    async put(key: string, value: ArrayBuffer | string, opts?: { httpMetadata?: { contentType?: string }; onlyIf?: Headers }) {
+    async put(key: string, value: ArrayBuffer | string, opts?: { httpMetadata?: { contentType?: string }; onlyIf?: Headers; customMetadata?: Record<string, string> }) {
       const want = opts?.onlyIf?.get('if-match');
       if (want && (!store.has(key) || `"${store.get(key)!.etag}"` !== want)) return null;
       const data = typeof value === 'string' ? new TextEncoder().encode(value) : new Uint8Array(value);
-      store.set(key, { data, etag: `e${++n}`, type: opts?.httpMetadata?.contentType, uploaded: new Date() });
+      store.set(key, { data, etag: `e${++n}`, type: opts?.httpMetadata?.contentType, uploaded: new Date(), custom: opts?.customMetadata });
       return meta(key);
     },
     async delete(keys: string | string[]) { for (const k of [keys].flat()) store.delete(k); },
@@ -160,6 +160,24 @@ describe('worker: projects in R2', () => {
     expect(await (await call('/api/library')).json()).toEqual([]);
   });
 
+  it('keeps sounds in a library too, each with its description', async () => {
+    const { call } = setup();
+    const entry = { id: 'brand-sting', title: 'Brand sting', kind: 'sting', tags: ['logo'], source: 'library', duration: 1.2, peakAt: 0.1 };
+    const wav = new Uint8Array([82, 73, 70, 70, 0, 0, 0, 0]);
+    expect((await call('/api/sounds/brand-sting.wav', { method: 'PUT', body: wav, headers: { 'x-tramme-entry': JSON.stringify(entry) } })).status).toBe(200);
+    const list = (await (await call('/api/sounds')).json()) as { name: string; entry: unknown }[];
+    expect(list).toMatchObject([{ name: 'brand-sting.wav', entry }]);
+    const got = await call('/api/sounds/brand-sting.wav');
+    expect(got.headers.get('content-type')).toBe('audio/wav');
+    expect(new Uint8Array(await got.arrayBuffer())).toEqual(wav);
+    // not a sound, not a description, too long a description
+    expect((await call('/api/sounds/brand.js', { method: 'PUT', body: wav })).status).toBe(400);
+    expect((await call('/api/sounds/a.wav', { method: 'PUT', body: wav, headers: { 'x-tramme-entry': '{nope' } })).status).toBe(400);
+    expect((await call('/api/sounds/a.wav', { method: 'PUT', body: wav, headers: { 'x-tramme-entry': JSON.stringify({ prompt: 'x'.repeat(2000) }) } })).status).toBe(413);
+    // the plugin library is apart
+    expect(await (await call('/api/library')).json()).toEqual([]);
+  });
+
   it('a large file (video) arrives in parts', async () => {
     const { call } = setup();
     const m = (await (await call('/api/projects', post({ name: 'Video' }))).json()) as Manifest;
@@ -224,5 +242,68 @@ describe('other model providers', () => {
       expect(models.zai.map((m) => m.id)).toEqual(['glm-4-flash', 'glm-4-plus']);
       expect(models.gemini).toBeUndefined();
     } finally { globalThis.fetch = real; }
+  });
+});
+
+describe('sounds made by a provider', () => {
+  /** the providers answered by fake ones: what each was asked, and its audio */
+  function providers() {
+    const seen: { url: string; headers: Headers; body: any }[] = [];
+    const real = globalThis.fetch;
+    globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      seen.push({ url, headers: new Headers(init?.headers), body: JSON.parse(String(init?.body ?? '{}')) });
+      if (url.includes('generativelanguage')) return Response.json({ steps: [{ content: [{ type: 'audio', mime_type: 'audio/wav', data: btoa('RIFFwav') }] }] });
+      if (url.includes('/sound-generation') && seen.at(-1)!.body.text === 'refused') return Response.json({ detail: { message: 'quota exceeded' } }, { status: 401 });
+      return new Response(new Uint8Array([0xff, 0xfb, 1, 2]), { headers: { 'content-type': 'audio/mpeg' } });
+    }) as typeof fetch;
+    return { seen, restore: () => { globalThis.fetch = real; } };
+  }
+  const ask = (body: object) => ({ method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
+
+  it('says which providers make what, and that none can without a key', async () => {
+    const { call } = setup({ GEMINI_API_KEY: 'g', ELEVENLABS_API_KEY: 'el' });
+    const config = await (await call('/api/config')).json() as { sound: Record<string, string[]> };
+    expect(config.sound).toEqual({ sfx: ['elevenlabs'], music: ['elevenlabs'], voice: ['elevenlabs', 'gemini'] });
+    const none = await setup().call('/api/generate', ask({ kind: 'music', prompt: 'calm piano' }));
+    expect(none.status).toBe(503);
+    expect(((await none.json()) as { error: string }).error).toContain('ELEVENLABS_API_KEY');
+  });
+
+  it('makes a sound effect and music with ElevenLabs, a voice with Gemini, the key added by the server', async () => {
+    const { call } = setup({ GEMINI_API_KEY: 'g-key', ELEVENLABS_API_KEY: 'el-key' });
+    const p = providers();
+    try {
+      const sfx = await call('/api/generate', ask({ kind: 'sfx', prompt: 'a deep whoosh', duration: 99 }));
+      expect(sfx.headers.get('content-type')).toBe('audio/mpeg');
+      expect(sfx.headers.get('x-tramme-provider')).toBe('elevenlabs');
+      expect(p.seen[0].url).toBe('https://api.elevenlabs.io/v1/sound-generation?output_format=mp3_44100_128');
+      expect(p.seen[0].headers.get('xi-api-key')).toBe('el-key');
+      expect(p.seen[0].body).toMatchObject({ text: 'a deep whoosh', duration_seconds: 30 });
+
+      await call('/api/generate', ask({ kind: 'music', prompt: 'calm piano bed', duration: 20 }));
+      expect(p.seen[1].url).toContain('/v1/music');
+      expect(p.seen[1].body).toMatchObject({ prompt: 'calm piano bed', music_length_ms: 20000, force_instrumental: true });
+
+      const voice = await call('/api/generate', ask({ kind: 'voice', prompt: 'Bonjour à tous', provider: 'gemini', voice: 'Puck', style: 'warm' }));
+      expect(voice.headers.get('content-type')).toBe('audio/wav');
+      expect(await voice.text()).toBe('RIFFwav');
+      expect(p.seen[2].headers.get('x-goog-api-key')).toBe('g-key');
+      expect(p.seen[2].body.generation_config.speech_config[0].voice).toBe('Puck');
+      expect(p.seen[2].body.input[0].content[0]).toMatchObject({ text: 'Bonjour à tous', annotations: [{ style: 'warm' }] });
+    } finally { p.restore(); }
+  });
+
+  it('passes on what a provider refuses, and what is asked wrong', async () => {
+    const { call } = setup({ ELEVENLABS_API_KEY: 'el-key' });
+    const p = providers();
+    try {
+      const refused = await call('/api/generate', ask({ kind: 'sfx', prompt: 'refused' }));
+      expect(refused.status).toBe(502);
+      expect(((await refused.json()) as { error: string }).error).toBe('elevenlabs: quota exceeded');
+      expect((await call('/api/generate', ask({ kind: 'song', prompt: 'x' }))).status).toBe(400);
+      expect((await call('/api/generate', ask({ kind: 'voice', prompt: '' }))).status).toBe(400);
+      expect((await call('/api/generate', ask({ kind: 'sfx', prompt: 'x', provider: 'openai' }))).status).toBe(400);
+    } finally { p.restore(); }
   });
 });

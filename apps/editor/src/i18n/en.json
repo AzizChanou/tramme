@@ -94,6 +94,15 @@
     "serviceError": "service error",
     "editOfName": "Edit of {name}"
   },
+  "sound": {
+    "nothingFound": "No sound found for this search.",
+    "foundN": "{n} sound(s) found.",
+    "placed": "{name}: placed {n} time(s).",
+    "written": "Sound \"{name}\" written.",
+    "made": "Sound \"{name}\" made by {provider}.",
+    "kept": "\"{name}\" kept in the sound library.",
+    "ducked": "Music ducked under {n} stretch(es) of speech."
+  },
   "attachments": {
     "nameImageSoundVideo": "{name}: image, sound, video or JSON expected",
     "attachmentName": "Attachment: {name}",
@@ -206,6 +215,24 @@
       "hold2GivesThe": "**Hold**: 2 gives the anime rhythm \"on twos\" (each drawing held for two frames).\n**Exposure sheet**: the order and length of each drawing, for example \"1-4/2, 5/6, 4-1/2, x/3\".\n**Forced drawing**: pick the drawing with hold keyframes, for a mouth for example.",
       "n4Check": "4. Check",
       "playWithSpaceThe": "Play with **Space**. The preview shows exactly the export's frames, and motion blur never blends two drawings."
+    },
+    "sound": {
+      "giveTheVideoIts": "Give the video its sound",
+      "libraryToolsLayersMix": "The sound library, the sound tools, sound layers, the mix.",
+      "soundInTramme": "Sound",
+      "everySoundIsA": "Every sound is a file played by a **Sound** layer. Tramme ships a library of **421 recorded sounds** (impacts, interface, digital, jingles, sci-fi; free for any use) and **sounds written as code** (whoosh, riser, boom, sparkle…). The preview and every export mix them the same way.",
+      "askTheAssistant": "Ask the assistant",
+      "writeSoundDesignOr": "Write **/sound-design**, or simply \"a whoosh on each transition\". The assistant searches the library, places each sound so its **hit lands on the frame**, writes the ones the library lacks, lowers the music under a voice and checks the mix. As always, it arrives as a proposal.",
+      "orOnYourOwn": "Or on your own",
+      "typeSfxToSearch": "**/sfx** searches the library (\"metal hit\", \"riser\", \"click\"), then places a sound **on** moments the video names: entrances, exits, markers, cuts, beats, bars. Also: **/synth** (a sound written as code), **/duck** (music under the voice), **/sound-keep** (keep a sound in your library, shared by your projects), **/generate-sound** (a sound effect, a music bed or a voice-over made by a provider, when the server has a key).",
+      "eachSoundIsA": "Each sound is a layer",
+      "itsBarStartsWhere": "Its bar starts where the sound plays: move it, trim it like any layer. A sound placed several times alternates its variants, so it does not sound copied.",
+      "howItSounds": "How it sounds",
+      "volumeAnimateItFor": "**Volume**: animate it with keyframes for a fade or to lower the sound under a voice.\n**Fade in**, **Fade out**: soft starts and ends.\n**Low cut**, **High cut**: thinner, or muffled and far away.\n**Reverb**: the sound in a room.\n**Speed**: lower and longer under 1, higher and shorter over 1.",
+      "listenAndCheck": "Listen and check",
+      "playWithSpaceThe": "Play with **Space**: you hear the mix of the export. **/check** also reads the sound: a mix that clips, one far too loud or too quiet, two sounds landing together.",
+      "exportWithItsSound": "Export with its sound",
+      "mp4AndWebmCarry": "MP4 and WebM carry the sound; **WAV** gives the sound alone, to finish it elsewhere."
     },
     "editor": {
       "discoverTheEditor": "Discover the editor",

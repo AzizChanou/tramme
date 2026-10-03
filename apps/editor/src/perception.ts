@@ -47,6 +47,15 @@ function mediaOf(ctx: ToolContext, asset: string | undefined, kinds: string[]): 
   throw new Error(`the project has no ${kinds.join(' or ')}`);
 }
 
+/** the analyses of the project (the JSON assets these tools save), loaded for the checks and the sounds' moments */
+export async function analyses(ctx: ToolContext): Promise<(id: string) => unknown> {
+  const loaded = new Map<string, unknown>();
+  await Promise.all(Object.entries(ctx.doc.assets).filter(([id, a]) => a.type === 'json' && /^(analysis|subjects|shots)-/.test(id)).map(async ([id]) => {
+    try { loaded.set(id, await (await fetch(ctx.assetUrl(id), { cache: 'no-store' })).json()); } catch { /* unreadable: left out */ }
+  }));
+  return (id) => loaded.get(id);
+}
+
 /** saves an analysis beside the media and declares it as an asset */
 async function save(ctx: ToolContext, asset: string, kind: string, data: unknown, name: string): Promise<{ id: string; ops: Op[]; reload: string[] }> {
   const id = `${kind}-${asset}`.slice(0, 64);

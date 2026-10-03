@@ -73,7 +73,17 @@ npx wrangler secret put ZAI_API_KEY -c apps/worker/wrangler.jsonc
 
 Only providers with a key show up in the model menu. Locally, the same names go in `apps/worker/.dev.vars`. Local models (Ollama, LM Studio) need nothing on the server: the browser calls them directly; for the online editor, start Ollama with `OLLAMA_ORIGINS=https://<your editor's address>`.
 
-## 6. Transcription
+## 6. Sounds made by a provider
+
+Optional: the assistant's `generate-sound` tool makes sound effects, music beds and voice-overs at authoring time, saved in the project like any sound. ElevenLabs makes all three; a voice-over can also come from OpenAI or Gemini with the keys of section 5.
+
+```sh
+npx wrangler secret put ELEVENLABS_API_KEY -c apps/worker/wrangler.jsonc
+```
+
+Without any of these keys the assistant still has the sound library (recorded sounds shipped with tramme, the user's own) and the sounds it writes as code. Each provider bills its own use.
+
+## 7. Transcription
 
 The Worker transcribes the speech of sounds and videos with Workers AI (`@cf/openai/whisper-large-v3-turbo`, the `AI` binding is already declared in `wrangler.jsonc`, about $0.0005 per minute of sound). Nothing more to configure. Without this binding, the editor goes through the local companion, which transcribes on the machine.
 
@@ -93,6 +103,7 @@ OPENAI_API_KEY=
 GEMINI_API_KEY=
 OPENROUTER_API_KEY=
 ZAI_API_KEY=
+ELEVENLABS_API_KEY=
 ```
 
 ## Limits

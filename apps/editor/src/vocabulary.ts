@@ -10,6 +10,7 @@ import { PERCEPTION_TOOLS } from './perception.ts';
 import { EDITOR_PRESETS } from './presets.ts';
 import { BUILTIN_KITS, RECIPE_TOOLS } from './recipes.ts';
 import { REVIEW_TOOLS } from './review.ts';
+import { SOUND_TOOLS } from './sound.ts';
 import { TEMPLATES, type TemplateArgs } from './templates.ts';
 
 const at = { type: 'number', minimum: 0, title: 'Start (s)', description: 'composition time; the current time by default' };
@@ -50,9 +51,13 @@ export const EDITOR_PROMPTS: PromptType[] = [
     name: 'review', title: 'Review the composition', description: 'checks the key moments and fixes what is wrong',
     prompt: 'Review the composition: run the check tool (use_tool "check") and read its issues and contact sheet, look closer at the entrances and transitions that matter with the motion tool, and judge what the checks cannot: contrast, hierarchy, rhythm, elements over a face. Propose fixes for what you find, then run check again.',
   },
+  {
+    name: 'sound-design', title: 'Sound design', description: 'gives the video its sound: effects on the moments that matter, a bed if it needs one, levels under the voice',
+    prompt: 'Give this video its sound, following your guide for sound: look at the key moments (check), say in a few lines which sounds go where and why, then search the library (sfx with a query) and place them on the moments (on: entrances, cuts, markers, beats), write the ones the library lacks (synth), duck any music under a voice (duck), and check the mix (check) before summing up.',
+  },
 ];
 
 /** the base vocabulary of the editor, before a document's plugins */
 export function editorRegistry() {
-  return builtinRegistry().registerTool(...EDITOR_TOOLS, ...RECIPE_TOOLS, ...PERCEPTION_TOOLS, ...REVIEW_TOOLS, ...LIBRARY_TOOLS).registerPrompt(...EDITOR_PROMPTS).registerKit(...BUILTIN_KITS).registerPreset(...EDITOR_PRESETS);
+  return builtinRegistry().registerTool(...EDITOR_TOOLS, ...RECIPE_TOOLS, ...PERCEPTION_TOOLS, ...REVIEW_TOOLS, ...SOUND_TOOLS, ...LIBRARY_TOOLS).registerPrompt(...EDITOR_PROMPTS).registerKit(...BUILTIN_KITS).registerPreset(...EDITOR_PRESETS);
 }

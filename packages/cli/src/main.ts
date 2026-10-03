@@ -106,7 +106,7 @@ async function cmdRender(file: string) {
     const r = await renderVideo(s.server, s.page, {
       docUrl: s.docUrl, doc, compId: str('comp'), format, samples: num('samples'), from: num('from'), to: num('to'), crf: num('crf'), mute: !!flags.mute, out,
     });
-    console.log(`${r.frames} frames in ${r.seconds.toFixed(1)} s (${r.msPerFrame.toFixed(0)} ms/frame)${r.audio ? `, ${r.audio} sound track(s)` : ''} -> ${path.relative(process.cwd(), out)}`);
+    console.log(`${r.frames} frames in ${r.seconds.toFixed(1)} s (${r.msPerFrame.toFixed(0)} ms/frame)${r.audio ? ', with sound' : ''} -> ${path.relative(process.cwd(), out)}`);
   } finally { await s.close(); }
 }
 
@@ -159,10 +159,12 @@ async function cmdExport(file: string) {
     console.log(`wrote ${path.relative(process.cwd(), out)}`);
     report(warnings);
   } else if (format === 'wav') {
-    const server = new Server(readConfig(path.resolve(file)));
     const out = path.resolve(str('out') ?? path.join('out', `${stem(file)}.wav`));
-    const r = await renderAudio(server, doc, '/project/' + encodeURIComponent(path.basename(file)), compId, out);
-    console.log(`wrote ${path.relative(process.cwd(), r.file)} (${r.clips} track(s))`);
+    const s = await session(file);
+    try {
+      const r = await renderAudio(s.server, s.page, s.docUrl, compId, out);
+      console.log(`wrote ${path.relative(process.cwd(), r.file)}`);
+    } finally { await s.close(); }
   } else throw new Error('export format: lottie, svg or wav (video: tramme render --format)');
 }
 

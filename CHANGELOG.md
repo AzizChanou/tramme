@@ -32,8 +32,12 @@ Until 1.0.0, the document format and the APIs may still change between minor ver
 - Example project "Night sky": a project plugin with a node, a tool and a workflow.
 - Plugins roadmap: `docs/plugins-roadmap.md`.
 - Sound roadmap: `docs/sound-roadmap.md` (sound effects, ambiences and music made by the assistant in the editor).
+- Sound library: 421 recorded sounds (Kenney's packs, CC0: impacts, interface, digital, jingles, sci-fi) measured and described in `sounds/catalog.json`, and 13 sounds written as code (whoosh, riser, sub boom, cinematic impact, glitch, sparkle…); your own sounds in a library shared by the projects (`/api/sounds`).
+- Sound tools for the assistant and the `/` menu: `sfx` searches the library and places a sound on the moments the document names (entrances, exits, markers, cuts, beats, bars), its hit on the frame, its variants alternating; `synth` makes a sound from Web Audio code and answers with its waveform and measures; `duck` lowers music under a voice; `sound-keep` keeps a sound in the library; `generate-sound` has a provider make a sound effect, a music bed (ElevenLabs) or a voice-over (ElevenLabs, OpenAI, Gemini). The `/sound-design` workflow, and the assistant's guide for sound.
+- Sound layers: volume animatable (fades, ducking), `fadeIn`, `fadeOut`, `lowCut`, `highCut`, `reverb`, and `rate` (speed and pitch) on audio layers; the same but `rate` on the sound of videos.
+- The `check` tool reads the mix: clipping, a mix far too loud or quiet, two sounds starting together.
+- Guided tour "Give the video its sound" (help menu): the library, asking the assistant, the `/` sound tools, sound layers and their properties, checking the mix, exporting with the sound.
 - Assistant effort levels, chosen for each model next to the model menu and in the settings: Claude Opus and Sonnet (low to max, `high` by default, where Opus 5.5 alone would run at `medium`), and the reasoning models of the other providers (OpenAI o-series and GPT-5, Gemini 2.5 and later, OpenRouter models that reason, gpt-oss on a local server: low, medium, high, or the model's own default). A model that refuses its level runs at its own.
-
 - The assistant tells you when it is done (Settings, Assistant): a notification from the system when the editor is in the background, a message in the editor after a long task.
 - Automatic application of the assistant's changes (Settings, Assistant), turned on after a confirmation: a proposal is applied as soon as the turn is over, still checked first, shown in the conversation and undone with Ctrl+Z.
 
@@ -42,6 +46,7 @@ Until 1.0.0, the document format and the APIs may still change between minor ver
 - The assistant's conversation with Claude is append-only: nothing already sent is rewritten, so the prompt cache stays warm and Claude's thinking stays valid. Old tool results are cleared by the API (context editing) once the conversation grows; the system prompt is cached for an hour.
 - Lighter tool answers: `list_nodes` gives an index (properties as `name:type=default`, notes, tool inputs) and the full entries on demand (`types`), about 60% fewer tokens; `get_document` reads one part with `path`; `read_file` reads long files in parts (`offset`).
 - Longer answers (64k tokens) on the server path; a request Claude declines goes to another model on the server (`fallbacks`), and the user is told when it is declined anyway.
+- One mixer for the preview, the browser exports and the command line (`@tramme/render`): the command line mixes in its page and hands ffmpeg the finished track, instead of its own ffmpeg filter graphs.
 
 ### Fixed
 

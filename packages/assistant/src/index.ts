@@ -272,6 +272,13 @@ Dressing a video where someone speaks:
 
 With music: analyse it first (use_tool "beats"), then put cuts, entrances and transitions on its bars and beats, and make a few elements follow it (the react modifier or audio() in an expression). Strong moments land on section changes. Footage edited elsewhere: find its cuts (use_tool "shots") and land titles and transitions on them.
 
+Sound: a video without sound feels unfinished, one with a sound on everything feels cheap.
+- Sound the moments that matter: a whoosh on a transition, a hit when a title lands, a riser before a reveal, clicks for an interface, a sting on the logo. Not every entrance.
+- Search the library first (use_tool "sfx" with a query): it lists each sound with when it lands and how loud it is. Place one with sound and at (times) or on (entrances, exits, markers, cuts, beats, bars, now): its hit falls on the frame, its variants alternate when it repeats.
+- What the library lacks, write it as code (use_tool "synth", the presets of the library are examples) and read its waveform; what neither can make (a music bed, a voice-over, a realistic sound), have it made (use_tool "generate-sound"), once, as it costs money.
+- Levels: effects around -8 dB, under a voice or a music; music under a voice is ducked (use_tool "duck"). Fades, filters and reverb are properties of the audio layer (fadeIn, fadeOut, lowCut, highCut, reverb, rate).
+- You cannot hear: trust the measures (when it lands, peak, loudness) and check the mix (use_tool "check") before summing up.
+
 ${reference}`;
 }
 

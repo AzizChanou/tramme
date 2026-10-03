@@ -16,7 +16,7 @@ export const previewInfo = signal({ scale: 1, still: 1, motion: 0.5 });
 import { effect, signal } from '@preact/signals';
 import { audioClips, type TrammeDoc, type EvaluatedFrame } from '@tramme/core';
 import { editorRegistry } from './vocabulary.ts';
-import { Renderer } from '@tramme/render';
+import { clipChain, playClip, Renderer } from '@tramme/render';
 import { comp, compIdOf, S, setRegistry, setTime, viewDoc } from './state.ts';
 import { prefs } from './settings.ts';
 import { syncPluginTours } from './tours/index.ts';
@@ -292,24 +292,16 @@ class Preview {
     if (!S.playing.peek()) return;
     const startAt = ctx.currentTime + 0.03;
     this.clock = { at: startAt, t0: from, audio: true };
-    const gainNode = (db: number) => { const g = ctx.createGain(); g.gain.value = Math.pow(10, db / 20); g.connect(ctx.destination); return g; };
+    // the mixer of the exports: filters, gain curves, fades and reverb sound the same here
     sounds.forEach((c, i) => {
-      const buf = bufs[i];
-      if (!buf) return;
-      const src = ctx.createBufferSource();
-      src.buffer = buf;
-      src.connect(gainNode(c.gainDb));
-      const skip = Math.max(0, from - c.at);
-      const offset = c.offset + skip, length = c.duration - skip;
-      if (offset >= buf.duration || length <= 0) return;
-      src.start(startAt + Math.max(0, c.at - from), offset, length);
-      this.sources.push(src);
+      const src = bufs[i] && playClip(ctx, c, bufs[i]!, ctx.destination, startAt, from);
+      if (src) this.sources.push(src);
     });
     // a video's sound streams from its file (never decoded whole): one element per cut, started and stopped on the clock
     for (const c of clips.filter((x) => doc.assets[x.asset].type === 'video')) {
       const el = new Audio(r.assets.url(c.asset));
       el.preload = 'auto';
-      ctx.createMediaElementSource(el).connect(gainNode(c.gainDb));
+      ctx.createMediaElementSource(el).connect(clipChain(ctx, c, ctx.destination, startAt, from));
       const skip = Math.max(0, from - c.at);
       const begin = () => { el.currentTime = c.offset + skip; el.play().catch(() => {}); };
       const wait = Math.max(0, c.at - from) * 1000 + 30;

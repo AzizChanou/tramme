@@ -10,3 +10,7 @@ OPENAI_API_KEY=
 GEMINI_API_KEY=
 OPENROUTER_API_KEY=
 ZAI_API_KEY=
+
+# Sounds made by a provider (sound effects, music, voice-overs): ElevenLabs makes
+# all three; a voice-over can also come from OpenAI or Gemini with the keys above
+ELEVENLABS_API_KEY=

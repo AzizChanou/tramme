@@ -5,6 +5,7 @@
 import './home.ts';
 import './editor.ts';
 import './drawn.ts';
+import './sound.ts';
 import './assistant.ts';
 
 export * from './engine.ts';

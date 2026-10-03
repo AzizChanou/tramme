@@ -7,9 +7,9 @@
 import { AudioBufferSource, BufferTarget, CanvasSource, canEncodeAudio, getFirstEncodableVideoCodec, Mp4OutputFormat, Output, Quality, VideoSample, VideoSampleSource, WebMOutputFormat } from 'mediabunny';
 import { applyPalette, GIFEncoder, quantize } from 'gifenc';
 import { zipSync } from 'fflate';
-import { audioClips, type TrammeDoc, type Registry } from '@tramme/core';
+import type { TrammeDoc, Registry } from '@tramme/core';
 import { fetchAssetReader, toLottie, toSvg } from '@tramme/interop';
-import { Renderer } from '@tramme/render';
+import { encodeWav, mixComposition, Renderer } from '@tramme/render';
 
 import type { WebFormat } from './formats.ts';
 import { t } from './i18n/index.ts';
@@ -27,43 +27,10 @@ export interface WebExportOptions {
 
 export interface WebExportResult { blob: Blob; ext: string; warnings: string[] }
 
-/** the composition's sounds (audio layers, sound of videos, each cut to its layer) mixed into one buffer, or null */
-async function mixAudio(r: Renderer, duration: number): Promise<AudioBuffer | null> {
-  const clips = audioClips(r.doc, r.compId);
-  if (!clips.length) return null;
-  const sr = 48000;
-  const ctx = new OfflineAudioContext(2, Math.ceil(duration * sr), sr);
-  const decoded = new Map<string, Promise<AudioBuffer | null>>();
-  for (const c of clips) {
-    let buf = decoded.get(c.asset);
-    if (!buf) {
-      buf = fetch(r.assets.url(c.asset)).then((x) => x.arrayBuffer()).then((d) => ctx.decodeAudioData(d)).catch(() => null);
-      decoded.set(c.asset, buf);
-    }
-    const b = await buf;
-    if (!b) continue;
-    const src = ctx.createBufferSource();
-    src.buffer = b;
-    const gain = ctx.createGain();
-    gain.gain.value = Math.pow(10, c.gainDb / 20);
-    src.connect(gain).connect(ctx.destination);
-    src.start(c.at, c.offset, c.duration);
-  }
-  return ctx.startRendering();
-}
+/** the composition's sounds (audio layers, sound of videos), through the mixer of the preview, or null */
+const mixAudio = (r: Renderer) => mixComposition(r.doc, r.compId, (id) => r.assets.url(id));
 
-/** 16-bit PCM WAV */
-function wav(buf: AudioBuffer): Blob {
-  const ch = buf.numberOfChannels, n = buf.length, out = new DataView(new ArrayBuffer(44 + n * ch * 2));
-  const str = (o: number, s: string) => { for (let i = 0; i < s.length; i++) out.setUint8(o + i, s.charCodeAt(i)); };
-  str(0, 'RIFF'); out.setUint32(4, 36 + n * ch * 2, true); str(8, 'WAVE'); str(12, 'fmt ');
-  out.setUint32(16, 16, true); out.setUint16(20, 1, true); out.setUint16(22, ch, true); out.setUint32(24, buf.sampleRate, true);
-  out.setUint32(28, buf.sampleRate * ch * 2, true); out.setUint16(32, ch * 2, true); out.setUint16(34, 16, true);
-  str(36, 'data'); out.setUint32(40, n * ch * 2, true);
-  const data = Array.from({ length: ch }, (_, c) => buf.getChannelData(c));
-  for (let i = 0, o = 44; i < n; i++) for (let c = 0; c < ch; c++, o += 2) out.setInt16(o, Math.max(-1, Math.min(1, data[c][i])) * 0x7fff, true);
-  return new Blob([out.buffer], { type: 'audio/wav' });
-}
+const wav = (buf: AudioBuffer) => new Blob([encodeWav(buf) as BlobPart], { type: 'audio/wav' });
 
 /** a packet in Annex B (start codes), rather than with its NAL units prefixed by their length */
 const isAnnexB = (d: Uint8Array) => d[0] === 0 && d[1] === 0 && (d[2] === 1 || (d[2] === 0 && d[3] === 1));
@@ -103,7 +70,7 @@ export async function exportInBrowser(doc: TrammeDoc, base: string, format: WebF
     // the render size (the width is rounded to a multiple of 8)
     const W = canvas.width, H = canvas.height;
     if (format === 'wav') {
-      const sound = await mixAudio(r, duration);
+      const sound = await mixAudio(r);
       if (!sound) throw new Error(t('export.noSoundLayerIn'));
       return { blob: wav(sound), ext: 'wav', warnings: [] };
     }
@@ -161,7 +128,7 @@ export async function exportInBrowser(doc: TrammeDoc, base: string, format: WebF
     // MP4: the visible canvas (opaque); WebM: straight RGBA frames, alpha kept
     const video = webm ? new VideoSampleSource({ codec, quality, keyFrameInterval: 2, alpha: 'keep' }) : new CanvasSource(canvas, { codec, quality, keyFrameInterval: 2, ...(codec === 'avc' ? AVC_FROM_STREAM : {}) });
     output.addVideoTrack(video, { frameRate: fps });
-    const sound = await mixAudio(r, duration);
+    const sound = await mixAudio(r);
     let audio: AudioBufferSource | null = null;
     if (sound) {
       const audioCodec = webm ? 'opus' : (await canEncodeAudio('aac')) ? 'aac' : 'opus';

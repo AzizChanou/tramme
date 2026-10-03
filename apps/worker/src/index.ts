@@ -20,33 +20,38 @@
 //   POST   /api/llm/:provider/chat/completions  OpenAI, Gemini, OpenRouter with the server's keys
 //   GET    /api/models                          the models of those providers
 //   POST   /api/transcribe                      {audio: WAV base64, language?} -> words with their timing (Whisper)
+//   GET    /api/library, /api/library/<name>.js the plugin library (GET, PUT, DELETE a plugin)
+//   GET    /api/sounds, /api/sounds/<name>      the sound library (GET, PUT with x-tramme-entry, DELETE a sound)
+//   POST   /api/generate                        {kind: sfx|music|voice, prompt, duration?, voice?, style?, provider?} -> audio
 
 import { LIMITS, PROJECT_FORMAT } from '@tramme/project';
 import { guard } from './access.ts';
 import { claude, claudeConfig } from './claude.ts';
 import { llm, llmConfig, models } from './llm.ts';
 import { transcribe } from './speech.ts';
+import { generate, soundConfig } from './generate.ts';
 import { HttpError, json, type Env } from './http.ts';
 import { abortUpload, completeUpload, startUpload, uploadPart, createProject, deleteFile, deleteProject, duplicateProject, exportProject, getFile, listProjects, projectInfo, putFile, updateProject } from './projects.ts';
-import { deleteLibraryPlugin, getLibraryPlugin, listLibrary, putLibraryPlugin } from './library.ts';
+import { deleteFromShelf, getFromShelf, listShelf, putOnShelf, SHELVES } from './library.ts';
 
 async function route(req: Request, env: Env, url: URL): Promise<Response> {
   const parts = url.pathname.slice('/api/'.length).split('/');
   const m = req.method;
   if (parts[0] === 'config' && m === 'GET') {
-    return json({ format: PROJECT_FORMAT, limits: LIMITS, claude: claudeConfig(env), llm: llmConfig(env), transcribe: !!env.AI });
+    return json({ format: PROJECT_FORMAT, limits: LIMITS, claude: claudeConfig(env), llm: llmConfig(env), transcribe: !!env.AI, sound: soundConfig(env) });
   }
   if (parts[0] === 'claude') return claude(req, env, parts.slice(1).join('/'));
   if (parts[0] === 'llm' && parts[1]) return llm(req, env, parts[1], parts.slice(2).join('/'));
   if (parts[0] === 'models' && m === 'GET') return models(env);
   if (parts[0] === 'transcribe' && m === 'POST') return transcribe(req, env);
-  if (parts[0] === 'library') {
-    // the plugin library: /api/library, /api/library/<name>.js
+  if (parts[0] === 'generate' && m === 'POST') return generate(req, env);
+  if (parts[0] === 'library' || parts[0] === 'sounds') {
+    const shelf = parts[0] === 'library' ? SHELVES.plugins : SHELVES.sounds;
     const [, name] = parts;
-    if (!name && m === 'GET') return listLibrary(env.FILES);
-    if (name && (m === 'GET' || m === 'HEAD')) return getLibraryPlugin(env.FILES, name);
-    if (name && m === 'PUT') return putLibraryPlugin(env.FILES, name, req);
-    if (name && m === 'DELETE') return deleteLibraryPlugin(env.FILES, name);
+    if (!name && m === 'GET') return listShelf(env.FILES, shelf);
+    if (name && (m === 'GET' || m === 'HEAD')) return getFromShelf(env.FILES, shelf, name);
+    if (name && m === 'PUT') return putOnShelf(env.FILES, shelf, name, req);
+    if (name && m === 'DELETE') return deleteFromShelf(env.FILES, shelf, name);
   }
   if (parts[0] === 'projects') {
     const bucket = env.FILES;

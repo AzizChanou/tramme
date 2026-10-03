@@ -18,6 +18,7 @@ import { BUILTIN_KITS, RECIPE_TOOLS } from '../src/recipes.ts';
 import { PERCEPTION_TOOLS } from '../src/perception.ts';
 import { EDITOR_PRESETS } from '../src/presets.ts';
 import { LIBRARY_TOOLS } from '../src/library.ts';
+import { SOUND_TEXTS, SOUND_TOOLS } from '../src/sound.ts';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(HERE, '../../..');
@@ -57,9 +58,10 @@ export function registryKeys(): Set<string> {
   schema(MOTION_BLUR_SCHEMA);
   schema(CAMERA_SCHEMA);
   // the editor's tools and workflows, shown in the chat's / menu
-  for (const x of [...EDITOR_TOOLS, ...RECIPE_TOOLS, ...PERCEPTION_TOOLS, ...REVIEW_TOOLS, ...LIBRARY_TOOLS, ...EDITOR_PROMPTS, ...BUILTIN_CHECKS, ...BUILTIN_KITS, ...EDITOR_PRESETS]) { add(x.title); add(x.description); }
+  for (const x of [...EDITOR_TOOLS, ...RECIPE_TOOLS, ...PERCEPTION_TOOLS, ...REVIEW_TOOLS, ...SOUND_TOOLS, ...LIBRARY_TOOLS, ...EDITOR_PROMPTS, ...BUILTIN_CHECKS, ...BUILTIN_KITS, ...EDITOR_PRESETS]) { add(x.title); add(x.description); }
   for (const c of BUILTIN_CHECKS) for (const text of c.texts ?? []) add(text);
-  for (const tool of [...EDITOR_TOOLS, ...RECIPE_TOOLS, ...PERCEPTION_TOOLS, ...REVIEW_TOOLS, ...LIBRARY_TOOLS]) {
+  for (const text of Object.values(SOUND_TEXTS)) add(text);
+  for (const tool of [...EDITOR_TOOLS, ...RECIPE_TOOLS, ...PERCEPTION_TOOLS, ...REVIEW_TOOLS, ...SOUND_TOOLS, ...LIBRARY_TOOLS]) {
     for (const p of Object.values((tool.input?.properties ?? {}) as Record<string, { title?: string; description?: string; enum?: unknown[] }>)) {
       add(p.title); add(p.description);
       for (const v of p.enum ?? []) add(String(v));

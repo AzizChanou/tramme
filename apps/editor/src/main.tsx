@@ -8,7 +8,7 @@ import { upgradeDoc, type TrammeDoc } from '@tramme/core';
 import { api } from './api.ts';
 import { preview } from './preview.ts';
 import { commit, hooks, load, S, select, setTime, undo } from './state.ts';
-import { loadChats } from './ai/index.ts';
+import { loadChats, runTool } from './ai/index.ts';
 import { App } from './ui/App.tsx';
 import { Home } from './ui/Home.tsx';
 import './styles.css';
@@ -52,8 +52,8 @@ async function openProject(id: string) {
   setTimeout(() => offerTours('editor'), 700);
   hooks.afterSave = () => { thumbnail(); };
   if (!info.manifest.thumbnail) setTimeout(() => thumbnail(true), 1500);
-  // a handle for measurements and automated checks (tramme bench)
-  (window as any).__tramme = { S, preview, select, setTime, undo, commit };
+  // a handle for measurements and automated checks (tramme bench); runTool runs a tool of the / menu, its events returned
+  (window as any).__tramme = { S, preview, select, setTime, undo, commit, runTool };
 }
 
 const m = location.pathname.match(/^\/p\/([a-z0-9][a-z0-9-]{2,63})\/?$/);

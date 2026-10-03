@@ -40,6 +40,8 @@ esbuild (MIT), TypeScript (Apache-2.0), Vitest (MIT), Wrangler (MIT OR Apache-2.
 
 The editor uses the system's fonts and bundles none. The example projects in `examples/` (drawings, thumbnails) are part of Tramme and under the same MIT license.
 
+The sound library in `sounds/` (copied into the editor's build) holds recordings by [Kenney](https://www.kenney.nl) from the packs Impact Sounds, Interface Sounds, Digital Audio, UI Audio, Music Jingles and Sci-fi Sounds, released under [Creative Commons Zero (CC0 1.0)](http://creativecommons.org/publicdomain/zero/1.0/): public domain, free for any use, crediting welcome but not required (`sounds/LICENSE.txt`). The sounds written as code (`apps/editor/src/sound-presets.ts`) are part of Tramme.
+
 ## Services
 
-The assistant can call third-party services (Anthropic, OpenAI, Google Gemini, OpenRouter, Cloudflare Workers AI), each under its own terms, with keys provided by whoever deploys Tramme.
+The assistant can call third-party services (Anthropic, OpenAI, Google Gemini, OpenRouter, ElevenLabs, Cloudflare Workers AI), each under its own terms, with keys provided by whoever deploys Tramme. Sounds made by a provider fall under that provider's terms of use.

@@ -120,7 +120,8 @@ Built-in plugins whose tools analyse the material at authoring time and save the
 
 ### Step 8. Generated assets
 
-- [ ] Tools that call providers through the Worker at authoring time: images and textures, voice (TTS), music beds, background removal. Results are saved in the project with their prompt and provider, so they can be regenerated. Sound made in the editor without a provider (effects, ambiences): [sound-roadmap.md](sound-roadmap.md).
+- [x] Voice (TTS), music beds and sound effects through the Worker at authoring time, saved with their prompt and provider: the `generate-sound` tool ([sound-roadmap.md](sound-roadmap.md), step 8).
+- [ ] Images and textures, background removal, the same way.
 
 ### Step 9. Editor surfaces
 
@@ -136,7 +137,7 @@ Built-in plugins whose tools analyse the material at authoring time and save the
 - [x] `@tramme/plugin` (`packages/plugin`): every type a plugin exports and `definePlugin()`.
 - [x] A library of plugins shared between projects (`/api/library` in the Worker, R2 `library/plugins/`); tools `library-add` and `library-use` (assistant and `/` menu); a plugin is copied into the project when used, so archives stay self-contained.
 - [ ] Isolation of untrusted plugins (worker with OffscreenCanvas) for projects from unknown sources.
-- [ ] Audio processing (EQ, reverb, gain envelopes) mixed in the browser with an `OfflineAudioContext` for exports (planned with the sound tools: [sound-roadmap.md](sound-roadmap.md), step 6).
+- [x] Audio processing (gain curves, fades, low and high cut, reverb, speed) with one mixer for the preview and every export ([sound-roadmap.md](sound-roadmap.md), step 7); equaliser bands and a compressor left.
 
 ## Flagship results and what they need
 

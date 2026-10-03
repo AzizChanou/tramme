@@ -1,5 +1,5 @@
 // ffmpeg side: encoders for raw frames streamed from the render page, with
-// the document's audio layers mixed at their in points.
+// the document's sound, already mixed by the page (the mixer of the editor).
 //   mp4   H.264 High, BT.709, MP3 320 kb/s (frames in YUV 4:2:0)
 //   mov   ProRes 4444 with alpha, PCM audio (frames in straight RGBA)
 //   webm  VP9 with alpha, Opus audio
@@ -20,41 +20,18 @@ export const frameKind = (f: VideoFormat): 'yuv' | 'rgba' => (f === 'mp4' ? 'yuv
 
 const COLOR = ['-colorspace', 'bt709', '-color_primaries', 'bt709', '-color_trc', 'bt709', '-color_range', 'tv'];
 
-export interface AudioClip {
-  file: string;
-  /** seconds on the timeline (relative to the first rendered frame) */
-  at: number;
-  /** seconds into the file */
-  start: number;
-  /** seconds played (the layer's length): a cut ends there */
-  duration: number;
-  gainDb: number;
-}
-
-/** filter graph mixing the clips into [aout]; inputs start at index 1 (0 is the video) */
-function audioGraph(clips: AudioClip[]): string {
-  const chains = clips.map((c, i) => {
-    const delay = Math.max(0, Math.round(c.at * 1000));
-    const trim = c.start + Math.max(0, -c.at), len = Math.max(0, c.duration - Math.max(0, -c.at));
-    return `[${i + 1}:a]atrim=start=${trim.toFixed(4)}:duration=${len.toFixed(4)},asetpts=PTS-STARTPTS,adelay=${delay}|${delay},volume=${c.gainDb}dB[a${i}]`;
-  });
-  const mix = clips.length === 1 ? '[a0]anull[aout]' : `${clips.map((_, i) => `[a${i}]`).join('')}amix=inputs=${clips.length}:normalize=0[aout]`;
-  return [...chains, mix].join(';');
-}
-
-export interface EncoderJob { format: VideoFormat; W: number; H: number; fps: number; frames: number; out: string; audio?: AudioClip[]; crf?: number }
+/** audio: the mixed sound of the rendered span, a WAV starting at its first frame */
+export interface EncoderJob { format: VideoFormat; W: number; H: number; fps: number; frames: number; out: string; audio?: string; crf?: number }
 
 /** ffmpeg reading raw frames on stdin; out is the target file (a folder for png) */
-export function encoder({ format, W, H, fps, frames, out, audio = [], crf = 16 }: EncoderJob) {
+export function encoder({ format, W, H, fps, frames, out, audio, crf = 16 }: EncoderJob) {
   fs.mkdirSync(format === 'png' ? out : path.dirname(out), { recursive: true });
   const dur = (frames / fps).toFixed(6);
   const pix = format === 'mp4' ? ['-pix_fmt', 'yuv420p', ...COLOR] : ['-pix_fmt', 'rgba'];
   const args = ['-y', '-hide_banner', '-loglevel', 'error', '-f', 'rawvideo', ...pix, '-s', `${W}x${H}`, '-r', String(fps), '-i', '-'];
-  const withAudio = audio.length > 0 && (format === 'mp4' || format === 'mov' || format === 'webm');
-  if (withAudio) {
-    for (const c of audio) args.push('-i', c.file);
-    args.push('-filter_complex', audioGraph(audio), '-map', '0:v', '-map', '[aout]');
-  } else if (format !== 'gif') args.push('-map', '0:v');
+  const withAudio = !!audio && (format === 'mp4' || format === 'mov' || format === 'webm');
+  if (withAudio) args.push('-i', audio, '-map', '0:v', '-map', '1:a');
+  else if (format !== 'gif') args.push('-map', '0:v');
   const toTv = ['-vf', 'scale=out_color_matrix=bt709:out_range=tv'];
   switch (format) {
     case 'mp4':
@@ -84,19 +61,4 @@ export function encoder({ format, W, H, fps, frames, out, audio = [], crf = 16 }
     write: (buf: Buffer) => new Promise<void>((res) => { if (!ff.stdin.write(buf)) ff.stdin.once('drain', () => res()); else res(); }),
     end: async () => { ff.stdin.end(); await done; },
   };
-}
-
-/** the document's sound alone, mixed to a WAV file */
-export function mixAudio(clips: AudioClip[], duration: number, out: string): Promise<void> {
-  fs.mkdirSync(path.dirname(out), { recursive: true });
-  const args = ['-y', '-hide_banner', '-loglevel', 'error', '-f', 'lavfi', '-i', `anullsrc=r=48000:cl=stereo:d=${duration.toFixed(4)}`];
-  for (const c of clips) args.push('-i', c.file);
-  const graph = clips.map((c, i) => {
-    const delay = Math.max(0, Math.round(c.at * 1000));
-    return `[${i + 1}:a]atrim=start=${(c.start + Math.max(0, -c.at)).toFixed(4)}:duration=${Math.max(0, c.duration - Math.max(0, -c.at)).toFixed(4)},asetpts=PTS-STARTPTS,adelay=${delay}|${delay},volume=${c.gainDb}dB[a${i}]`;
-  });
-  graph.push(`[0:a]${clips.map((_, i) => `[a${i}]`).join('')}amix=inputs=${clips.length + 1}:normalize=0:duration=first[aout]`);
-  args.push('-filter_complex', graph.join(';'), '-map', '[aout]', '-c:a', 'pcm_s24le', '-ar', '48000', out);
-  const ff = spawn(FFMPEG, args, { stdio: ['ignore', 'inherit', 'inherit'] });
-  return new Promise((res, rej) => ff.on('close', (c) => (c === 0 ? res() : rej(new Error('ffmpeg failed (code ' + c + ')')))));
 }

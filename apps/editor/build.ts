@@ -115,6 +115,8 @@ fs.writeFileSync(path.join(DIST, 'manifest.webmanifest'), JSON.stringify({
   icons: [{ src: '/icon.svg', sizes: 'any', type: 'image/svg+xml', purpose: 'any' }],
 }, null, 2));
 const examples = writeExamples();
+// the sound library shipped with the editor (CC0 recordings and their catalog, scripts/sound-library.ts)
+fs.cpSync(path.join(ROOT, 'sounds'), path.join(DIST, 'sounds'), { recursive: true });
 
 if (!dev) {
   const t0 = performance.now();

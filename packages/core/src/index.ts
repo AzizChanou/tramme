@@ -13,6 +13,7 @@ export * from './format.ts';
 export * from './modifiers.ts';
 export * from './sequence.ts';
 export * from './audio.ts';
+export * from './sounds.ts';
 export * from './transcript.ts';
 export * from './tools.ts';
 export * from './checks.ts';

@@ -13,6 +13,8 @@ export interface Env {
   OPENROUTER_API_KEY?: string;
   ZAI_API_KEY?: string;
   GLM_API_KEY?: string;
+  /** secret: ElevenLabs, for sound effects, music and voice-overs made at authoring time (optional) */
+  ELEVENLABS_API_KEY?: string;
   /** Workers AI: speech to text (Whisper) */
   AI?: Ai;
   /** Cloudflare Access: team domain (equipe.cloudflareaccess.com) and application audience tag */

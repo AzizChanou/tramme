@@ -41,7 +41,12 @@ export interface ServerConfig {
   claude: { server: boolean };
   /** other model providers with a key on the server */
   llm?: Record<string, boolean>;
+  /** providers that make sounds, by kind (the first is used when none is named) */
+  sound?: Record<'sfx' | 'music' | 'voice', string[]>;
 }
+
+/** a sound made by a provider: the file and what made it */
+export interface MadeSound { blob: Blob; provider: string; model: string; voice?: string }
 
 export interface ProjectFile { path: string; size: number; etag: string; modified: string }
 
@@ -84,6 +89,22 @@ export const api = {
     return r.text();
   },
   libraryPut: (name: string, code: string) => call<{ name: string; size: number }>(`/api/library/${encodeURIComponent(name)}`, { method: 'PUT', headers: { 'content-type': 'text/javascript' }, body: code }),
+
+  // ── the sound library, shared by the projects ──────────────────
+  sounds: () => call<{ name: string; size: number; modified: string; entry?: unknown }[]>('/api/sounds'),
+  soundUrl: (name: string) => `/api/sounds/${encodeURIComponent(name)}`,
+  /** a sound kept with its description (kind, tags, length, the moment it lands on) */
+  soundPut: (name: string, data: Blob, entry: unknown) => call<{ name: string; size: number }>(api.soundUrl(name), { method: 'PUT', headers: { 'content-type': data.type || 'application/octet-stream', 'x-tramme-entry': JSON.stringify(entry) }, body: data }),
+  /** a sound effect, a music bed or a voice-over made by a provider through the server */
+  async generate(ask: { kind: 'sfx' | 'music' | 'voice'; prompt: string; duration?: number; voice?: string; style?: string; provider?: string }, signal?: AbortSignal): Promise<MadeSound> {
+    const r = await fetch('/api/generate', { ...jsonInit('POST', ask), signal });
+    if (!r.ok) {
+      let message = `HTTP ${r.status}`;
+      try { message = (await r.json()).error ?? message; } catch { /* not JSON */ }
+      throw new ApiError(r.status, message);
+    }
+    return { blob: await r.blob(), provider: r.headers.get('x-tramme-provider') ?? '', model: r.headers.get('x-tramme-model') ?? '', voice: r.headers.get('x-tramme-voice') ?? undefined };
+  },
   remove: (id: string) => call<{ deleted: string }>(P(id), { method: 'DELETE' }),
   duplicate: (id: string, name?: string) => call<Manifest>(`${P(id)}/duplicate`, jsonInit('POST', { name })),
   exportUrl: (id: string) => `${P(id)}/export`,

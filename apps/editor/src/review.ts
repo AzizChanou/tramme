@@ -4,18 +4,11 @@
 // up (use_tool) or by the user from the / menu.
 
 import { runChecks, type QualityIssue, type ToolContext, type ToolType, type TrammeDoc } from '@tramme/core';
+import { analyses } from './perception.ts';
+import { soundIssues } from './sound.ts';
 import { t } from './i18n/index.ts';
 
 const CELL = 360;
-
-/** the analyses of the project (JSON assets of the perception tools), loaded for the checks */
-async function analyses(ctx: ToolContext): Promise<(id: string) => unknown> {
-  const loaded = new Map<string, unknown>();
-  await Promise.all(Object.entries(ctx.doc.assets).filter(([id, a]) => a.type === 'json' && /^(analysis|subjects|shots)-/.test(id)).map(async ([id]) => {
-    try { loaded.set(id, await (await fetch(ctx.assetUrl(id), { cache: 'no-store' })).json()); } catch { /* unreadable: left out */ }
-  }));
-  return (id) => loaded.get(id);
-}
 
 /** a picture of several stills side by side, each labelled with its time */
 async function sheet(ctx: ToolContext, times: number[], cols: number, compId: string): Promise<string> {
@@ -66,11 +59,11 @@ export function keyTimes(doc: TrammeDoc, compId: string, issues: QualityIssue[],
 }
 
 const check: ToolType<{ frames?: number }> = {
-  name: 'check', title: 'Check the composition', description: 'runs the quality checks (readability, safe zone, overlaps, pacing) and shows a contact sheet of the key moments',
+  name: 'check', title: 'Check the composition', description: 'runs the quality checks (readability, safe zone, overlaps, pacing, the sound: clipping, loudness, sounds on top of each other) and shows a contact sheet of the key moments',
   input: { type: 'object', properties: { frames: { type: 'integer', minimum: 2, maximum: 12, title: 'Frames' } } },
   ai: { when: 'before summing up any change, and whenever the user asks if it looks right; read the issues, look at the sheet, fix what matters' },
   async run({ frames = 8 }, ctx) {
-    const issues = await runChecks(ctx.doc, ctx.registry, ctx.compId, { data: await analyses(ctx) });
+    const issues = [...await runChecks(ctx.doc, ctx.registry, ctx.compId, { data: await analyses(ctx) }), ...await soundIssues(ctx)];
     const times = keyTimes(ctx.doc, ctx.compId, issues, frames);
     const url = await sheet(ctx, times, Math.min(4, times.length), ctx.compId);
     const warnings = issues.filter((i) => i.severity === 'warning').length, notes = issues.length - warnings;

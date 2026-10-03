@@ -1,100 +1,88 @@
 # Sound roadmap
 
-How the assistant comes to make the sound of a video, not only its picture: effects on the moments that matter (a whoosh on a transition, a hit on a title, a riser before a reveal), ambiences and short music beds. Today Claude does it when it works on a project from a terminal (Claude Code); the editor's assistant cannot.
+How the assistant makes the sound of a video, not only its picture: effects on the moments that matter (a whoosh on a transition, a hit on a title, a riser before a reveal), ambiences, music beds and voice-overs. Before this plan Claude did it from a terminal (Claude Code), writing scripts that computed WAV files; the editor's assistant could not.
 
-Status: not started. Step 2 waits for one decision (code or recipe, see below). Tick the boxes as steps land, and keep this file as the reference instead of re-deciding the plan.
+Status: steps 1 to 8 done. What is left is listed under each step. Tick the boxes as steps land, and keep this file as the reference instead of re-deciding the plan.
 
 ## Why
 
-In tramme a sound is always a file: an `audio` layer plays an asset from `start`, between its in and out points, at its `gain` (`packages/core/src/audio.ts`). There is no node that synthesises sound, and there should not be one: render time stays a pure function of time, and every export mixes files the same way.
+In tramme a sound is always a file: an `audio` layer plays an asset from `start`, between its in and out points (`packages/core/src/audio.ts`). There is no node that synthesises sound at render time, and there should not be one: rendering stays a pure function of time.
 
-So making a sound means making a file. From a terminal, Claude writes a script that computes the samples, saves a `.wav` under `assets/` and adds the layer. In the editor the assistant has no terminal, and none of its tools makes a sound:
+So making a sound means making a file. From a terminal, Claude writes a script; the editor's assistant had no terminal, `write_file` writes text only, and its audio tools only analysed (`beats`, `get_transcript`, `cut_media`).
 
-- `write_file` writes text only: plugins (`plugins/*.js`, `*.mjs`) and data (`assets/*.json`, `*.svg`).
-- The audio tools analyse or edit what is there (`beats`, `get_transcript`, `cut_media`); none creates audio.
-- A detour exists (a plugin tool may write a binary file under `assets/` with `ctx.writeFile` and synthesise it with an `OfflineAudioContext`), but nothing tells the model, and it would be a hack.
-
-What the editor already has covers most of the work: `OfflineAudioContext` mixing and a WAV encoder in `apps/editor/src/webexport.ts`, the editor tools mechanism (files under `assets/`, operations joining the proposal), the `audio` layer, and the `beats` analysis to land sounds on the music.
+A model cannot hear. Designing a sound blind (synthesis) has a low ceiling for anything realistic; choosing among described recordings is what it does well, the way a motion designer works with a sound library. Hence the order: recordings first, code for what they lack, providers for what neither can make.
 
 ## Principles
 
-- **Authoring time and render time are separate**, as for the plugins ([plugins-roadmap.md](plugins-roadmap.md#principles)). A sound is computed once, when the assistant or the user asks for it, saved as a WAV asset with what made it, and played by an `audio` layer. Rendering and exports do not change.
-- **Reproducible.** What made a sound is kept next to it (its code or recipe, its seed), so it can be made again, changed and made again, and archives stay self-contained.
-- **One mechanism for the assistant and the editor.** The sound tool is an editor tool like `beats` or `check`: the assistant calls it with `use_tool`, the user from the `/` menu. Its layer comes as a proposal: checked, previewed, undoable.
-- **Nothing written twice.** The WAV encoder and the mixing move out of `webexport.ts` into a module the exports and the sound tool share.
-- **The model hears with its eyes.** It cannot listen: the tool answers with a picture of the waveform and figures (peak, loudness, where the energy is), so it can judge levels and timing.
-
-## Decision needed: code or recipe
-
-How the model describes a sound to the tool.
-
-| | Code | Recipe |
-|---|---|---|
-| What the model writes | A short function that builds the sound with Web Audio (oscillators, noise, envelopes, filters, notes) on an `OfflineAudioContext` | JSON: layers of oscillators and noise, envelopes, filters, notes, effects |
-| What it can make | Anything Web Audio can, as in Claude Code | What the recipe format allows |
-| Trust | The same as today's plugins, which the assistant already writes and the editor runs in the page | Nothing new runs |
-| Cost to build | Small: run the code, encode, save | A format, its validation and its interpreter |
-
-Recommendation: code, with a library of ready-made sounds (whoosh, hit, riser, click, pop, ambience) written once in that same form, so the model starts from good material. The recipe can come later as a safer mode for projects of unknown origin, together with plugin isolation (plugins roadmap, step 10).
+- **Authoring time and render time are separate**, as for the plugins ([plugins-roadmap.md](plugins-roadmap.md#principles)). A sound is made once, saved as an asset with what made it (`assets/sounds/<name>.sound.json`: its code and seed, or its prompt and provider), and played by an `audio` layer.
+- **One mixer.** The preview, the browser exports and the command line mix with the same code (`packages/render/src/audio.ts`): filters, gain curves, fades, reverb, speed sound the same everywhere. The command line mixes in its page and hands ffmpeg the finished track.
+- **One mechanism for the assistant and the editor.** The sound tools are editor tools: the assistant calls them with `use_tool`, the user from the `/` menu. Their layers come as a proposal.
+- **The model hears with its eyes.** Every sound carries measures (`soundFigures` in `@tramme/core`): length, the moment it lands on, peak, loudness, where its sound starts and ends. The tools answer with them, and with a waveform picture.
+- **The landing moment goes on the frame.** A hit, the pass of a whoosh, the top of a riser: placed so that moment falls on the time asked for, not the file's start.
 
 ## Steps
 
 ### Step 1. Shared audio plumbing
 
-- [ ] Move the WAV encoder (`wav`) and the mixing (`mixAudio`) out of `apps/editor/src/webexport.ts` into a module of their own; the exports use it unchanged.
-- [ ] A helper that saves a rendered `AudioBuffer` as a WAV asset and returns the operations adding the asset (and, when asked, its `audio` layer at a time, with a gain).
+- [x] The sound of a layer read once (`audioClips`): gain and its curve (animated `gain`), `fadeIn`, `fadeOut`, `rate`, `lowCut`, `highCut`, `reverb`, on audio layers and the sound of videos (`packages/nodes/src/sound.ts`).
+- [x] One mixer (`clipChain`, `playClip`, `mixComposition`, `encodeWav`) used by the preview, the browser exports and the command line; the two ffmpeg filter graphs of the command line removed.
+- [x] Measures of a sound (`soundFigures`): what the tools, the catalog and the checks read.
 
-### Step 2. The `sound` tool
+### Step 2. The sound library
 
-- [ ] Editor tool `sound` (vocabulary of the editor, `/sound` in the chat): input `{ name, duration, code | recipe, at?, gain?, seed? }`.
-- [ ] Renders on an `OfflineAudioContext` (48 kHz, stereo), stopped by the turn's signal, with a time limit.
-- [ ] Saves `assets/audio/<name>.wav` and what made it (`assets/audio/<name>.sound.json`), proposes the asset and the layer.
-- [ ] Answers with a waveform picture and figures: peak, loudness, start and end of the energy.
-- [ ] A sound made again (same name) replaces its file; the layers playing it reload.
-- [ ] Library of ready-made sounds (whoosh, hit, riser, click, pop, ambience), each with its parameters.
+- [x] 421 recordings from Kenney's packs (CC0, public domain): impacts, interface sounds, digital sounds, jingles, sci-fi, UI (`sounds/`, 5.2 MB), measured in Chrome by `scripts/sound-library.ts` into `sounds/catalog.json`, shipped with the editor.
+- [x] Sounds written as code where the recordings lack (`apps/editor/src/sound-presets.ts`): whoosh, swoosh, riser, reverse swell, sub boom, cinematic impact, thump, pop, tick, glitch, sparkle, power down, room tone.
+- [x] One format for every source (`SoundEntry`, `packages/core/src/sounds.ts`) and a search by words with the kinds' synonyms, one sound per family (`searchSounds`).
+- [x] The user's own library shared by the projects (`/api/sounds`, R2 `library/sounds/`, a sound's description kept in its metadata), with the plugin library on one shelf mechanism; `sound-keep` puts a project's sound there.
+- [x] `sfx` tool: search, then place a sound on moments, its variants alternating, a lone sound's speed varied slightly when it repeats; copied into the project.
+- [ ] More recordings: whooshes and risers recorded rather than synthesised, foley (paper, cloth, footsteps), ambiences.
 
-Done when: asked for "a whoosh on each transition", the assistant makes one sound and proposes it at every transition, and the export plays it.
+Done when: asked for "a whoosh on each transition", the assistant finds one and proposes it at every transition, and the export plays it. Checked in Chrome: hits placed on the frame, MP4 with its AAC track, WAV loud at the right instants.
 
 ### Step 3. Sound in sync
 
-- [ ] The tool places one sound at several times (`at` as a list), named by the document: layer entrances and exits, markers, cuts (`shots`), beats and bars (`beats`).
-- [ ] Hits land on the frame: times rounded to the composition's frames.
+- [x] Moments named by the document (`momentsOf`): `now`, `entrances`, `exits` (of the layers given, or every visible one), `markers`, `cuts` (between video layers and from the `shots` analysis), `beats` and `bars` (from the `beats` analysis, where the music's layer plays it), on the composition's frames.
+- [x] Aligned on the landing moment (`peak`) or the start (`start`, by default for music, voices, jingles, ambiences).
 
-### Step 4. Teaching the model
+### Step 4. Sounds written as code
 
-- [ ] System prompt, "Sound": when a video needs sound, which sounds for which moments, levels (effects under the voice, music beds low), no sound on every element.
-- [ ] `ai` notes on the tool and on each ready-made sound.
-- [ ] A `/sound-design` workflow: look at the key moments (`check`), propose a sound plan, make the sounds, place them, check the levels.
+- [x] `synth` tool: Web Audio code on an `OfflineAudioContext` (`renderSynth`) with a kit: seeded `random`, `noise` (white, pink, brown), `env` (linear or exponential ramps); brought to a -1 dBFS peak; answers with its waveform and measures; the code and seed saved beside the file.
 
-### Step 5. Checks
+### Step 5. Teaching the model
 
-- [ ] Clipping and loudness of the mix (peak above 0 dBFS, a mix far too loud or too quiet).
-- [ ] Sounds against picture: a hit far from the moment it belongs to, two hits on top of each other.
+- [x] System prompt, "Sound": which moments, the library first, code for what it lacks, a provider once, the levels, ducking, checking the mix.
+- [x] `ai` notes on every sound tool; the `/sound-design` workflow.
 
-### Step 6. Mixing
+### Step 6. Checks
+
+- [x] The `check` tool reads the mix: clipping, a mix far too loud or too quiet, two short sounds starting together.
+- [ ] Sounds against picture: a hit far from the moment it seems to belong to.
+
+### Step 7. Mixing
 
 Shared with the plugins roadmap (step 10, audio processing).
 
-- [ ] Gain envelopes on `audio` layers (fades, ducking under a voice), mixed by the preview and the exports.
-- [ ] EQ and reverb mixed with an `OfflineAudioContext` for exports.
+- [x] Gain curves (keyframes on `gain`), fades, low and high cut, reverb, speed: in the preview and every export.
+- [x] `duck` tool: the music lowered under each stretch of a transcript's speech, back between sentences.
+- [ ] Equaliser bands beyond the two cuts; a compressor on the mix.
 
-### Step 7. Generated by providers
+### Step 8. Made by providers
 
-Shared with the plugins roadmap (step 8, generated assets): neither the terminal nor the editor can make these without a service.
+Shared with the plugins roadmap (step 8, generated assets).
 
-- [ ] Voice-over from text (TTS) through the Worker, saved with its text, voice and provider.
-- [ ] Music beds from a prompt through the Worker.
+- [x] `generate-sound` tool through the Worker (`/api/generate`, keys kept on the server): sound effects and music beds (ElevenLabs), voice-overs (ElevenLabs, OpenAI, Gemini); saved with their prompt, provider, model and voice; optionally kept in the library.
+- [ ] Tried against the real providers (the tests answer for them; it costs money on each).
 
 ## Out of scope
 
-- Sound synthesised at render time: the render stays a pure function of time, sounds are files.
-- Editing recorded sound beyond cuts, gains and the mixing of step 6.
+- Sound synthesised at render time: sounds are files.
+- Editing recorded sound beyond cuts, gains, fades, filters and reverb.
 
 ## Flagship results and what they need
 
 | Result | Steps |
 |---|---|
-| Motion design with sound effects: whooshes on transitions, hits on titles, a riser before the reveal | 1, 2, 3 |
-| Logo sting: a short designed sound on the logo's entrance | 1, 2 |
-| Social clip with a music bed that ducks under the voice | 2, 6 |
-| Explainer with voice-over and sound effects synced to the voice | 3, 6, 7 |
+| Motion design with sound effects: whooshes on transitions, hits on titles, a riser before the reveal | 2, 3 |
+| Logo sting: a recorded jingle or a designed sound on the logo's entrance | 2, 4 |
+| Social clip with a music bed that ducks under the voice | 7, 8 |
+| Explainer with voice-over and sound effects on the cuts | 3, 7, 8 |

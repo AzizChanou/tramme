@@ -118,7 +118,9 @@ Each layer type declares its property schema; the inspector and the validator us
 | `shader` | `shader` (fragment GLSL), `size`, `params`: an image made by a shader |
 | `follow` | `target` (a layer), `frequency` (Hz), `damping`, `size`, `color`, `trail` (frames): a dot following another layer on a spring, drawn in composition space |
 | `code` | `module` (JS asset), `entry`, `params`: free drawing by existing code |
-| `audio` | `audio` (asset), `gain` (dB), `start`: a sound placed at the layer's in point |
+| `audio` | `audio` (asset), `start`, `gain` (dB, animatable), `fadeIn`, `fadeOut` (s), `lowCut`, `highCut` (Hz, 0 for none), `reverb` (0 to 1), `rate` (speed and pitch, 1 as recorded): a sound placed at the layer's in point |
+
+The sound of a layer (an `audio` layer, or a `video` layer not `muted`) has the same properties but `rate`. `gain` is the one that moves: keyframes make fades and ducking (lower under a voice, back between sentences). A layer plays its file from `start` between its in and out points, the file going by `rate` seconds a second; filters, gain and fades apply in that order, the reverb beside them. The preview, the browser exports and the command line mix with one mixer (`@tramme/render`, `audio.ts`), so a sound is heard the same everywhere. Sounds are files: the editor's sound tools (library, sounds written as code, sounds made by a provider) save what they make under `assets/sounds/`, with what made it beside it (`<name>.sound.json`).
 
 Composition finishing effects (`effects`): `look.vignette` (`amount`), `look.grain` (`amount`, `seed`), `look.bloom` (`amount`, `threshold`), `look.exposure` (`value`), `look.chromatic` (`amount` px), `look.grade` (`lift`, `gain`, `saturation`, `temperature`). Layer effects (`layer.effects`): `fx.blur` (`radius`), `fx.shadow` (`color`, `blur`, `offset`), `fx.glow` (`color`, `radius`, `strength`), `fx.color` (`brightness`, `contrast`, `saturation`, `hue`), `fx.tint` (`color`, `amount`), `fx.matte` (`source`: a layer, `mode`: `alpha`, `alpha-inverted`, `luma`, `luma-inverted`), `fx.displace` (`source`: a layer whose red and green push x and y, `amount` px).
 
