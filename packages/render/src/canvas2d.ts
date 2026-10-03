@@ -183,6 +183,12 @@ function drawThroughCamera(ctx: CanvasRenderingContext2D, frame: EvaluatedFrame,
   ctx.filter = 'none';
 }
 
+/** the layers of a frame over what the context holds, through its composition's camera when it has one (nested compositions too) */
+export function drawComposed(ctx: CanvasRenderingContext2D, frame: EvaluatedFrame, env: DrawEnv) {
+  if (frame.camera) drawThroughCamera(ctx, frame, env);
+  else drawLayers(ctx, frame.layers, env);
+}
+
 /** clear the canvas and draw the frame's layers (the background plate is the compositor's job) */
 export function drawFrame(ctx: CanvasRenderingContext2D, frame: EvaluatedFrame, env: DrawEnv) {
   ctx.setTransform(1, 0, 0, 1, 0, 0);
@@ -191,6 +197,5 @@ export function drawFrame(ctx: CanvasRenderingContext2D, frame: EvaluatedFrame, 
   ctx.filter = 'none';
   ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
   if (env.scale) ctx.setTransform(env.scale[0], 0, 0, env.scale[1], 0, 0);
-  if (frame.camera) drawThroughCamera(ctx, frame, env);
-  else drawLayers(ctx, frame.layers, env);
+  drawComposed(ctx, frame, env);
 }

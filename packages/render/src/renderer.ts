@@ -5,7 +5,7 @@
 
 import { assertValid, DocSchema, Evaluator, parseColor, type Composition, type TrammeDoc, type EvaluatedEffect, type EvaluatedFrame, type Host, type Registry } from '@tramme/core';
 import { AssetStore } from './assets.ts';
-import { CanvasPool, drawFrame, drawLayers, type DrawEnv, type HostFactory } from './canvas2d.ts';
+import { CanvasPool, drawComposed, drawFrame, drawLayers, type DrawEnv, type HostFactory } from './canvas2d.ts';
 import { Compositor, type Finish, type FinishPass, type Look } from './compositor.ts';
 
 export interface RenderOptions {
@@ -257,11 +257,11 @@ export class Renderer {
     };
   }
 
-  /** a nested composition at its local time: background plate, then its layers */
+  /** a nested composition at its local time: background plate, then its layers (through its own camera) */
   private drawNested(ctx: CanvasRenderingContext2D, compId: string, t: number) {
     const f = this.evaluator.frame(t, compId);
     if (f.background) { ctx.fillStyle = f.background; ctx.fillRect(0, 0, f.comp.width, f.comp.height); }
-    drawLayers(ctx, f.layers, this.env(f, compId));
+    drawComposed(ctx, f, this.env(f, compId));
   }
 
   /** draw the layers of one instant on the scene canvas (no motion blur, no finish) */

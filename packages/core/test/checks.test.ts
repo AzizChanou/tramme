@@ -48,6 +48,13 @@ describe('quality checks', () => {
     expect(found.filter((f) => f.startsWith('stillness'))).toHaveLength(1);
   });
 
+  it('count a nested composition as playing, its own stretches found when it is checked', async () => {
+    const d = doc({ scene: { type: 'comp', transform: { position: [540, 960] }, props: { comp: 'inner' } } });
+    d.compositions.inner = { name: 'Inner', width: 1080, height: 1920, fps: 30, duration: 6, layers: { dot: { type: 'shape.ellipse', transform: { position: [540, 960] } } }, order: ['dot'] };
+    expect(await checks(d)).toEqual([]);
+    expect((await runChecks(d, builtinRegistry(), 'inner')).map((i) => i.check)).toEqual(['stillness']);
+  });
+
   it('find text over a face once the people are known, through the framing of the video', async () => {
     // a 1920x1080 video filling a vertical frame (cover): its middle third shows
     const d = doc({

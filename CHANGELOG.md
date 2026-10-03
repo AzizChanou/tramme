@@ -60,6 +60,8 @@ Until 1.0.0, the document format and the APIs may still change between minor ver
 - Assistant, server path: stopping during several tool calls no longer breaks the next message; a tool call whose input is invalid or cut off is no longer run with an empty input (the model is told and calls again); inputs are checked against each tool's schema on every path.
 - Assistant, server path: a request part the API refuses (thinking display, context editing, effort…) is dropped on its own instead of turning off the thinking summary; retries wait as long as the server asks (`retry-after`).
 - Assistant: a server that does not answer, or an answer whose stream breaks before anything was shown, is tried again by itself (twice) instead of ending the turn.
+- 2.5D camera: a nested composition is drawn through its own camera (parallax and depth of field); it was ignored everywhere but in the root composition.
+- Check `stillness`: a nested composition counts as playing, as a video does, instead of making its parent look frozen; its own still stretches are found when it is checked.
 
 ## [0.1.0] - 2026-10-02
 

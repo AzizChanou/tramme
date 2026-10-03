@@ -322,8 +322,8 @@ const stillness: CheckType = {
   name: 'stillness', title: 'Still stretches', description: 'long moments where nothing moves',
   texts: ['nothing moves from {from} to {to} s'],
   run({ samples, comp, step }) {
-    // a video or a sequence moves by itself; otherwise compare the placed layers between samples
-    const sig = (s: Sample) => s.layers.map((p) => (p.node.type === 'video' || p.node.type === 'sequence' || p.node.type === 'particles' || p.node.type === 'shader' ? `${p.id}:${s.t}` : `${p.id}:${p.opacity.toFixed(2)}:${p.box ? [p.box.x, p.box.y, p.box.w, p.box.h].map((v) => v.toFixed(0)).join(',') : ''}:${JSON.stringify(p.props)}`)).join('|');
+    // a video, a sequence or a nested composition plays by itself (a composition's own stretches are found when it is checked); otherwise compare the placed layers between samples
+    const sig = (s: Sample) => s.layers.map((p) => (p.node.type === 'video' || p.node.type === 'sequence' || p.node.type === 'particles' || p.node.type === 'shader' || p.node.type === 'comp' ? `${p.id}:${s.t}` : `${p.id}:${p.opacity.toFixed(2)}:${p.box ? [p.box.x, p.box.y, p.box.w, p.box.h].map((v) => v.toFixed(0)).join(',') : ''}:${JSON.stringify(p.props)}`)).join('|');
     const out: QualityIssue[] = [];
     let from = 0;
     for (let i = 1; i <= samples.length; i++) {
