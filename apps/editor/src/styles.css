@@ -385,10 +385,28 @@ input[type=text].plain, input.plain { background: transparent; border: 0; outlin
 .timecode input:hover { background: var(--field); }
 .timecode input:focus { background: var(--field); border-color: var(--accent-line); outline: none; }
 .timecode .total { color: var(--text-3); font: 11px var(--mono); }
+/* nothing wraps or shrinks: when room is short, whole items go instead */
+.transport { white-space: nowrap; }
+.transport > :not(.grow) { flex: none; }
 .transport .grow { flex: 1; }
+/* the side panels set the bar's width, not the screen: the least useful items go first */
+@container (max-width: 880px) { .transport .render-ms { display: none; } }
+@container (max-width: 800px) {
+  .transport .total .fps { display: none; }
+  .transport .tl-zoom input[type=range] { width: 60px; }
+}
+@container (max-width: 720px) { .transport .tl-zoom { display: none; } }
+@container (max-width: 640px) {
+  .transport { gap: 4px; padding: 0 6px; }
+  .transport .total { display: none; }
+  .transport .controls .icon-btn:not(.play) { width: 26px; }
+  .timecode input { width: 92px; font-size: 13px; }
+  .transport .tabs .tab { padding: 0 6px; }
+  .transport .tabs .tab svg { display: none; }
+}
 
 /* ── timeline ──────────────────────────────────────────────── */
-.bottom { display: flex; flex-direction: column; min-height: 0; background: var(--panel); }
+.bottom { display: flex; flex-direction: column; min-height: 0; background: var(--panel); container-type: inline-size; }
 .timeline { flex: 1; min-height: 0; display: grid; grid-template-columns: var(--names, 220px) 1fr; grid-template-rows: 28px 1fr; position: relative; }
 .tl-corner { border-right: 1px solid var(--line); border-bottom: 1px solid var(--line); display: flex; align-items: center; padding: 0 8px; gap: 6px; color: var(--text-3); font-size: 11px; }
 .tl-ruler { position: relative; border-bottom: 1px solid var(--line); overflow: hidden; cursor: ew-resize; background: var(--panel-2); }
@@ -994,12 +1012,6 @@ a.brand:hover { background: var(--field); }
   /* !important over the panel's inline size (desktop): it must shrink, or the message box ends up under the tabs */
   .app[data-tab=ai] .col.right .assistant { height: auto !important; flex: 1 1 0 !important; }
   .app[data-tab=inspector] .col.right .inspector-wrap { flex: 1; }
-  .transport { gap: 4px; padding: 0 6px; }
-  .transport .hide-sm { display: none; }
-  .transport .controls .icon-btn:not(.play) { width: 26px; }
-  .timecode input { width: 92px; font-size: 13px; }
-  .transport .tabs .tab { padding: 0 6px; }
-  .transport .tabs .tab svg { display: none; }
   .timeline { --names: 120px; grid-template-columns: var(--names) minmax(0, 1fr); }
   .mobile-tabs { display: flex; grid-row: 5; border-top: 1px solid var(--line); background: var(--panel); padding-bottom: env(safe-area-inset-bottom); }
   .app .toasts { bottom: calc(64px + env(safe-area-inset-bottom)); }

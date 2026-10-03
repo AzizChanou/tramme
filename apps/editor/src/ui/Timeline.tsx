@@ -41,19 +41,19 @@ export function Transport() {
           onInput={(e) => setText((e.target as HTMLInputElement).value)}
           onBlur={() => { if (text !== null) { const v = parseTime(text, c.fps); if (v !== null) setTime(v); } setText(null); }}
           onKeyDown={(e) => { if (e.key === 'Enter' || e.key === 'Escape') { if (e.key === 'Escape') setText(null); (e.target as HTMLInputElement).blur(); } }} />
-        <span class="total hide-sm">{t('common.frameDoneTotal', { done: Math.min(frames, Math.round(now * c.fps) + 1), total: frames })} · {t('common.nFps', { n: c.fps })}</span>
+        <span class="total">{t('common.frameDoneTotal', { done: Math.min(frames, Math.round(now * c.fps) + 1), total: frames })}<span class="fps"> · {t('common.nFps', { n: c.fps })}</span></span>
       </div>
       <span class="grow" />
       <div class="tabs">
         <button data-tour="bottom-tab-timeline" class={`tab${tab === 'timeline' ? ' on' : ''}`} onClick={() => { S.bottomTab.value = 'timeline'; }}><Icon name="timeline" size={13} /> {t('common.timeline')}</button>
         <button data-tour="bottom-tab-graph" class={`tab${tab === 'graph' ? ' on' : ''}`} onClick={() => { S.bottomTab.value = 'graph'; }}><Icon name="curve" size={13} /> {t('common.curves')}</button>
       </div>
-      <div class="tl-zoom hide-sm" title={t('timeline.timelineZoomCtrlWheel')}>
+      <div class="tl-zoom" title={t('timeline.timelineZoomCtrlWheel')}>
         <Icon name="minus" size={12} />
         <input type="range" min={0} max={100} value={zoomToSlider(c)} onInput={(e) => { pps.value = sliderToZoom(c, Number((e.target as HTMLInputElement).value)); }} />
         <Icon name="plus" size={12} />
       </div>
-      <span class="faint mono hide-sm" style={{ fontSize: 10.5, minWidth: 54, textAlign: 'right' }} title={t('timeline.lastRenderTime')}>{preview.lastMs ? `${preview.lastMs.toFixed(0)} ms` : ''}</span>
+      <span class="render-ms faint mono" style={{ fontSize: 10.5, minWidth: 54, textAlign: 'right' }} title={t('timeline.lastRenderTime')}>{preview.lastMs ? `${preview.lastMs.toFixed(0)} ms` : ''}</span>
     </div>
   );
 }
