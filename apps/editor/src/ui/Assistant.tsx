@@ -7,9 +7,10 @@ import { signal } from '@preact/signals';
 import type { ComponentChildren } from 'preact';
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'preact/hooks';
 import type { AiEvent, ChatItem } from '../api.ts';
-import { PROVIDER_LABEL, providerOf, REMOTE } from '@tramme/assistant';
+import { providerOf } from '@tramme/assistant';
 import { ModelPicker } from './ModelPicker.tsx';
-import { aiRoute, aiSettings, aiStatus, ask, routeLabel, chat, chatId, chats, decided, deleteChat, newChat, openChat, refreshStatus, runTool, saveChat, setAiSettings, statusLabels, stop as stopAi, type ChatMeta } from '../ai/index.ts';
+import { aiRoute, aiSettings, aiStatus, ask, routeLabel, chat, chatId, chats, decided, deleteChat, newChat, openChat, providerLabel, refreshStatus, remoteProviders, runTool, saveChat, setAiSettings, statusLabels, stop as stopAi, type ChatMeta } from '../ai/index.ts';
+import { openSettings } from '../settings.ts';
 import { fieldsOf, inputLine, inputOf, listCommands, matchCommands, parseCommand, ready, type Command, type Field } from '../ai/commands.ts';
 import { uid } from '../ai/calls.ts';
 import { refreshLibrary } from '../library.ts';
@@ -352,7 +353,8 @@ function Settings({ anchor, onClose }: { anchor: HTMLElement; onClose: () => voi
       </details>
       <div class="ai-line"><span class={`dot ${st.server ? 'ok' : 'off'}`} /><b>{t('common.server')}</b><span class="faint">{labels.server}</span></div>
       <div style={{ fontWeight: 600, marginTop: 4 }}>{t('assistant.otherModels')}</div>
-      {(Object.keys(REMOTE) as (keyof typeof REMOTE)[]).map((p) => <div key={p} class="ai-line"><span class={`dot ${st.remote[p] ? 'ok' : 'off'}`} /><b>{REMOTE[p].label}</b><span class="faint">{st.remote[p] ? t('common.keySet') : t('common.noKey')}</span></div>)}
+      {remoteProviders.value.map((p) => <div key={p.slot} class="ai-line"><span class={`dot ${st.remote[p.slot] ? 'ok' : 'off'}`} /><b>{p.label}</b><span class="faint">{st.remote[p.slot] ? t('common.keySet') : t('common.noKey')}</span></div>)}
+      <button class="btn sm" onClick={() => { onClose(); openSettings('providers'); }}><Icon name="link" />{t('assistant.manageProviders')}</button>
       <label class="lbl">{t('assistant.localModelsOllamaLm')}</label>
       <div class="field"><input value={localUrl} placeholder="http://127.0.0.1:11434/v1" onInput={(e) => setLocalUrl((e.target as HTMLInputElement).value.trim())} onChange={() => setAiSettings({ localUrl })} /></div>
       <div class="faint" style={{ lineHeight: 1.45 }}>{t('assistant.ollama11434LmStudio')}</div>
@@ -387,11 +389,12 @@ function Access() {
       </div>
     );
   }
-  if (provider !== 'anthropic') {
-    const cmd = `npx wrangler secret put ${REMOTE[provider].secret} -c apps/worker/wrangler.jsonc`;
-    return <div class="access"><b>{t('assistant.theServerHasNo', { provider: PROVIDER_LABEL[provider] })}</b><span>{t('assistant.addItWith')} <code class="cmd" onClick={() => copy(cmd)} title={t('common.copy')}>{cmd}</code> {t('assistant.orPickAnotherModel')}</span></div>;
-  }
-  if (set.prefer === 'server') return <div class="access"><b>{t('assistant.theServerHasNo', { provider: 'Anthropic' })}</b><span>{t('assistant.addItWith')} <code class="cmd" onClick={() => copy('npx wrangler secret put ANTHROPIC_API_KEY -c apps/worker/wrangler.jsonc')} title={t('common.copy')}>npx wrangler secret put ANTHROPIC_API_KEY -c apps/worker/wrangler.jsonc</code> {t('assistant.orSwitchToAutomatic')}</span></div>;
+  if (provider !== 'anthropic' || set.prefer === 'server') return (
+    <div class="access">
+      <b>{t('ai.providerNotConnected', { provider: provider === 'anthropic' ? 'Anthropic' : providerLabel(set.model) })}</b>
+      <button class="btn sm" onClick={() => openSettings('providers')}><Icon name="link" />{t('assistant.connectInSettings')}</button>
+    </div>
+  );
   if (st.companion === 'unpaired') return (
     <form class="access" onSubmit={(e) => { e.preventDefault(); if (token) setAiSettings({ token }); }}>
       <b>{t('assistant.theLocalCompanionIs')}</b>

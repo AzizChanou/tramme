@@ -44,7 +44,9 @@ Until 1.0.0, the document format and the APIs may still change between minor ver
 
 ### Changed
 
-- Settings in sections: a menu on the left (Editor: Appearance, Preview, Guided tours; Assistant: Model, Behavior, Connection) with a search that finds a setting whatever its section, the chosen section on the right; on a phone, the sections as tabs.
+- Provider keys are connected in the editor, under Settings, Providers: Connect, Change key, Disconnect for Anthropic, OpenAI, Gemini, OpenRouter, Z.AI and ElevenLabs. The Worker keeps them in R2 and never sends them back; Cloudflare secrets still work, a key connected in the settings comes first.
+- Custom providers: any service of the OpenAI chat format (DeepSeek, Groq, Mistral…) added by name, base URL and key; its models show in the model menu (`custom:<id>:model`).
+- Settings in sections: a menu on the left (Editor: Appearance, Preview, Guided tours; Assistant: Model, Providers, Behavior, Connection) with a search that finds a setting whatever its section, the chosen section on the right; on a phone, the sections as tabs.
 - The assistant's conversation with Claude is append-only: nothing already sent is rewritten, so the prompt cache stays warm and Claude's thinking stays valid. Old tool results are cleared by the API (context editing) once the conversation grows; the system prompt is cached for an hour.
 - Lighter tool answers: `list_nodes` gives an index (properties as `name:type=default`, notes, tool inputs) and the full entries on demand (`types`), about 60% fewer tokens; `get_document` reads one part with `path`; `read_file` reads long files in parts (`offset`).
 - Longer answers (64k tokens) on the server path; a request Claude declines goes to another model on the server (`fallbacks`), and the user is told when it is declined anyway.

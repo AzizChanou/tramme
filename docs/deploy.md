@@ -52,34 +52,31 @@ Two paths, chosen in the editor (Assistant, settings):
 
   The editor at that address pairs by itself, with no token to copy. The companion listens on `127.0.0.1` only and refuses pages from other origins; another local page must be given the pairing token it prints, by hand. Chrome may ask for permission to access the local network the first time.
 
-- **Key on the server** (fallback, when the companion is not running):
+- **Anthropic key on the server** (fallback, when the companion is not running): connect Anthropic in the editor's **Settings, Providers** (see section 5).
 
-  ```sh
-  npx wrangler secret put ANTHROPIC_API_KEY -c apps/worker/wrangler.jsonc
-  ```
+## 5. Providers and their keys
 
-  The value is typed at the prompt; it shows up neither in the command nor in files. It stays in the Worker; the browser never has access to it.
+Optional: the assistant can also use OpenAI, Gemini, OpenRouter or Z.AI (GLM) models, and any service of the OpenAI chat format added as a **custom provider** (name, base URL such as `https://api.deepseek.com/v1`, key). ElevenLabs makes sounds (section 6).
 
-## 5. Other models
+Keys are connected in the editor: **Settings, Providers**, then *Connect* on a provider and paste its key. The editor sends it once to the Worker, which keeps it in R2 (`config/keys.json`, in the same bucket as the projects, behind Cloudflare Access) and adds it to each request to that provider. The browser never reads it back: it only learns which providers are connected. *Change key* replaces it, *Disconnect* deletes it.
 
-Optional: the assistant can also use OpenAI, Gemini, OpenRouter or Z.AI (GLM) models. One key per provider, as a secret:
+Cloudflare secrets still work, for a deployment configured from the command line; a key connected in the settings comes first:
 
 ```sh
+npx wrangler secret put ANTHROPIC_API_KEY -c apps/worker/wrangler.jsonc
 npx wrangler secret put OPENAI_API_KEY -c apps/worker/wrangler.jsonc
 npx wrangler secret put GEMINI_API_KEY -c apps/worker/wrangler.jsonc
 npx wrangler secret put OPENROUTER_API_KEY -c apps/worker/wrangler.jsonc
 npx wrangler secret put ZAI_API_KEY -c apps/worker/wrangler.jsonc
 ```
 
-Only providers with a key show up in the model menu. Locally, the same names go in `apps/worker/.dev.vars`. Local models (Ollama, LM Studio) need nothing on the server: the browser calls them directly; for the online editor, start Ollama with `OLLAMA_ORIGINS=https://<your editor's address>`.
+A provider set this way shows as *Server secret* in the settings: it cannot be disconnected from the editor, only replaced by a key connected there.
+
+Only connected providers show up in the model menu. A custom provider is reached through the Worker, so its address must be public (a model on this machine goes through Local models instead). Local models (Ollama, LM Studio) need nothing on the server: the browser calls them directly; for the online editor, start Ollama with `OLLAMA_ORIGINS=https://<your editor's address>`.
 
 ## 6. Sounds made by a provider
 
-Optional: the assistant's `generate-sound` tool makes sound effects, music beds and voice-overs at authoring time, saved in the project like any sound. ElevenLabs makes all three; a voice-over can also come from OpenAI or Gemini with the keys of section 5.
-
-```sh
-npx wrangler secret put ELEVENLABS_API_KEY -c apps/worker/wrangler.jsonc
-```
+Optional: the assistant's `generate-sound` tool makes sound effects, music beds and voice-overs at authoring time, saved in the project like any sound. ElevenLabs makes all three; a voice-over can also come from OpenAI or Gemini. Connect ElevenLabs in **Settings, Providers** like the others (or `npx wrangler secret put ELEVENLABS_API_KEY -c apps/worker/wrangler.jsonc`).
 
 Without any of these keys the assistant still has the sound library (recorded sounds shipped with tramme, the user's own) and the sounds it writes as code. Each provider bills its own use.
 
@@ -95,7 +92,7 @@ Locally, Workers AI still runs at Cloudflare (`wrangler dev` requires you to be 
 npm run dev           # http://localhost:8787/
 ```
 
-The assistant's companion starts along, paired with this editor (`TRAMME_NO_COMPANION=1` to go without it). The Worker runs in `wrangler dev`: R2 simulated in `.wrangler/state`, Access check lifted (the `DEV_OPEN` variable, honored only on `localhost`). Model keys, locally, go in `apps/worker/.dev.vars` (ignored by git; template to copy: `apps/worker/.dev.vars.example`). Fill in only the providers you use, then restart `npm run dev`:
+The assistant's companion starts along, paired with this editor (`TRAMME_NO_COMPANION=1` to go without it). The Worker runs in `wrangler dev`: R2 simulated in `.wrangler/state`, Access check lifted (the `DEV_OPEN` variable, honored only on `localhost`). Model keys, locally, are connected in **Settings, Providers** as on the deployed app (kept in the simulated R2), or go in `apps/worker/.dev.vars` (ignored by git; template to copy: `apps/worker/.dev.vars.example`). Fill in only the providers you use, then restart `npm run dev`:
 
 ```
 ANTHROPIC_API_KEY=

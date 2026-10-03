@@ -23,4 +23,4 @@ Some behaviors are documented limits, not vulnerabilities:
 
 ## Secrets
 
-API keys (`ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `GEMINI_API_KEY`, `OPENROUTER_API_KEY`, `ZAI_API_KEY`) belong in Cloudflare secrets or in a local `.dev.vars` file, both ignored by git. They are never sent to the browser. Never commit them.
+API keys are connected in the editor's Settings, Providers: the Worker keeps them in R2 (`config/keys.json`, behind Cloudflare Access with the projects) and never sends them back to the browser, which only learns which providers are connected. They can also be Cloudflare secrets (`ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `GEMINI_API_KEY`, `OPENROUTER_API_KEY`, `ZAI_API_KEY`, `ELEVENLABS_API_KEY`) or, locally, lines of a `.dev.vars` file ignored by git. Never commit them. Anyone who passes Cloudflare Access can connect, replace or use the keys, but not read them.

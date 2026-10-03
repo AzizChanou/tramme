@@ -1,15 +1,16 @@
 // The assistant's ways to a model, and the conversation kept with the
 // project. Claude: the local companion (Claude Code login on this machine)
 // first, the server's key as fallback. Other providers (OpenAI, Gemini,
-// OpenRouter) through the server's keys; local models (Ollama, LM Studio)
-// straight from the browser. The conversation is shared by all of them.
+// OpenRouter, Z.AI, custom ones) through the server, with the keys connected
+// in the settings; local models (Ollama, LM Studio) straight from the
+// browser. The conversation is shared by all of them.
 
 import { computed, signal } from '@preact/signals';
-import { COMPANION_PORT, DEFAULT_MODEL, EFFORTS, effortFor, effortLevels, LOCAL_URL, MODELS, PROVIDER_LABEL, providerOf, REMOTE, setTranslator, systemPrompt, userPrompt, type Effort, type Provider, type TurnContext } from '@tramme/assistant';
+import { COMPANION_PORT, DEFAULT_MODEL, EFFORTS, effortFor, effortLevels, LOCAL_URL, MODELS, PROVIDER_LABEL, providerOf, REMOTE, setTranslator, slotOf, systemPrompt, userPrompt, type Effort, type TurnContext } from '@tramme/assistant';
 import { CHAT, CHAT_INDEX, chatPath } from '@tramme/project';
 import type { TrammeDoc } from '@tramme/core';
 import reference from '../../../../docs/document.md';
-import { api, type AiEvent, type ChatItem } from '../api.ts';
+import { api, type AiEvent, type ChatItem, type KeyedProvider, type KeyStatus } from '../api.ts';
 import { S } from '../state.ts';
 import { companionTurn, pairCompanion, probeCompanion, stopCompanion } from './companion.ts';
 import { ServerSession, type Message } from './server.ts';
@@ -63,22 +64,32 @@ export function setAiSettings(patch: Partial<AiSettings>) {
   if ('companionUrl' in patch || 'token' in patch || 'localUrl' in patch || ('model' in patch && providerOf(patch.model!) === 'local')) refreshStatus();
 }
 
-type Remote = keyof typeof REMOTE;
 interface Status {
   companion: 'checking' | 'ok' | 'unpaired' | 'absent';
   /** the server's Anthropic key */
   server: boolean | null;
-  /** the other providers with a key on the server */
-  remote: Partial<Record<Remote, boolean>>;
+  /** the other providers with a key, by slot (openai…, custom:<id>) */
+  remote: Record<string, boolean>;
+  /** the providers connected and where their keys come from (null until the server answered) */
+  keys: KeyStatus | null;
   /** local models: looked for only when one is chosen or the model menu opens */
   local: 'unknown' | 'ok' | 'absent';
 }
-export const aiStatus = signal<Status>({ companion: 'checking', server: null, remote: {}, local: 'unknown' });
+export const aiStatus = signal<Status>({ companion: 'checking', server: null, remote: {}, keys: null, local: 'unknown' });
+
+/** the providers of the chat format reached through the server: the built-in ones, then the custom ones */
+export const remoteProviders = computed(() => [
+  ...(Object.keys(REMOTE) as (keyof typeof REMOTE)[]).map((p) => ({ slot: p as string, label: REMOTE[p].label })),
+  ...(aiStatus.value.keys?.custom ?? []).map((c) => ({ slot: `custom:${c.id}`, label: c.label })),
+]);
+
+/** the provider's name as the user knows it (a custom one by the name they gave it) */
+export const providerLabel = (model: string) => remoteProviders.value.find((p) => p.slot === slotOf(model))?.label ?? PROVIDER_LABEL[providerOf(model)];
 
 /** effort: the provider says the model reasons, so it takes an effort level (OpenRouter) */
 export interface ModelOption { id: string; label: string; effort?: boolean }
 /** models offered by each provider besides Claude (filled when the model menu opens) */
-export const aiModels = signal<{ remote: Partial<Record<Remote, ModelOption[] | { error: string }>>; local: ModelOption[] }>({ remote: {}, local: [] });
+export const aiModels = signal<{ remote: Record<string, ModelOption[] | { error: string }>; local: ModelOption[] }>({ remote: {}, local: [] });
 
 /** whether OpenRouter's listing says this model reasons */
 function reasons(model: string): boolean {
@@ -104,7 +115,7 @@ export const aiRoute = computed<Route | null>(() => {
   const { companion, server, remote, local } = aiStatus.value, { prefer, model } = aiSettings.value;
   const provider = providerOf(model);
   if (provider === 'local') return local === 'ok' ? 'local' : null;
-  if (provider !== 'anthropic') return remote[provider] ? 'remote' : null;
+  if (provider !== 'anthropic') return remote[slotOf(model)] ? 'remote' : null;
   if (prefer === 'companion') return companion === 'ok' ? 'companion' : null;
   if (prefer === 'server') return server ? 'server' : null;
   return companion === 'ok' ? 'companion' : server ? 'server' : null;
@@ -123,7 +134,7 @@ export function routeLabel(route: Route, model: string): string {
   if (route === 'companion') return t('common.companion');
   if (route === 'server') return t('common.server');
   if (route === 'local') return t('ai.local');
-  return PROVIDER_LABEL[providerOf(model)];
+  return providerLabel(model);
 }
 
 const localBase = () => aiSettings.peek().localUrl.replace(/\/+$/, '');
@@ -175,11 +186,11 @@ export async function refreshStatus(quiet = false) {
   const [companion, config, local] = await Promise.all([
     reachCompanion(),
     before.server !== null
-      ? Promise.resolve({ server: before.server, remote: before.remote })
-      : api.config().then((c) => ({ server: c.claude.server, remote: (c.llm ?? {}) as Status['remote'] })).catch(() => ({ server: false, remote: {} })),
+      ? Promise.resolve({ server: before.server, remote: before.remote, keys: before.keys })
+      : api.config().then((c) => ({ server: c.claude.server, remote: c.llm ?? {}, keys: c.keys ?? null })).catch(() => ({ server: false, remote: {}, keys: null })),
     wantLocal ? localModels() : Promise.resolve(undefined),
   ]);
-  const next: Status = { companion, server: config.server, remote: config.remote, local: local === undefined ? before.local : local ? 'ok' : 'absent' };
+  const next: Status = { companion, ...config, local: local === undefined ? before.local : local ? 'ok' : 'absent' };
   if (local) aiModels.value = { ...aiModels.peek(), local };
   if (quiet && JSON.stringify(next) === JSON.stringify(aiStatus.peek())) return;
   aiStatus.value = next;
@@ -353,7 +364,7 @@ export async function* ask(p: AskPayload, signal: AbortSignal): AsyncGenerator<A
   const model = aiSettings.peek().model, effort = currentEffort(model);
   if (route === 'companion') yield* companionTurn(link(), { prompt, system, model, effort, sessionId: session.companion, images }, runner, signal, (id) => { session.companion = id; });
   else {
-    const target = route === 'local' ? { url: localBase() } : route === 'remote' ? { url: `/api/llm/${providerOf(model)}` } : undefined;
+    const target = route === 'local' ? { url: localBase() } : route === 'remote' ? { url: `/api/llm/${encodeURIComponent(slotOf(model))}` } : undefined;
     yield* session.server.turn(prompt, model, system, runner, signal, { images, target, effort });
   }
   yield { type: 'done' };
@@ -373,15 +384,27 @@ function earlier(): string[] {
   return [`Earlier messages of this conversation (with another model):\n${text}`];
 }
 
+// ── the providers' keys, connected from the settings ─────────
+/** the server's answer again (keys, models), after a provider was connected or removed */
+async function providersChanged() {
+  aiStatus.value = { ...aiStatus.peek(), server: null };
+  aiModels.value = { ...aiModels.peek(), remote: {} };
+  await refreshStatus(true);
+}
+export async function connectProvider(provider: KeyedProvider, key: string) { await api.setKey(provider, key); await providersChanged(); }
+export async function disconnectProvider(provider: KeyedProvider) { await api.removeKey(provider); await providersChanged(); }
+export async function saveCustomProvider(id: string, c: { label: string; base: string; key?: string }) { await api.setCustom(id, c); await providersChanged(); }
+export async function removeCustomProvider(id: string) { await api.removeCustom(id); await providersChanged(); }
+
 export function unavailableReason(): string {
   const { companion, server, remote, local } = aiStatus.peek(), { prefer, model } = aiSettings.peek();
-  const provider: Provider = providerOf(model);
+  const provider = providerOf(model);
   if (provider === 'local') return local === 'unknown' ? t('ai.lookingForLocalModels') : t('ai.noLocalModelServer', { url: aiSettings.peek().localUrl });
-  if (provider !== 'anthropic') return remote[provider] ? '' : t('ai.theServerHasNo', { provider: PROVIDER_LABEL[provider], secret: REMOTE[provider].secret });
+  if (provider !== 'anthropic') return remote[slotOf(model)] ? '' : t('ai.providerNotConnected', { provider: providerLabel(model) });
   if (companion === 'checking') return t('ai.lookingForTheLocal');
   if (prefer === 'companion' || (prefer === 'auto' && !server)) {
     if (companion === 'unpaired') return t('ai.theLocalCompanionIs');
     return t('ai.noAccessToClaude');
   }
-  return t('ai.theServerHasNo', { provider: 'Anthropic', secret: 'ANTHROPIC_API_KEY' });
+  return t('ai.providerNotConnected', { provider: 'Anthropic' });
 }

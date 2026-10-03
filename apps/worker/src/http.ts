@@ -5,7 +5,7 @@ export interface Env {
   FILES: R2Bucket;
   /** the editor's static build */
   ASSETS: Fetcher;
-  /** secret: the Anthropic key for the server-side assistant (optional) */
+  /** secret: the Anthropic key for the server-side assistant (optional; a key from the settings comes first, see keys.ts) */
   ANTHROPIC_API_KEY?: string;
   /** secrets: keys of the other model providers (optional) */
   OPENAI_API_KEY?: string;

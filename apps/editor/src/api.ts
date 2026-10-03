@@ -35,12 +35,20 @@ export type AiEvent =
   | { type: 'done' }
   | { type: 'error'; message: string };
 
+/** a provider whose key the server keeps */
+export type KeyedProvider = 'anthropic' | 'openai' | 'gemini' | 'openrouter' | 'zai' | 'elevenlabs';
+/** where a provider's key comes from: the settings, a Worker secret, or nowhere */
+export type KeySource = 'settings' | 'server' | null;
+/** the providers connected (never their keys): built in, and custom ones of the chat format */
+export interface KeyStatus { providers: Record<KeyedProvider, KeySource>; custom: { id: string; label: string; base: string; key: boolean }[] }
+
 export interface ServerConfig {
   format: string;
   limits: { file: number; archive: number; files: number };
   claude: { server: boolean };
-  /** other model providers with a key on the server */
+  /** other model providers with a key (openai…, custom:<id>) */
   llm?: Record<string, boolean>;
+  keys?: KeyStatus;
   /** providers that make sounds, by kind (the first is used when none is named) */
   sound?: Record<'sfx' | 'music' | 'voice', string[]>;
 }
@@ -74,6 +82,13 @@ export const api = {
   config: () => call<ServerConfig>('/api/config'),
   /** models of the providers with a key on the server */
   models: () => call<Record<string, { id: string; label: string; effort?: true }[] | { error: string }>>('/api/models'),
+
+  // ── the providers' keys: sent once, kept by the server, never read back ──
+  setKey: (provider: KeyedProvider, key: string) => call<{ provider: string }>(`/api/keys/${provider}`, jsonInit('PUT', { key })),
+  removeKey: (provider: KeyedProvider) => call<{ deleted: string }>(`/api/keys/${provider}`, { method: 'DELETE' }),
+  /** a custom provider of the chat format; no key: the one it has is kept */
+  setCustom: (id: string, c: { label: string; base: string; key?: string }) => call<KeyStatus['custom'][number]>(`/api/keys/custom/${encodeURIComponent(id)}`, jsonInit('PUT', c)),
+  removeCustom: (id: string) => call<{ deleted: string }>(`/api/keys/custom/${encodeURIComponent(id)}`, { method: 'DELETE' }),
 
   // ── projects ───────────────────────────────────────────────
   list: () => call<Manifest[]>('/api/projects'),

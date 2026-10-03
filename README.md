@@ -40,8 +40,8 @@ On Cloudflare: the Worker serves the editor and the API, projects live in R2, Cl
 ```sh
 npx wrangler r2 bucket create tramme-projects
 # Cloudflare Access: an application on the domain, then ACCESS_TEAM_DOMAIN and ACCESS_AUD in apps/worker/wrangler.jsonc
-npx wrangler secret put ANTHROPIC_API_KEY -c apps/worker/wrangler.jsonc     # optional: the assistant on the server
 npm run deploy
+# optional: provider keys (Anthropic, OpenAI, Gemini, OpenRouter, Z.AI, ElevenLabs, custom) in the editor's Settings, Providers
 ```
 
 ## Commands
@@ -111,13 +111,13 @@ It works on the selection and the current time, reads the document, renders fram
 Its tools run in the editor (document, engine, project files). Two paths lead to Claude, with a choice of model (Opus 5.5 by default, Sonnet 5.5, Haiku 4.5):
 
 - **Local, first**: the `tramme agent` companion runs on the machine with the Claude Agent SDK and the Claude Code login, no key. It listens on `127.0.0.1:4317`, accepts only pages from the origins given with `--origin` (and localhost), and requires a pairing token (kept in `~/.tramme/companion.json`, `--renew` makes a new one). An editor whose address is given with `--origin` gets this token by itself; another local page must be given it by hand, in the assistant panel, which explains what to do when Claude cannot be reached. It has no files and no terminal: only tramme's tools, run by the editor.
-- **Server, as a fallback**: the Worker relays the Messages API with the `ANTHROPIC_API_KEY` key (a Cloudflare secret, never sent to the browser). The tool loop runs in the editor.
+- **Server, as a fallback**: the Worker relays the Messages API with the Anthropic key connected in Settings, Providers (kept by the Worker, never sent back to the browser; a `ANTHROPIC_API_KEY` Cloudflare secret works too). The tool loop runs in the editor.
 
 In automatic mode, the editor takes the companion if it answers, the server otherwise; the assistant's header shows the path taken (Companion or Server).
 
 **Other models.** The model menu (with search) also offers:
 
-- **OpenAI, Gemini, OpenRouter, Z.AI (GLM)**, through the Worker, with their keys as Cloudflare secrets (`OPENAI_API_KEY`, `GEMINI_API_KEY`, `OPENROUTER_API_KEY`, `ZAI_API_KEY`, each optional, never sent to the browser). The Worker lists their chat models (for OpenRouter, those that accept tools); a model missing from the list can be typed in full (`openai:model-name`, `zai:glm-4-plus`).
+- **OpenAI, Gemini, OpenRouter, Z.AI (GLM)** and **custom providers** (any service of the OpenAI chat format, by its base URL), through the Worker, with their keys connected in Settings, Providers (kept by the Worker, never sent back to the browser; Cloudflare secrets such as `OPENAI_API_KEY` work too). The Worker lists their chat models (for OpenRouter, those that accept tools); a model missing from the list can be typed in full (`openai:model-name`, `zai:glm-4-plus`, `custom:<id>:model-name`).
 - **Local models** (Ollama, LM Studio), called directly by the browser at the address set in the access settings (Ollama: `http://127.0.0.1:11434/v1`). For the online editor, Ollama must accept its address (`OLLAMA_ORIGINS`).
 
 All of them speak OpenAI's chat format: the same tools, the same loop in the editor, the same conversation (you can switch models midway; a model that cannot read images gets a note in their place). Small local models follow tools less well than Claude.

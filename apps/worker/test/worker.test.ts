@@ -245,6 +245,80 @@ describe('other model providers', () => {
   });
 });
 
+describe('keys connected from the settings', () => {
+  const put = (body: unknown): RequestInit => ({ method: 'PUT', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
+  const config = async (call: ReturnType<typeof setup>['call']) => (await (await call('/api/config')).json()) as { claude: { server: boolean }; llm: Record<string, boolean>; keys: { providers: Record<string, string | null>; custom: unknown[] } };
+
+  it('keeps a key, says where it comes from, never sends it back, and goes back to the secret once removed', async () => {
+    const { call, bucket } = setup({ OPENAI_API_KEY: 'sk-secret' });
+    expect((await config(call)).keys.providers).toMatchObject({ anthropic: null, openai: 'server' });
+
+    expect((await call('/api/keys/anthropic', put({ key: '  sk-ant-typed  ' }))).status).toBe(200);
+    expect((await call('/api/keys/openai', put({ key: 'sk-typed' }))).status).toBe(200);
+    const c = await config(call);
+    expect(c.claude.server).toBe(true);
+    expect(c.keys.providers).toMatchObject({ anthropic: 'settings', openai: 'settings', gemini: null });
+    expect(JSON.stringify(c)).not.toContain('sk-');
+    expect(new TextDecoder().decode(bucket.store.get('config/keys.json')!.data)).toContain('sk-ant-typed');
+
+    const seen: { url: string; headers: Headers }[] = [];
+    const real = globalThis.fetch;
+    globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => { seen.push({ url: String(input), headers: new Headers(init?.headers) }); return new Response('{}'); }) as typeof fetch;
+    try {
+      await call('/api/claude/v1/messages', post({ model: 'claude-opus-5-5', max_tokens: 10, messages: [] }));
+      await call('/api/llm/openai/chat/completions', post({ model: 'gpt-5', messages: [] }));
+      expect(seen[0].headers.get('x-api-key')).toBe('sk-ant-typed');
+      // the key from the settings comes before the secret
+      expect(seen[1].headers.get('authorization')).toBe('Bearer sk-typed');
+    } finally { globalThis.fetch = real; }
+
+    expect((await call('/api/keys/openai', { method: 'DELETE' })).status).toBe(200);
+    expect((await config(call)).keys.providers.openai).toBe('server');
+  });
+
+  it('refuses what is not a key or a provider', async () => {
+    const { call } = setup();
+    expect((await call('/api/keys/openai', put({ key: '' }))).status).toBe(400);
+    expect((await call('/api/keys/openai', put({ key: 'two words' }))).status).toBe(400);
+    expect((await call('/api/keys/nobody', put({ key: 'k' }))).status).toBe(404);
+    expect((await call('/api/keys/custom/Bad_Id', put({ label: 'x', base: 'https://x.test/v1' }))).status).toBe(400);
+    expect((await call('/api/keys/custom/x', put({ label: 'x', base: 'not a url' }))).status).toBe(400);
+    expect((await call('/api/keys/custom/x', put({ label: '', base: 'https://x.test/v1' }))).status).toBe(400);
+  });
+
+  it('relays to a custom provider of the chat format, lists its models, keeps its key when it is edited', async () => {
+    const { call } = setup();
+    expect((await call('/api/keys/custom/deepseek', put({ label: 'DeepSeek', base: 'https://api.deepseek.com/v1/', key: 'ds-key' }))).status).toBe(200);
+    let c = await config(call);
+    expect(c.llm['custom:deepseek']).toBe(true);
+    expect(c.keys.custom).toEqual([{ id: 'deepseek', label: 'DeepSeek', base: 'https://api.deepseek.com/v1', key: true }]);
+
+    const seen: { url: string; auth: string | null }[] = [];
+    const real = globalThis.fetch;
+    globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+      seen.push({ url: String(input), auth: new Headers(init?.headers).get('authorization') });
+      return String(input).endsWith('/models') ? Response.json({ data: [{ id: 'deepseek-reasoner' }, { id: 'deepseek-chat' }] }) : new Response('data: [DONE]\n\n');
+    }) as typeof fetch;
+    try {
+      expect((await call(`/api/llm/${encodeURIComponent('custom:deepseek')}/chat/completions`, post({ model: 'deepseek-chat', messages: [] }))).status).toBe(200);
+      expect(seen[0]).toEqual({ url: 'https://api.deepseek.com/v1/chat/completions', auth: 'Bearer ds-key' });
+      const models = await (await call('/api/models')).json() as Record<string, { id: string }[]>;
+      expect(models['custom:deepseek'].map((m) => m.id)).toEqual(['deepseek-chat', 'deepseek-reasoner']);
+
+      // renamed without a key: the one it had stays
+      await call('/api/keys/custom/deepseek', put({ label: 'DeepSeek API', base: 'https://api.deepseek.com/v1' }));
+      await call(`/api/llm/${encodeURIComponent('custom:deepseek')}/chat/completions`, post({ model: 'deepseek-chat', messages: [] }));
+      expect(seen.at(-1)!.auth).toBe('Bearer ds-key');
+      expect((await call(`/api/llm/${encodeURIComponent('custom:other')}/chat/completions`, post({}))).status).toBe(404);
+    } finally { globalThis.fetch = real; }
+
+    await call('/api/keys/custom/deepseek', { method: 'DELETE' });
+    c = await config(call);
+    expect(c.keys.custom).toEqual([]);
+    expect(c.llm['custom:deepseek']).toBeUndefined();
+  });
+});
+
 describe('sounds made by a provider', () => {
   /** the providers answered by fake ones: what each was asked, and its audio */
   function providers() {

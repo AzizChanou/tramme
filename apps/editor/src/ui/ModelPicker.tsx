@@ -1,11 +1,12 @@
-// The model menu: Claude, then the providers with a key on the server
-// (OpenAI, Gemini, OpenRouter), then the models of a local server (Ollama,
-// LM Studio). A search narrows long lists (OpenRouter offers hundreds).
+// The model menu: Claude, then the providers connected in the settings
+// (OpenAI, Gemini, OpenRouter, Z.AI, custom ones), then the models of a local
+// server (Ollama, LM Studio). A search narrows long lists (OpenRouter offers
+// hundreds).
 
 import { useEffect, useRef, useState } from 'preact/hooks';
-import { MODELS, modelLabel, PROVIDER_LABEL, providerOf, REMOTE, type Effort } from '@tramme/assistant';
-import { aiModels, aiSettings, aiStatus, currentEffort, loadModels, modelEfforts, setAiSettings, setEffort, type ModelOption } from '../ai/index.ts';
-import { toast } from '../state.ts';
+import { MODELS, modelLabel, PROVIDER_LABEL, providerOf, type Effort } from '@tramme/assistant';
+import { aiModels, aiSettings, aiStatus, currentEffort, loadModels, modelEfforts, providerLabel, remoteProviders, setAiSettings, setEffort, type ModelOption } from '../ai/index.ts';
+import { openSettings } from '../settings.ts';
 import { Popover, Seg } from './controls.tsx';
 import { Icon } from './icons.tsx';
 import { t } from '../i18n/index.ts';
@@ -84,16 +85,15 @@ export function ModelPicker({ wide = false }: { wide?: boolean }) {
     setTimeout(() => search.current?.focus(), 0);
   }, [anchor]);
   const pick = (id: string) => { setAiSettings({ model: id }); setAnchor(null); };
-  const copy = (text: string) => navigator.clipboard?.writeText(text).then(() => toast(t('common.commandCopied')));
-  // a model typed in full (openai:gpt-x, zai:glm-4-plus, local:qwen3:8b), for one the lists do not show
-  const typed = /^(openai|gemini|openrouter|zai|glm|local):\S+$/.test(query.trim()) ? query.trim() : null;
-  const providers = Object.keys(REMOTE) as (keyof typeof REMOTE)[];
+  // a model typed in full (openai:gpt-x, zai:glm-4-plus, custom:deepseek:deepseek-chat, local:qwen3:8b), for one the lists do not show
+  const typed = /^(openai|gemini|openrouter|zai|glm|local|custom:[a-z0-9-]+):\S+$/.test(query.trim()) ? query.trim() : null;
+  const providers = remoteProviders.value;
   // the server's keys are known once its configuration answered (server no longer null)
-  const configured = providers.filter((p) => st.remote[p]), missing = st.server === null ? [] : providers.filter((p) => !st.remote[p]);
+  const configured = providers.filter((p) => st.remote[p.slot]), missing = st.server === null ? [] : providers.filter((p) => !st.remote[p.slot]);
   const firstVisible = () => (anchor ? (anchor.ownerDocument.querySelector('.models-pop .model-opt') as HTMLElement | null) : null);
   return (
     <>
-      <button class={`model-pick${wide ? ' wide' : ''}`} data-tour={wide ? undefined : 'assistant-model'} title={[t('models.modelProvider', { provider: t(PROVIDER_LABEL[providerOf(model)]) }), effortTitle(model)].filter(Boolean).join(' · ')} onClick={(e) => setAnchor(anchor ? null : (e.currentTarget as HTMLElement))}>
+      <button class={`model-pick${wide ? ' wide' : ''}`} data-tour={wide ? undefined : 'assistant-model'} title={[t('models.modelProvider', { provider: t(providerLabel(model)) }), effortTitle(model)].filter(Boolean).join(' · ')} onClick={(e) => setAnchor(anchor ? null : (e.currentTarget as HTMLElement))}>
         <span>{modelLabel(model)}</span><Icon name="chevronDown" />
       </button>
       {anchor && (
@@ -104,18 +104,18 @@ export function ModelPicker({ wide = false }: { wide?: boolean }) {
           <div class="models-list">
             {typed &&<button class="model-opt" onClick={() => pick(typed)}><span>{t('models.useName', { name: typed })}</span></button>}
             <Group title="Claude" options={MODELS.map(([id, label]) => ({ id, label }))} current={model} query={query} pick={pick} />
-            {configured.map((p) => {
-              const list = models.remote[p];
-              const options = list === undefined ? null : Array.isArray(list) ? list.map((o) => ({ id: `${p}:${o.id}`, label: o.label })) : [];
-              return <Group key={p} title={REMOTE[p].label} options={options} current={model} query={query} pick={pick} note={list && !Array.isArray(list) ? t('models.listUnavailableErrorType', { error: list.error, provider: p }) : undefined} />;
+            {configured.map(({ slot, label }) => {
+              const list = models.remote[slot];
+              const options = list === undefined ? null : Array.isArray(list) ? list.map((o) => ({ id: `${slot}:${o.id}`, label: o.label })) : [];
+              return <Group key={slot} title={label} options={options} current={model} query={query} pick={pick} note={list && !Array.isArray(list) ? t('models.listUnavailableErrorType', { error: list.error, provider: slot }) : undefined} />;
             })}
             <Group title={t(PROVIDER_LABEL.local)} options={st.local === 'unknown' && !models.local.length ? null : models.local} current={model} query={query} pick={pick}
               note={st.local === 'absent' ? t('models.noServerAtUrl', { url: aiSettings.value.localUrl }) : undefined} />
             {missing.length > 0 && !query && (
-              <details class="model-note">
-                <summary>{t('models.noKeyOnThe', { list: missing.map((p) => REMOTE[p].label).join(', ') })}</summary>
-                {missing.map((p) => { const cmd = `npx wrangler secret put ${REMOTE[p].secret} -c apps/worker/wrangler.jsonc`; return <code key={p} class="cmd" title={t('common.copy')} onClick={() => copy(cmd)}>{cmd}</code>; })}
-              </details>
+              <div class="model-note">
+                <span>{t('models.noKeyOnThe', { list: missing.map((p) => p.label).join(', ') })}</span>
+                <button class="btn sm" onClick={() => { setAnchor(null); openSettings('providers'); }}><Icon name="link" />{t('models.connectProviders')}</button>
+              </div>
             )}
           </div>
         </Popover>
