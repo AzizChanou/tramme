@@ -5,7 +5,7 @@
 import type { Host, NodeType, Paint, PropSchema } from '@tramme/core';
 import { canvasPaint } from './paint.ts';
 
-const TYPE: PropSchema = {
+export const TYPE: PropSchema = {
   font: { type: 'asset', default: null, nullable: true, assetType: 'font', label: 'Font', group: 'Typography' },
   size: { type: 'number', default: 64, label: 'Font size', min: 1, unit: 'px', group: 'Typography' },
   weight: { type: 'number', default: 400, label: 'Weight', min: 1, max: 1000, step: 1, group: 'Typography' },
@@ -15,7 +15,7 @@ const TYPE: PropSchema = {
   align: { type: 'enum', default: 'left', options: ['left', 'center', 'right'], label: 'Alignment', group: 'Typography' },
 };
 
-interface TypeProps { font: string | null; size: number; weight: number; italic: boolean; tracking: number; color: Paint; align: 'left' | 'center' | 'right' }
+export interface TypeProps { font: string | null; size: number; weight: number; italic: boolean; tracking: number; color: Paint; align: 'left' | 'center' | 'right' }
 
 /** set font, tracking and colour on the context */
 export function setType(ctx: CanvasRenderingContext2D, p: TypeProps, host: Host) {
@@ -28,7 +28,7 @@ export function setType(ctx: CanvasRenderingContext2D, p: TypeProps, host: Host)
 
 let measurer: CanvasRenderingContext2D | null = null;
 /** a 2D context for measuring text outside of a frame */
-function measureCtx(): CanvasRenderingContext2D {
+export function measureCtx(): CanvasRenderingContext2D {
   if (!measurer) measurer = (typeof OffscreenCanvas !== 'undefined' ? new OffscreenCanvas(8, 8) : document.createElement('canvas')).getContext('2d') as CanvasRenderingContext2D;
   return measurer;
 }
@@ -69,13 +69,14 @@ export const text: NodeType<TextProps> = {
   },
 };
 
-interface CounterProps extends TypeProps { from: string; to: string; progress: number; turns: number; ascent: number; lineHeight: number }
+interface CounterProps extends TypeProps { from: string; to: string; progress: number; turns: number; direction: 'up' | 'down'; ascent: number; lineHeight: number }
 
 /**
  * A number rolling like a counter wheel from `from` to `to` (strings of the
  * same length). Each changing digit scrolls through the digits in between
- * inside a window of `lineHeight` em; the last digit makes `turns` extra
- * full turns. `progress` (0..1) usually carries its own ease in keyframes.
+ * inside a window of `lineHeight` em, forward like an odometer, or back for
+ * a value that goes down; the last digit makes `turns` extra full turns.
+ * `progress` (0..1) usually carries its own ease in keyframes.
  */
 /** the width of each character of a counter: digits in equal cells (the widest digit), other signs (separators, units) at their own width */
 export function cells(ctx: CanvasRenderingContext2D, s: string): number[] {
@@ -91,6 +92,7 @@ export const counter: NodeType<CounterProps> = {
     to: { type: 'string', default: '99', label: 'End value' },
     progress: { type: 'number', default: 1, label: 'Progress', min: 0, max: 1, step: 0.01 },
     turns: { type: 'number', default: 1, label: 'Extra turns', min: 0, step: 1 },
+    direction: { type: 'enum', default: 'up', options: ['up', 'down'], label: 'Direction', description: 'up rolls the digits forward like an odometer; down rolls them back, for a value that goes down' },
     ...TYPE,
     tracking: { ...TYPE.tracking, default: -0.02 },
     ascent: { type: 'number', default: 0.86, label: 'Window top', step: 0.01, unit: 'em', group: 'Window' },
@@ -114,13 +116,14 @@ export const counter: NodeType<CounterProps> = {
         const a = p.from[i] ?? '', b = p.to[i], cx = x + widths[i] / 2;
         x += widths[i];
         if (!/\d/.test(a) || !/\d/.test(b) || pr >= 1 || pr <= 0) { ctx.fillText(pr <= 0 ? a : b, cx, 0); continue; }
-        const da = Number(a), db = Number(b);
-        const n = ((db - da + 10) % 10) + 10 * p.turns * (i === p.to.length - 1 ? 1 : 0);
-        const pos = n * pr, k = Math.floor(pos), f = pos - k;
+        // rolling back: the digits go down through the window, the next one comes from above
+        const da = Number(a), db = Number(b), dir = p.direction === 'down' ? -1 : 1;
+        const n = ((dir * (db - da) + 10) % 10) + 10 * p.turns * (i === p.to.length - 1 ? 1 : 0);
+        const pos = n * pr, k = Math.floor(pos), f = pos - k, digit = (d: number) => String(((d % 10) + 10) % 10);
         ctx.save();
         ctx.beginPath(); ctx.rect(cx - cw, top, cw * 2, h); ctx.clip();
-        ctx.fillText(String((da + k) % 10), cx, -f * h);
-        ctx.fillText(String((da + k + 1) % 10), cx, (1 - f) * h);
+        ctx.fillText(digit(da + dir * k), cx, -dir * f * h);
+        ctx.fillText(digit(da + dir * (k + 1)), cx, dir * (1 - f) * h);
         ctx.restore();
       }
     },

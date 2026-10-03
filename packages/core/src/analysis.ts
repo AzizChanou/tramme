@@ -5,6 +5,8 @@
 // pure functions of t (audioReader), so a picture can follow the music while
 // every frame stays a function of time.
 
+import { lastIndex } from './math.ts';
+
 export interface AudioAnalysis {
   version: 1;
   kind: 'audio-analysis';
@@ -167,13 +169,6 @@ export function analyseAudio(samples: Float32Array, sampleRate: number): AudioAn
 }
 
 // ── reading at render time ───────────────────────────────────
-/** the last time of a sorted list at or before t, by bisection; -1 when none */
-function lastIndex(list: number[], t: number): number {
-  let lo = 0, hi = list.length - 1, at = -1;
-  while (lo <= hi) { const m = (lo + hi) >> 1; if (list[m] <= t + 1e-9) { at = m; lo = m + 1; } else hi = m - 1; }
-  return at;
-}
-
 export interface AudioReader {
   /** loudness 0..1 at t, interpolated */
   energy(band?: Band): number;

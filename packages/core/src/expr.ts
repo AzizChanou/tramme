@@ -8,6 +8,7 @@
 // code (a document from an untrusted source must run in a worker).
 
 import type { AudioReader } from './analysis.ts';
+import type { EventsReader } from './events.ts';
 import { clamp, hash, lerp, noise3, prog, smoothstep } from './math.ts';
 
 export interface ExprScope {
@@ -27,6 +28,8 @@ export interface ExprScope {
   ease(spec: unknown, x: number): number;
   /** the music or sound at this instant, from its analysis: a sound or video layer id, or an asset id */
   audio(source: string): AudioReader;
+  /** an event list at this instant (running totals, the latest event): its asset id */
+  events(source: string): EventsReader;
 }
 
 const SAFE_MATH: Math = Object.freeze(Object.assign(
@@ -52,7 +55,7 @@ const HELPERS = {
   mul: (a: number[], k: number) => a.map((x) => x * k),
 };
 
-const SCOPE = ['t', 'time', 'frame', 'fps', 'value', 'comp', 'prop', 'token', 'marker', 'ease', 'audio'] as const;
+const SCOPE = ['t', 'time', 'frame', 'fps', 'value', 'comp', 'prop', 'token', 'marker', 'ease', 'audio', 'events'] as const;
 const HELPER_NAMES = Object.keys(HELPERS);
 const HELPER_VALUES = Object.values(HELPERS);
 const BLOCKED = [
@@ -79,7 +82,7 @@ export function compileExpr(src: string): CompiledExpr {
   } catch (e) {
     throw new SyntaxError(`invalid expression (${(e as Error).message}): ${src}`);
   }
-  const compiled: CompiledExpr = (s) => fn(s.t, s.t, s.frame, s.fps, s.value, s.comp, s.prop, s.token, s.marker, s.ease, s.audio);
+  const compiled: CompiledExpr = (s) => fn(s.t, s.t, s.frame, s.fps, s.value, s.comp, s.prop, s.token, s.marker, s.ease, s.audio, s.events);
   cache.set(src, compiled);
   return compiled;
 }

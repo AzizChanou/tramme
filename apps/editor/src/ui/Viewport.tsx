@@ -10,7 +10,7 @@ import { localMatrix } from '@tramme/render';
 import { comp, commit, draft, cancelDraft, S, select, viewDoc, previewDoc, toast } from '../state.ts';
 import { decide } from './Assistant.tsx';
 import { editAtOps, flatTree, layerName, parentOf, propPath, rawProp } from '../model.ts';
-import { preview, previewInfo } from '../preview.ts';
+import { assetData, preview, previewInfo } from '../preview.ts';
 import { prefs, setPrefs, settingsOpen, type Preferences } from '../settings.ts';
 import { openMenu, type MenuItem } from './controls.tsx';
 import { Icon } from './icons.tsx';
@@ -99,7 +99,7 @@ export function Viewport() {
   const [spaceDown, setSpace] = useState(false);
   const c = comp.value, doc = viewDoc.value, now = S.time.value, compId = S.compId.value;
   const reg = S.registry.value;
-  const ev = useMemo(() => new Evaluator(doc, reg), [doc, reg]);
+  const ev = useMemo(() => new Evaluator(doc, reg, { data: assetData }), [doc, reg]);
 
   useLayoutEffect(() => {
     stageRef.current!.prepend(preview.canvas);

@@ -5,6 +5,7 @@
 import { useMemo, useState } from 'preact/hooks';
 import { Evaluator, getAt, pointer, propKind, sheetIssues, TRANSFORM_SCHEMA, MOTION_BLUR_SCHEMA, CAMERA_SCHEMA, type TrammeDoc, type Paint, type Prop, type PropDef, type PropSchema, type Token } from '@tramme/core';
 import { comp, commit, draft, cancelDraft, S, viewDoc, select, uiTime } from '../state.ts';
+import { assetData } from '../preview.ts';
 import { addModifierOps, editAtOps, fixedOps, folderOf, imagesIn, keyAtOps, keyIndexAt, keysOf, removeKeyOps, removeModifierOps, setAtOps, snap, freshId, fmtSeconds } from '../model.ts';
 import { modsOf, modifierParams } from '@tramme/core';
 import { ColorField, NumberField, openMenu, Popover, Select, Seg, TextInput, Toggle, type MenuItem } from './controls.tsx';
@@ -520,7 +521,7 @@ function CompInspector({ ctx }: { ctx: Ctx }) {
 export function Inspector() {
   const doc = viewDoc.value, c = comp.value, now = uiTime.value, reg = S.registry.value;
   const compId = S.compId.value;
-  const ev = useMemo(() => new Evaluator(doc, reg), [doc, reg]);
+  const ev = useMemo(() => new Evaluator(doc, reg, { data: assetData }), [doc, reg]);
   const ctx: Ctx = { doc, compId, t: now, fps: c.fps, ev, tokens: doc.tokens };
   const sel = S.selection.value.filter((id) => c.layers[id]);
   if (sel.length > 1) {

@@ -281,6 +281,8 @@ Dressing a video where someone speaks:
 
 With music: analyse it first (use_tool "beats"), then put cuts, entrances and transitions on its bars and beats, and make a few elements follow it (the react modifier or audio() in an expression). Strong moments land on section changes. Footage edited elsewhere: find its cuts (use_tool "shots") and land titles and transitions on them.
 
+A story that keeps score (money spent, laughs, points): write its events once as an event list (use_tool "events"), then show it with "event-counter" (the running totals in a corner), "event-tags" (a tag at each event) and "event-receipt" (every event at the end), and read it in expressions with events(). These layers read the list: to move or change an event, save the list again rather than editing them.
+
 Sound: a video without sound feels unfinished, one with a sound on everything feels cheap.
 - Sound the moments that matter: a whoosh on a transition, a hit when a title lands, a riser before a reveal, clicks for an interface, a sting on the logo. Not every entrance.
 - Search the library first (use_tool "sfx" with a query): it lists each sound with when it lands and how loud it is. Place one with sound and at (times) or on (entrances, exits, markers, cuts, beats, bars, now): its hit falls on the frame, its variants alternate when it repeats.

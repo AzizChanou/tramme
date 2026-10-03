@@ -3,14 +3,14 @@
 import { signal } from '@preact/signals';
 import { pathIssue } from '@tramme/project';
 import { api } from './api.ts';
+import { slug } from './model.ts';
 import { S } from './state.ts';
 
 /** a file name fit for a storage path: ascii, digits, dashes, the extension kept */
 export function safeName(name: string): string {
   const dot = name.lastIndexOf('.');
   const ext = dot > 0 ? name.slice(dot + 1).toLowerCase().replace(/[^a-z0-9]/g, '') : '';
-  const base = (dot > 0 ? name.slice(0, dot) : name).normalize('NFD').replace(/[̀-ͯ]/g, '')
-    .toLowerCase().replace(/[^a-z0-9_-]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 60) || 'file';
+  const base = slug(dot > 0 ? name.slice(0, dot) : name).slice(0, 60) || 'file';
   return ext ? `${base}.${ext}` : base;
 }
 

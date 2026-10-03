@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { audioReader, compileExpr, cubicBezier, Evaluator, mixColor, sampleKeyframes, type TrammeDoc } from '../src/index.ts';
+import { audioReader, compileExpr, cubicBezier, Evaluator, eventsReader, mixColor, sampleKeyframes, type TrammeDoc } from '../src/index.ts';
 import { makeDoc, registry } from './fixtures.ts';
 
 describe('curves and interpolation', () => {
@@ -33,7 +33,7 @@ describe('curves and interpolation', () => {
 describe('expressions', () => {
   const scope = (over = {}) => ({
     t: 2, frame: 60, fps: 30, value: 5, comp: { width: 10, height: 10, duration: 1, fps: 30 },
-    prop: () => 0, token: () => 0, marker: () => ({ t: 0, frame: 0 }), ease: (_: unknown, x: number) => x, audio: () => audioReader(null, 0), ...over,
+    prop: () => 0, token: () => 0, marker: () => ({ t: 0, frame: 0 }), ease: (_: unknown, x: number) => x, audio: () => audioReader(null, 0), events: () => eventsReader(null, 0), ...over,
   });
 
   it('an expression or a body with return', () => {

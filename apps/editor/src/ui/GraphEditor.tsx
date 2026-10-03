@@ -7,6 +7,7 @@ import { signal } from '@preact/signals';
 import { useLayoutEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { Evaluator, getAt, modsOf, resolveTokens, sampleKeyframes, type Bezier, type EaseSpec, type Keyframe, type Op, type PropType } from '@tramme/core';
 import { comp, commit, draft, cancelDraft, S, setTime, viewDoc, uiTime } from '../state.ts';
+import { assetData } from '../preview.ts';
 import { animatedProps, keysOf, layerName, propPath, rulerLabel, snap, timecode } from '../model.ts';
 import { Icon } from './icons.tsx';
 import { propLabel } from './Timeline.tsx';
@@ -72,7 +73,7 @@ export function GraphEditor() {
   // modifiers keep moving after the last key (springs settle, loops repeat): show the whole composition
   if (shown.some((ch) => ch.modified)) { ta = 0; tb = c.duration; }
   const tp = (tb - ta) * 0.08; ta = Math.max(0, ta - tp); tb = Math.min(c.duration, tb + tp);
-  const ev = useMemo(() => new Evaluator(doc, reg), [doc, reg]);
+  const ev = useMemo(() => new Evaluator(doc, reg, { data: assetData }), [doc, reg]);
   const finalValue = (ch: Channel, tt: number) => { try { return num(ev.value(`${ch.layer}.${ch.prop}`, tt, compId), ch.comp); } catch { return NaN; } };
   const range = (ch: Channel): [number, number] => {
     const vs: number[] = [];

@@ -1,0 +1,90 @@
+{
+  "version": 1,
+  "kind": "events",
+  "totals": {
+    "cash": {
+      "label": "Cash",
+      "start": 23.67,
+      "format": "£0.00"
+    },
+    "laughs": {
+      "label": "Laughs",
+      "start": 0,
+      "format": "0"
+    }
+  },
+  "events": [
+    {
+      "id": "laugh",
+      "t": 1.2,
+      "label": "Laugh",
+      "detail": "the dog",
+      "values": {
+        "laughs": 1
+      }
+    },
+    {
+      "id": "petrol",
+      "t": 3,
+      "label": "Petrol",
+      "detail": "full tank",
+      "values": {
+        "cash": -18
+      }
+    },
+    {
+      "id": "rope",
+      "t": 5.2,
+      "label": "Rope",
+      "detail": "borrowed",
+      "values": {
+        "cash": -1.2
+      }
+    },
+    {
+      "id": "laugh-2",
+      "t": 7,
+      "label": "Laugh",
+      "detail": "the radio",
+      "values": {
+        "laughs": 1
+      }
+    },
+    {
+      "id": "chips",
+      "t": 8.6,
+      "label": "Chips",
+      "detail": "the gull",
+      "values": {
+        "cash": -3.2
+      }
+    },
+    {
+      "id": "laugh-3",
+      "t": 10.2,
+      "label": "Laugh",
+      "detail": "the gull again",
+      "values": {
+        "laughs": 1
+      }
+    },
+    {
+      "id": "ice-cream",
+      "t": 11.6,
+      "label": "Ice cream",
+      "detail": "every bend",
+      "values": {
+        "cash": -0.8
+      }
+    },
+    {
+      "id": "parking",
+      "t": 13,
+      "label": "Parking",
+      "detail": "the last coins",
+      "values": {
+        "cash": -0.47
+      }
+    }
+  ]
+}

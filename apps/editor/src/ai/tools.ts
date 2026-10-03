@@ -13,6 +13,7 @@ import { inputIssues, vocabularyDetail, vocabularyIndex } from './answers.ts';
 import { uid } from './calls.ts';
 import { api, type AiEvent } from '../api.ts';
 import { describeOp, freshId } from '../model.ts';
+import { analyses } from '../perception.ts';
 import { safeName } from '../files.ts';
 import { transcribeAsset, transcriptIdOf } from '../speech.ts';
 import { TEMPLATES } from '../templates.ts';
@@ -211,8 +212,10 @@ ${r.content[0].type === 'text' ? r.content[0].text : ''}`);
           return text(Array.isArray(input.types) && input.types.length ? vocabularyDetail(reg, input.types.map(String)) : vocabularyIndex(reg));
         }
         case 'evaluate': {
-          const doc = this.liveDoc();
-          return text(JSON.stringify(new Evaluator(doc, await this.registry(doc)).value(String(input.address), Number(input.t), input.compId)));
+          const doc = this.liveDoc(), reg = await this.registry(doc);
+          // the analyses and event lists reach the expressions that read them
+          const data = await analyses(this.toolContext(doc, reg));
+          return text(JSON.stringify(new Evaluator(doc, reg, { data }).value(String(input.address), Number(input.t), input.compId)));
         }
         case 'render_still': return await this.still(Number(input.t), input.compId, input.caption);
         case 'propose_changes': return await this.propose(String(input.label ?? 'Change'), input.ops as Op[]);

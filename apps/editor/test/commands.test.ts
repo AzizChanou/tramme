@@ -28,7 +28,7 @@ describe('the / menu', () => {
   const list = listCommands(reg);
 
   it('lists the editor\'s tools and workflows with the plugins\' ones', () => {
-    expect(list.filter((c) => c.kind === 'tool').map((c) => c.name)).toEqual(['captions', 'title', 'keyword', 'lower-third', 'kinetic-title', 'bar-chart', 'stat', 'transition', 'kit', 'beats', 'shots', 'subjects', 'palette', 'cutout', 'check', 'motion', 'sfx', 'synth', 'generate-sound', 'duck', 'sound-keep', 'library-add', 'library-use', 'demo.stars']);
+    expect(list.filter((c) => c.kind === 'tool').map((c) => c.name)).toEqual(['captions', 'title', 'keyword', 'lower-third', 'kinetic-title', 'bar-chart', 'stat', 'transition', 'kit', 'events', 'event-counter', 'event-tags', 'event-receipt', 'beats', 'shots', 'subjects', 'palette', 'cutout', 'check', 'motion', 'sfx', 'synth', 'generate-sound', 'duck', 'sound-keep', 'library-add', 'library-use', 'demo.stars']);
     expect(list.filter((c) => c.kind === 'prompt').map((c) => `${c.name}:${c.from}`)).toEqual(['dress:tramme', 'review:tramme', 'sound-design:tramme', 'night:sky']);
   });
 

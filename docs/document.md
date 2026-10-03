@@ -75,7 +75,7 @@ Wherever a color is expected (gradient stops included), `"@name"` refers to the 
 
 ### Expressions
 
-A single expression (`value + 10`) or a body with `return`. Available names: `t` (= `time`), `frame`, `fps`, `value`, `comp` (`width`, `height`, `duration`, `fps`), `prop('layer.prop')`, `token('name')`, `marker('id|kind|label')` (`{ t, frame }`), `ease(spec, x)`, `clamp`, `lerp`, `prog(t, a, b)`, `smoothstep`, `linear(t, t0, t1, v0, v1)`, `random(seed)`, `noise(x, y, z)`, `add`, `sub`, `mul`, `Math` (without `Math.random`), `audio(source)` (below), and the modifiers below. An expression must stay a pure function of `t`: no state, no unseeded randomness, no access to the browser.
+A single expression (`value + 10`) or a body with `return`. Available names: `t` (= `time`), `frame`, `fps`, `value`, `comp` (`width`, `height`, `duration`, `fps`), `prop('layer.prop')`, `token('name')`, `marker('id|kind|label')` (`{ t, frame }`), `ease(spec, x)`, `clamp`, `lerp`, `prog(t, a, b)`, `smoothstep`, `linear(t, t0, t1, v0, v1)`, `random(seed)`, `noise(x, y, z)`, `add`, `sub`, `mul`, `Math` (without `Math.random`), `audio(source)` and `events(source)` (below), and the modifiers below. An expression must stay a pure function of `t`: no state, no unseeded randomness, no access to the browser.
 
 ### Camera (2.5D)
 
@@ -99,6 +99,29 @@ An animated property (keyframes, expression or link) can get a stack of modifier
 
 Once a sound has an analysis (the `beats` tool saves it as the asset `analysis-<sound>`), expressions read it with `audio(source)`: `source` is the sound or video layer (times follow its in point and `start`), or the asset id. `audio('music').pulse(0.2)` is 1 on each beat and fades in 0.2 s; also `.barPulse(decay)`, `.hit(decay)`, `.energy('rms' | 'low' | 'mid' | 'high')` (0..1), `.beat`, `.bar` (ranks), `.phase` (0..1 inside the beat), `.section`. Without the analysis, every value is 0. For example a logo that kicks on each beat: `"scale": { "$v": [1, 1], "$mod": [{ "type": "react", "source": "music", "signal": "beat", "amount": 0.06, "decay": 0.18 }] }`.
 
+### Event lists
+
+A story that keeps score (money in any currency, laughs, points, kilometres, a weight, a time) keeps its events in one JSON asset, an event list, that several layers read: change the list and everything that tells the story follows. The `events` tool writes it (`assets/events/<name>.json`, asset `events-<name>`):
+
+```json
+{
+  "version": 1, "kind": "events",
+  "totals": { "cash": { "label": "Cash", "start": 23.67, "format": "£0.00" }, "weight": { "start": 75, "format": "0.0 kg" } },
+  "events": [
+    { "id": "petrol", "t": 3.1, "label": "Petrol", "detail": "Full tank", "values": { "cash": -18 } },
+    { "id": "laugh", "t": 4.5, "label": "Laugh", "values": { "laughs": 1 } },
+    { "id": "weigh-in", "t": 9, "label": "Weigh-in", "set": { "weight": 73.5 } }
+  ]
+}
+```
+
+- `t` is in seconds, in the time of the composition that reads the list. `values` add up: a running total is its `start` (0 by default) plus every change so far. `set` gives a total a value, whatever it was (a weight, a temperature); the change is the difference. A total that `totals` does not declare starts at 0.
+- `format` writes a total: `0` is a digit always written, `#` one written when needed, the last `.` or `,` before digits is the decimal mark (a single `,` before three digits groups thousands): `£0.00`, `00`, `#,##0 pts`, `0,00 €`, `1 250 000 FCFA` from `# ##0 FCFA`. `0 day|0 days` gives the first form for one. `0:00` and `0:00:00` write seconds as a duration (`2:46`, `1:02:46`). Without a format, as many decimals as the values have. A loss gets a minus sign: `−£18.00`. Dates are not totals: put them in a label or a detail.
+
+Expressions read it with `events(source)`, the asset id or the list's name: `.total('cash')`, `.text('cash', digits)` (written with its format, at least `digits` digits before the decimal mark), `.previous('cash')` (before its latest change), `.change('cash')` (that change), `.gains('cash')` and `.losses('cash')` (what it gained and lost so far), `.since(key?)` (seconds since the latest event, `Infinity` before the first), `.pulse(decay, key?)` (1 at each event, fading), `.last(key?)` and `.next(key?)` (the event, or null), `.find(id)`, `.count`, `.list`, `.keys`, `.format(value, key, { signed, digits })`, `.changes(event, key?)` (what an event of the list changed: `"−£18.00  +1"`), `.after(event, key?)` (the totals it left: `"£5.67"`), `.label(key)`. With a key, only the events that change that total count. Without the list, every value is neutral (0, `Infinity`, `"0"`). For example a logo that kicks at each event: `"scale": { "$expr": "add(value, mul([1, 1], 0.08 * events('events-main').pulse(0.25)))" }`; a title that names the latest event, a place or a mood rather than a number: `"text": { "$expr": "events('events-main').last()?.label ?? ''" }`.
+
+Three tools show a list, each with layers that read it as they render: `event-counter` (the running totals in a corner: `text.counter` layers whose `from`, `to`, `progress` and `direction` are `events()` expressions), `event-tags` (an `events.tag` layer: a tag at each event, above the counters) and `event-receipt` (an `events.receipt` layer: every event, line by line, then the totals).
+
 ## Built-in nodes
 
 Each layer type declares its property schema; the inspector and the validator use it. Full list with defaults: the assistant's `list_nodes` tool, or `tramme nodes`.
@@ -111,7 +134,9 @@ Each layer type declares its property schema; the inspector and the validator us
 | `image` | `image` (asset), `size` (frame), `fit` (`cover`, `contain`, `fill`, `none`), `focus`, `zoom`, `offset`, `crop`, `box` |
 | `sequence` | `frames` (list of image assets: the drawings in order), `hold` (frames per drawing, 2 = "on twos"), `sheet` (exposure sheet, e.g. `"1-4/2, 5/6, 4-1/2, x/3"`: drawings 1 to 4 held 2 frames, 5 held 6, then 4 to 1, then 3 blank frames; empty = every drawing held `hold`), `loop` (`loop`, `once`, `pingpong`), `offset` (frames of offset), `drawing` (0, or a forced drawing number: animate it with `hold` keyframes for a mouth), `size`, `fit`: frame by frame drawn animation, counted from the layer's in point |
 | `text` | `text`, `font` (asset), `size`, `weight` (animatable), `italic`, `tracking` (em), `color`, `align`, `lineHeight`, `baseline` |
-| `text.counter` | `from`, `to`, `progress` (0 to 1), `turns` + typography: a rolling counter |
+| `text.counter` | `from`, `to`, `progress` (0 to 1), `turns`, `direction` (`up`, or `down` to roll back for a value that goes down) + typography: a rolling counter |
+| `events.tag` | `events` (event list asset), `key` (only the events that change this total), `show` (`change`, `total`: the total the event leaves, `label`), `hold` (s), `animation` (`pop`, `snap`, `rise`, `fade`), `uppercase`, `fill`, `padding`, `radius`, `gap` + typography: a tag at each event of the list, with what it changes |
+| `events.receipt` | `events`, `title`, `subtitle`, `column` (`auto`, `detail`, `change`, `total`, `none`), `numbered`, `totals` (`"Spent: -cash; Change: cash"`: `-key` adds up the decreases, `+key` the increases), `interval` (s between lines), `typing`, `uppercase`, `lineHeight`, `paper`, `rule`, `highlight` (the last total), `width` (0: as wide as needed), `padding` + typography: every event on a receipt, typed line by line from the in point, then the totals; its origin is the middle, left or right of its top edge (`align`) |
 | `group` | container: `children` |
 | `comp` | `comp` (id of another composition), `time` (local time, animatable), `size`: nested composition |
 | `particles` | deterministic emitter: `rate`, `life`, `speed`, `spread`, `gravity`, `size`, `color`, `seed` |

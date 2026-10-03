@@ -15,7 +15,7 @@ type Bezier = [number, number, number, number];
 const ENTER: Bezier = [0.16, 1, 0.3, 1], EXIT: Bezier = [0.7, 0, 0.84, 0], POP: Bezier = [0.34, 1.56, 0.64, 1];
 
 /** a token when the document has one of that type, a fallback otherwise */
-function style(doc: TrammeDoc) {
+export function style(doc: TrammeDoc) {
   const has = (n: string, type: string) => doc.tokens?.[n]?.type === type;
   const num = (n: string, d: number) => (has(n, 'number') ? Number(doc.tokens[n].value) || d : d);
   const firstColor = Object.entries(doc.tokens ?? {}).find(([n, t]) => t.type === 'color' && !/plate|bg|back|ink|night|paper/i.test(n))?.[0];
@@ -32,7 +32,7 @@ function style(doc: TrammeDoc) {
 }
 
 /** the width of a text, measured with the document's font when a canvas is there, estimated otherwise */
-function measure(doc: TrammeDoc, text: string, size: number, weight: number, font: string | null): number {
+export function measure(doc: TrammeDoc, text: string, size: number, weight: number, font: string | null): number {
   try {
     const g = document.createElement('canvas').getContext('2d')!;
     const family = font ? doc.assets[font]?.family || font : 'sans-serif';
@@ -42,13 +42,13 @@ function measure(doc: TrammeDoc, text: string, size: number, weight: number, fon
 }
 
 /** the width of a counter: digits in equal cells (the widest digit), other signs at their own width, as the node draws it */
-function counterWidth(doc: TrammeDoc, text: string, size: number, weight: number, font: string | null): number {
+export function counterWidth(doc: TrammeDoc, text: string, size: number, weight: number, font: string | null): number {
   const cell = Math.max(...'0123456789'.split('').map((d) => measure(doc, d, size, weight, font)));
   return [...text].reduce((w, ch) => w + (/\d/.test(ch) ? cell : measure(doc, ch, size, weight, font)), 0);
 }
 
-const r = (x: number) => Math.round(x * 100) / 100;
-const compOf = (ctx: ToolContext) => ctx.doc.compositions[ctx.compId];
+export const r = (x: number) => Math.round(x * 100) / 100;
+export const compOf = (ctx: ToolContext) => ctx.doc.compositions[ctx.compId];
 const atOf = (ctx: ToolContext, at?: number) => r(at ?? ctx.time);
 
 // ── kinetic title ────────────────────────────────────────────

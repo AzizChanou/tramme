@@ -1,0 +1,11 @@
+{
+  "format": "tramme-project/1",
+  "id": "example-road-trip",
+  "name": "Road trip",
+  "created": "2026-10-03T12:00:00.000Z",
+  "modified": "2026-10-03T12:00:00.000Z",
+  "width": 1920,
+  "height": 1080,
+  "duration": 20,
+  "thumbnail": "thumbnail.webp"
+}

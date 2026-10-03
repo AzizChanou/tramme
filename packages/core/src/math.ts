@@ -40,6 +40,13 @@ export function cubicBezier(x1: number, y1: number, x2: number, y2: number): Eas
 
 export const linear: EaseFn = (x) => x;
 
+/** the last time of a sorted list at or before t, by bisection; -1 when none */
+export function lastIndex(list: number[], t: number): number {
+  let lo = 0, hi = list.length - 1, at = -1;
+  while (lo <= hi) { const m = (lo + hi) >> 1; if (list[m] <= t + 1e-9) { at = m; lo = m + 1; } else hi = m - 1; }
+  return at;
+}
+
 // ── seeded random and noise ─────────────────────────────────
 /** integer hash to [0, 1) */
 export function hash(n: number): number {

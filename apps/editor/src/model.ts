@@ -38,6 +38,9 @@ export const layerName = (id: string, l: Layer) => l.name || id;
 /** a text cut to at most max characters, an ellipsis marking the cut */
 export const clip = (text: string, max: number) => (text.length > max ? `${text.slice(0, max - 1)}…` : text);
 
+/** a name fit for ids and paths: ascii letters without accents, digits, _ and dashes */
+export const slug = (text: string) => text.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9_-]+/g, '-').replace(/^-+|-+$/g, '');
+
 // ── time ─────────────────────────────────────────────────────
 export const snap = (t: number, fps: number) => Math.round(t * fps) / fps;
 

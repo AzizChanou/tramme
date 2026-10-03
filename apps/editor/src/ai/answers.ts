@@ -19,9 +19,9 @@ const short = (v: unknown) => clip(JSON.stringify(v), 38);
 const propLine = (props: PropSchema) => Object.entries(props).map(([k, d]) => `${k}:${d.options ? d.options.join('|') : d.type}=${short(d.default)}`).join(', ');
 const notes = (ai?: AiNotes) => [ai?.when && `  when: ${ai.when}`, ai?.avoid && `  avoid: ${ai.avoid}`].filter(Boolean).join('\n');
 function inputLine(schema?: JsonSchema): string {
-  const props = (schema?.properties ?? {}) as Record<string, { type?: string; enum?: unknown[] }>;
+  const props = (schema?.properties ?? {}) as Record<string, { type?: string | string[]; enum?: unknown[] }>;
   const required = new Set((schema?.required ?? []) as string[]);
-  return Object.entries(props).map(([k, p]) => `${k}${required.has(k) ? '' : '?'}:${p.enum ? p.enum.join('|') : p.type ?? 'any'}`).join(', ');
+  return Object.entries(props).map(([k, p]) => `${k}${required.has(k) ? '' : '?'}:${p.enum ? p.enum.join('|') : [p.type ?? 'any'].flat().join('|')}`).join(', ');
 }
 
 /** an entry of the vocabulary: its name, its line in the index, its full description */

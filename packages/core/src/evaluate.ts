@@ -6,6 +6,7 @@
 // properties are cached across frames.
 
 import { audioReader, type AudioReader } from './analysis.ts';
+import { eventsReader, type EventsReader } from './events.ts';
 import { compileExpr, type ExprScope } from './expr.ts';
 import { modifierParams, seedOf, type ModifierContext } from './modifiers.ts';
 import { asExpr, asKeyframed, asLink, easeFn, modsOf, propKind, resolveTokens, sampleKeyframes, staticValue, tokenValue } from './props.ts';
@@ -118,6 +119,12 @@ export class Evaluator {
     const a = this.doc.assets[asset];
     const id = a && a.type !== 'json' ? `analysis-${asset}`.slice(0, 64) : asset;
     return audioReader(this.data?.(id), t);
+  }
+
+  /** an event list at time t (composition time): its asset id, or the name the events tool saved it under (events-<name>) */
+  private eventsAt(ctx: FrameCtx, source: string): EventsReader {
+    const id = this.doc.assets[source] || !this.doc.assets[`events-${source}`] ? source : `events-${source}`;
+    return eventsReader(this.data?.(id), ctx.t);
   }
 
   comp(compId = this.doc.root): Composition {
@@ -334,6 +341,7 @@ export class Evaluator {
       token: (name: string) => tokenValue(tokens, name),
       marker: (q: string) => markerInfo(comp, q),
       audio: (source: string) => this.audioAt(ctx, source),
+      events: (source: string) => this.eventsAt(ctx, source),
       ease: (spec: unknown, x: number) => {
         const f = easeFn(spec as any, tokens);
         return f === 'hold' ? (x >= 1 ? 1 : 0) : f(x);

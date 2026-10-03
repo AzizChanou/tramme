@@ -1,0 +1,388 @@
+{
+  "schema": "tramme/1",
+  "meta": {
+    "title": "Road trip",
+    "description": "One event list drives everything: the title, the counters that roll, a tag at each purchase and the receipt at the end (type / in the assistant: events, event-counter, event-tags, event-receipt)."
+  },
+  "tokens": {
+    "dusk": {
+      "type": "color",
+      "value": "#1B2833"
+    },
+    "sea": {
+      "type": "color",
+      "value": "#12303A"
+    },
+    "sun": {
+      "type": "color",
+      "value": "#F0B46A"
+    },
+    "ink": {
+      "type": "color",
+      "value": "#F2EDE4"
+    },
+    "accent": {
+      "type": "color",
+      "value": "#E5402A"
+    },
+    "enter": {
+      "type": "ease",
+      "value": [
+        0.16,
+        1,
+        0.3,
+        1
+      ]
+    }
+  },
+  "assets": {
+    "events-trip": {
+      "type": "json",
+      "src": "assets/events/trip.json",
+      "name": "Events · trip"
+    }
+  },
+  "root": "main",
+  "compositions": {
+    "main": {
+      "name": "Road trip",
+      "width": 1920,
+      "height": 1080,
+      "fps": 24,
+      "duration": 20,
+      "background": "@dusk",
+      "motionBlur": {
+        "samples": 8,
+        "shutter": 0.5
+      },
+      "layers": {
+        "sun": {
+          "type": "shape.ellipse",
+          "name": "Sun",
+          "transform": {
+            "position": {
+              "$expr": "[1440, 400 + t * 6]"
+            },
+            "opacity": 0.5
+          },
+          "props": {
+            "size": [
+              620,
+              620
+            ],
+            "fill": {
+              "type": "radial",
+              "center": [
+                0,
+                0
+              ],
+              "radius": 310,
+              "stops": [
+                [
+                  0,
+                  "@sun"
+                ],
+                [
+                  0.55,
+                  "#F0B46A55"
+                ],
+                [
+                  1,
+                  "#F0B46A00"
+                ]
+              ]
+            }
+          }
+        },
+        "sea": {
+          "type": "shape.rect",
+          "name": "Sea",
+          "transform": {
+            "position": [
+              960,
+              945
+            ]
+          },
+          "props": {
+            "size": [
+              1920,
+              270
+            ],
+            "fill": {
+              "type": "linear",
+              "from": [
+                0,
+                -135
+              ],
+              "to": [
+                0,
+                135
+              ],
+              "stops": [
+                [
+                  0,
+                  "@sea"
+                ],
+                [
+                  1,
+                  "#0B1D24"
+                ]
+              ]
+            }
+          }
+        },
+        "counter-chip": {
+          "type": "shape.rect",
+          "name": "Cash · chip",
+          "transform": {
+            "position": [
+              -378.3,
+              0
+            ]
+          },
+          "props": {
+            "size": [
+              272.2,
+              47
+            ],
+            "radius": 4,
+            "fill": "rgba(11,15,18,0.72)"
+          }
+        },
+        "counter-label": {
+          "type": "text",
+          "name": "Cash",
+          "transform": {
+            "position": [
+              -404.6,
+              12.6
+            ]
+          },
+          "props": {
+            "text": "CASH",
+            "size": 35,
+            "weight": 700,
+            "tracking": 0.04,
+            "align": "right",
+            "color": "#F4F1EA"
+          }
+        },
+        "counter-value": {
+          "type": "text.counter",
+          "name": "Cash · value",
+          "transform": {
+            "position": [
+              -392.6,
+              12.6
+            ]
+          },
+          "props": {
+            "from": {
+              "$expr": "const e = events('events-trip'); return e.format(e.previous('cash'), 'cash', { digits: 2 });"
+            },
+            "to": {
+              "$expr": "events('events-trip').text('cash', 2)"
+            },
+            "progress": {
+              "$expr": "ease(\"@enter\", clamp(events('events-trip').since('cash') / 0.45, 0, 1))"
+            },
+            "direction": {
+              "$expr": "events('events-trip').change('cash') < 0 ? 'down' : 'up'"
+            },
+            "turns": 0,
+            "size": 35,
+            "weight": 700,
+            "tracking": 0,
+            "align": "left",
+            "color": "#F4F1EA"
+          }
+        },
+        "counter-chip2": {
+          "type": "shape.rect",
+          "name": "Laughs · chip",
+          "transform": {
+            "position": [
+              -115.1,
+              0
+            ]
+          },
+          "props": {
+            "size": [
+              230.2,
+              47
+            ],
+            "radius": 4,
+            "fill": "rgba(11,15,18,0.72)"
+          }
+        },
+        "counter-label2": {
+          "type": "text",
+          "name": "Laughs",
+          "transform": {
+            "position": [
+              -72.8,
+              12.6
+            ]
+          },
+          "props": {
+            "text": "LAUGHS",
+            "size": 35,
+            "weight": 700,
+            "tracking": 0.04,
+            "align": "right",
+            "color": "#F4F1EA"
+          }
+        },
+        "counter-value2": {
+          "type": "text.counter",
+          "name": "Laughs · value",
+          "transform": {
+            "position": [
+              -60.8,
+              12.6
+            ]
+          },
+          "props": {
+            "from": {
+              "$expr": "const e = events('events-trip'); return e.format(e.previous('laughs'), 'laughs', { digits: 2 });"
+            },
+            "to": {
+              "$expr": "events('events-trip').text('laughs', 2)"
+            },
+            "progress": {
+              "$expr": "ease(\"@enter\", clamp(events('events-trip').since('laughs') / 0.45, 0, 1))"
+            },
+            "direction": {
+              "$expr": "events('events-trip').change('laughs') < 0 ? 'down' : 'up'"
+            },
+            "turns": 0,
+            "size": 35,
+            "weight": 700,
+            "tracking": 0,
+            "align": "left",
+            "color": "#F4F1EA"
+          }
+        },
+        "event-counters": {
+          "type": "group",
+          "name": "Counters",
+          "transform": {
+            "position": [
+              1795.2,
+              975.5
+            ]
+          },
+          "children": [
+            "counter-chip",
+            "counter-label",
+            "counter-value",
+            "counter-chip2",
+            "counter-label2",
+            "counter-value2"
+          ]
+        },
+        "event-tags": {
+          "type": "events.tag",
+          "name": "Event tags",
+          "transform": {
+            "position": [
+              1795.2,
+              916.5
+            ]
+          },
+          "props": {
+            "events": "events-trip",
+            "key": "cash",
+            "hold": 1.4,
+            "animation": "pop",
+            "size": 35,
+            "weight": 700,
+            "tracking": 0.04,
+            "align": "right",
+            "fill": "#E5402A",
+            "color": "#FFFFFF",
+            "padding": [
+              0.46,
+              0.31
+            ],
+            "radius": 4
+          }
+        },
+        "receipt": {
+          "type": "events.receipt",
+          "name": "Receipt",
+          "in": 13.9,
+          "transform": {
+            "position": [
+              124.8,
+              162
+            ]
+          },
+          "props": {
+            "events": "events-trip",
+            "title": "Inventory",
+            "subtitle": "One day",
+            "totals": "Spent: -cash; Change: cash",
+            "interval": 0.3,
+            "size": 32,
+            "align": "left"
+          }
+        },
+        "title": {
+          "type": "text",
+          "name": "Latest event",
+          "out": 13.9,
+          "transform": {
+            "position": [
+              150,
+              560
+            ],
+            "scale": {
+              "$expr": "const k = events('events-trip').pulse(0.3); return [1 + 0.06 * k, 1 + 0.06 * k];"
+            }
+          },
+          "props": {
+            "text": {
+              "$expr": "(events('events-trip').last()?.label ?? 'Road trip').toUpperCase()"
+            },
+            "size": 230,
+            "weight": 900,
+            "tracking": -0.03,
+            "color": "@ink"
+          }
+        },
+        "detail": {
+          "type": "text",
+          "name": "Its detail",
+          "out": 13.9,
+          "transform": {
+            "position": [
+              158,
+              650
+            ],
+            "opacity": 0.72
+          },
+          "props": {
+            "text": {
+              "$expr": "(events('events-trip').last()?.detail ?? 'one day by the sea').toUpperCase()"
+            },
+            "size": 40,
+            "weight": 700,
+            "tracking": 0.12,
+            "color": "@ink"
+          }
+        }
+      },
+      "order": [
+        "sun",
+        "sea",
+        "title",
+        "detail",
+        "event-counters",
+        "event-tags",
+        "receipt"
+      ]
+    }
+  },
+  "$schema": "../../schema/tramme-1.schema.json"
+}

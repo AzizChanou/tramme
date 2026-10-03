@@ -42,6 +42,8 @@ Until 1.0.0, the document format and the APIs may still change between minor ver
 - Assistant effort levels, chosen for each model next to the model menu and in the settings: Claude Opus and Sonnet (low to max, `high` by default, where Opus 5.5 alone would run at `medium`), and the reasoning models of the other providers (OpenAI o-series and GPT-5, Gemini 2.5 and later, OpenRouter models that reason, gpt-oss on a local server: low, medium, high, or the model's own default). A model that refuses its level runs at its own.
 - The assistant tells you when it is done (Settings, Assistant): a notification from the system when the editor is in the background, a message in the editor after a long task.
 - Automatic application of the assistant's changes (Settings, Assistant), turned on after a confirmation: a proposal is applied as soon as the turn is over, still checked first, shown in the conversation and undone with Ctrl+Z.
+- Event lists: a JSON asset of timed events (`{ id, t, label, detail?, values, set? }`) that keep running totals: changes that add up (money in any currency, laughs, points, kilometres) or values an event sets (a weight, a temperature). Written by the `events` tool (assistant and `/events`) from lines such as `3.1 Petrol cash -18 | full tank` or `9 Weigh-in weight =72.5`, and totals written as they should look: `Cash: £23.67`, `0,00 €`, `Days: 0 day|0 days`, `Time: 0:00`. Expressions read it with `events()` (`.total()`, `.text()`, `.since()`, `.pulse()`, `.last()`…). `event-counter` puts the running totals in a corner, counters that roll at each change; `event-tags` a tag at each event (`PETROL −£18.00`, or the total it leaves; new `events.tag` node); `event-receipt` every event on a receipt typed line by line, then its totals (new `events.receipt` node). Every one of these layers reads the list as it renders: save the list again and they all follow. Example project "Road trip".
+- Counters: `direction`, `down` rolls the digits back, for a value that goes down.
 
 ### Changed
 
@@ -55,6 +57,7 @@ Until 1.0.0, the document format and the APIs may still change between minor ver
 
 ### Fixed
 
+- Expressions that read an analysis (`audio()`) or an event list (`events()`) now have their values in the inspector, the curves, the viewport's boxes and the assistant's `evaluate`, instead of neutral ones.
 - On phones, the assistant's message box no longer slips under the tab bar when the conversation is long.
 - Counters: separators and units (`,` `%` `€`) take their own width instead of a digit's.
 - MP4 export: the H.264 configuration (avcC) is written from the stream itself. The one some encoders give (Media Foundation under Windows) was malformed, so Windows, QuickTime and phones refused the file ("format not supported") while Chrome and VLC played it.

@@ -339,3 +339,6 @@ class Preview {
 }
 
 export const preview = new Preview();
+
+/** a JSON asset as the preview loaded it (analyses, event lists), for the editor's own evaluators: the expressions that read them get their values */
+export const assetData = (id: string) => (preview.renderer?.assets.has(id) ? preview.renderer.assets.get(id) : undefined);

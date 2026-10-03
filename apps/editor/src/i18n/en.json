@@ -792,6 +792,18 @@
     "cutoutMask": "{name} · mask",
     "cutoutSubject": "{name} · cut-out"
   },
+  "events": {
+    "saved": "Event list saved: {count} event(s){totals}. Show it with /event-counter, /event-tags and /event-receipt.",
+    "listLabel": "Event list {name}",
+    "counters": "Counters",
+    "counterLabel": "Counters of {name}",
+    "chip": "{label} · chip",
+    "value": "{label} · value",
+    "tags": "Event tags",
+    "tagsLabel": "Tags of {name}",
+    "receipt": "Receipt",
+    "receiptLabel": "Receipt of {name}"
+  },
   "library": {
     "kept": "Plugin kept in the library: {name}. Other projects can use it.",
     "used": "Plugin {name} added to this project."
