@@ -126,6 +126,8 @@ Composition finishing effects (`effects`): `look.vignette` (`amount`), `look.gra
 
 A track matte: the layer shows only where `source` is. The matte layer is usually hidden (`visible: false`): it is still drawn for the effect, at the same instant, with its own animation. For example footage seen through a big title: the title hidden, the video with `{ "id": "m", "type": "fx.matte", "props": { "source": "title", "mode": "alpha" } }`.
 
+Text behind a person works the other way round: the `cutout` tool saves the person's matte as a mask video (white where they are, timed like the file, under `assets/cutout/`), then adds two layers right above the video: the mask, hidden, and the same footage through it (`fx.matte` in `luma` mode). Both follow the video's frame and transform through links. Whatever sits between the video and these two in the stack passes behind the person.
+
 ## Node plugins
 
 A plugin is a JavaScript module (asset `type: "module"`, listed in `plugins`) that exports `nodes`, `effects`, `modifiers`, `tools`, `prompts`, `checks` and/or `kits` (and, if it wants, `tours`: guided tours of its nodes in the editor, see [tours.md](tours.md)):

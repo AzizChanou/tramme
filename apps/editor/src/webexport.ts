@@ -11,6 +11,7 @@ import type { TrammeDoc, Registry } from '@tramme/core';
 import { fetchAssetReader, toLottie, toSvg } from '@tramme/interop';
 import { encodeWav, mixComposition, Renderer } from '@tramme/render';
 
+import { AVC_FROM_STREAM } from './avc.ts';
 import type { WebFormat } from './formats.ts';
 import { t } from './i18n/index.ts';
 
@@ -31,24 +32,6 @@ export interface WebExportResult { blob: Blob; ext: string; warnings: string[] }
 const mixAudio = (r: Renderer) => mixComposition(r.doc, r.compId, (id) => r.assets.url(id));
 
 const wav = (buf: AudioBuffer) => new Blob([encodeWav(buf) as BlobPart], { type: 'audio/wav' });
-
-/** a packet in Annex B (start codes), rather than with its NAL units prefixed by their length */
-const isAnnexB = (d: Uint8Array) => d[0] === 0 && d[1] === 0 && (d[2] === 1 || (d[2] === 0 && d[3] === 1));
-
-/**
- * H.264 in an MP4: the encoder hands its frames in Annex B, with the parameter
- * sets in band, and the muxer writes the configuration box (avcC) from them.
- * The avcC some encoders give of their own is malformed (Media Foundation under
- * Windows: each SPS and PPS with its header byte twice, reserved bits cleared):
- * Chrome and VLC play such a file, the strict players (Windows, QuickTime,
- * phones, TVs) refuse it.
- */
-const AVC_FROM_STREAM = {
-  onEncoderConfig: (config: VideoEncoderConfig) => { config.avc = { ...config.avc, format: 'annexb' }; },
-  onEncodedPacket: (packet: { data: Uint8Array }, meta?: EncodedVideoChunkMetadata) => {
-    if (meta?.decoderConfig && isAnnexB(packet.data)) delete meta.decoderConfig.description;
-  },
-};
 
 const aborted = (signal?: AbortSignal) => { if (signal?.aborted) throw new DOMException(t('export.exportCancelled'), 'AbortError'); };
 

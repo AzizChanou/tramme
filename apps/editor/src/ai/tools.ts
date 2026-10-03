@@ -277,7 +277,10 @@ ${r.content[0].type === 'text' ? r.content[0].text : ''}`);
         const bad = pathIssue(path);
         const plugin = /^plugins\/.+\.(js|mjs)$/i.test(path);
         if (bad || (!path.startsWith('assets/') && !plugin)) throw new Error(`${path}: ${bad ?? 'a tool writes under assets/, or a plugin under plugins/'}`);
-        await api.write(S.project.peek().id, path, typeof data === 'string' ? new Blob([data], { type: plugin ? 'text/javascript' : /\.json$/i.test(path) ? 'application/json' : 'text/plain' }) : data);
+        const id = S.project.peek().id;
+        // a computed video (a cut-out mask) may pass the single request limit: sent in parts
+        if (typeof data === 'string') await api.write(id, path, new Blob([data], { type: plugin ? 'text/javascript' : /\.json$/i.test(path) ? 'application/json' : 'text/plain' }));
+        else await api.writeAny(id, path, data);
         return path;
       },
       renderStill: (t, id) => this.stillUrl(t, id),

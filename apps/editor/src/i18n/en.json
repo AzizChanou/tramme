@@ -783,7 +783,11 @@
     "noPulse": "No steady pulse in this sound; {hits} hits found, and its loudness over time.",
     "shotsDone": "{cuts} cut(s) found between shots.",
     "subjectsDone": "People found in {seen} of {looks} look(s). The checks now warn when text covers a face.",
-    "paletteDone": "Main colours: {colours}. They are now the plate, ink and accent tokens."
+    "paletteDone": "Main colours: {colours}. They are now the plate, ink and accent tokens.",
+    "cutoutDone": "Cut out over {frames} frames ({from} to {to} s). Put the titles between the video and its cut-out: they pass behind the subject.",
+    "cutoutLabel": "Cut-out of {name}",
+    "cutoutMask": "{name} · mask",
+    "cutoutSubject": "{name} · cut-out"
   },
   "library": {
     "kept": "Plugin kept in the library: {name}. Other projects can use it.",

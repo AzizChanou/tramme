@@ -97,13 +97,13 @@ const beats: ToolType<{ asset?: string }> = {
 };
 
 /** how different two small pictures are: their colour histograms, 0 (same) to 1 */
-function histogram(g: CanvasRenderingContext2D, w: number, h: number): Float32Array {
+export function histogram(g: CanvasRenderingContext2D, w: number, h: number): Float32Array {
   const px = g.getImageData(0, 0, w, h).data, bins = new Float32Array(48), n = w * h;
   for (let i = 0; i < px.length; i += 4) { bins[px[i] >> 4]++; bins[16 + (px[i + 1] >> 4)]++; bins[32 + (px[i + 2] >> 4)]++; }
   for (let k = 0; k < 48; k++) bins[k] /= n;
   return bins;
 }
-const distance = (a: Float32Array, b: Float32Array) => { let s = 0; for (let k = 0; k < a.length; k++) s += Math.abs(a[k] - b[k]); return s / 6; };
+export const distance = (a: Float32Array, b: Float32Array) => { let s = 0; for (let k = 0; k < a.length; k++) s += Math.abs(a[k] - b[k]); return s / 6; };
 
 const shots: ToolType<{ asset?: string; sensitivity?: number }> = {
   name: 'shots', title: 'Find the shots', description: 'finds the cuts between shots in a video',
@@ -162,14 +162,29 @@ const shots: ToolType<{ asset?: string; sensitivity?: number }> = {
 interface Detection { label: string; score: number; box: { xmin: number; ymin: number; xmax: number; ymax: number } }
 type Detector = (image: unknown, opts: { threshold: number }) => Promise<Detection[]>;
 
-/** a small object detector (YOLOS tiny, a few MB), downloaded once and run in the browser */
-let detector: Promise<{ detect: Detector; fromCanvas: (c: HTMLCanvasElement) => unknown }> | null = null;
-function loadDetector() {
-  detector ??= import('@huggingface/transformers').then(async ({ pipeline, RawImage }) => ({
-    detect: (await pipeline('object-detection', 'Xenova/yolos-tiny', { dtype: 'q8' } as never)) as unknown as Detector,
-    fromCanvas: (c: HTMLCanvasElement) => RawImage.fromCanvas(c),
-  })).catch((e) => { detector = null; throw new Error(`the detection model could not load: ${(e as Error).message}`); });
-  return detector;
+/** a model loaded on first use and kept; a failed load is tried again next time */
+export function onDemand<T>(what: string, load: () => Promise<T>): () => Promise<T> {
+  let loading: Promise<T> | null = null;
+  return () => (loading ??= load().catch((e) => { loading = null; throw new Error(`${what} could not load: ${(e as Error).message}`); }));
+}
+
+/** a small object detector (YOLOS tiny, a few MB), downloaded once and run in the browser: on the GPU (WebGPU), on the processor without one (much slower) */
+const loadDetector = onDemand('the detection model', () => import('@huggingface/transformers').then(async ({ pipeline, RawImage }) => {
+  const make = (opts: object) => pipeline('object-detection', 'Xenova/yolos-tiny', opts as never);
+  const detect = (await ('gpu' in navigator ? make({ device: 'webgpu', dtype: 'fp32' }).catch(() => make({ dtype: 'q8' })) : make({ dtype: 'q8' }))) as unknown as Detector;
+  return { detect, fromCanvas: (c: HTMLCanvasElement) => RawImage.fromCanvas(c) };
+}));
+
+export interface PersonBox { x: number; y: number; w: number; h: number; label: string; score: number }
+
+/** the people in a picture (a canvas about 512 px wide is enough): boxes in 0..1 of its size */
+export async function peopleIn(canvas: HTMLCanvasElement, threshold = 0.6): Promise<PersonBox[]> {
+  const { detect, fromCanvas } = await loadDetector();
+  const found = await detect(fromCanvas(canvas), { threshold });
+  return found.filter((d) => d.label === 'person').map((d) => ({
+    x: +(d.box.xmin / canvas.width).toFixed(3), y: +(d.box.ymin / canvas.height).toFixed(3),
+    w: +((d.box.xmax - d.box.xmin) / canvas.width).toFixed(3), h: +((d.box.ymax - d.box.ymin) / canvas.height).toFixed(3), label: d.label, score: +d.score.toFixed(2),
+  }));
 }
 
 /** where the people are, summed up for the assistant: their extent and the free sides */
@@ -193,18 +208,13 @@ const subjects: ToolType<{ asset?: string; every?: number }> = {
   ai: { when: 'before placing titles, captions or graphics over filmed people: the check tool then warns when text covers a face' },
   async run({ asset: wanted, every = 0.5 }, ctx) {
     const asset = mediaOf(ctx, wanted, ['video', 'image']), a = ctx.doc.assets[asset];
-    const { detect, fromCanvas } = await loadDetector();
-    const canvas = document.createElement('canvas'), g = canvas.getContext('2d')!;
-    const frames: { t: number; boxes: { x: number; y: number; w: number; h: number; label: string; score: number }[] }[] = [];
+    const canvas = document.createElement('canvas'), g = canvas.getContext('2d', { willReadFrequently: true })!;
+    const frames: { t: number; boxes: PersonBox[] }[] = [];
     const look = async (t: number, source: CanvasImageSource, w: number, h: number) => {
       const k = Math.min(1, 512 / Math.max(w, h));
       canvas.width = Math.round(w * k); canvas.height = Math.round(h * k);
       g.drawImage(source, 0, 0, canvas.width, canvas.height);
-      const found = await detect(fromCanvas(canvas), { threshold: 0.6 });
-      frames.push({ t: +t.toFixed(3), boxes: found.filter((d) => d.label === 'person').map((d) => ({
-        x: +(d.box.xmin / canvas.width).toFixed(3), y: +(d.box.ymin / canvas.height).toFixed(3),
-        w: +((d.box.xmax - d.box.xmin) / canvas.width).toFixed(3), h: +((d.box.ymax - d.box.ymin) / canvas.height).toFixed(3), label: d.label, score: +d.score.toFixed(2),
-      })) });
+      frames.push({ t: +t.toFixed(3), boxes: await peopleIn(canvas) });
     };
     let width = 0, height = 0;
     if (a.type === 'image') {

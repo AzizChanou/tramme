@@ -2,7 +2,7 @@
 
 Where the plugin system goes, and in what order. The goal is not only a richer vocabulary of layers: it is to give the built-in assistant what it needs to produce impressive videos on its own. The editor gets the same abilities, since the editor and the assistant share one API.
 
-Status: steps 1 to 3, 6 and 9 done; steps 4, 5, 7 and 10 mostly done (masks, depth maps, phonemes, mask sequences, glTF, plugin isolation and audio processing left); steps 7b and 8 wait for decisions (a 3D library, the providers). Tick the boxes as steps land, and keep this file as the reference instead of re-deciding the plan.
+Status: steps 1 to 3, 6 and 9 done; steps 4, 5, 7 and 10 mostly done (pose, depth maps, phonemes, depth sequences, glTF, plugin isolation and audio processing left); steps 7b and 8 wait for decisions (a 3D library, the providers). Tick the boxes as steps land, and keep this file as the reference instead of re-deciding the plan.
 
 ## Why
 
@@ -65,7 +65,8 @@ Done when: a project plugin exports a tool, the assistant finds it with `list_no
 - [x] `prompts` export: workflows (instructions for the assistant for one kind of result) picked with `/name`.
 - [x] Built-in: `/captions`, `/title`, `/keyword`, `/lower-third` (the templates as tools), `/dress` and `/review` (workflows). The editor's base vocabulary is `editorRegistry()` (`apps/editor/src/vocabulary.ts`).
 - [x] A tool run alone is told to the assistant at the next message.
-- [ ] More built-in commands as steps land: `/cut-silences`, `/transcript`, `/still`, `/beats`, `/cutout`.
+- [x] `/cutout` (step 4's segmentation masks).
+- [ ] More built-in commands as steps land: `/cut-silences`, `/transcript`, `/still`, `/beats`.
 
 ### Step 2. Recipes and style kits
 
@@ -89,7 +90,8 @@ Built-in plugins whose tools analyse the material at authoring time and save the
 - [x] Audio (`beats` tool, `analyseAudio` in `packages/core/src/analysis.ts`): tempo, beats, bars, onsets, sections, loudness of the whole and of three bands at 50 Hz. Pure DSP, deterministic, tested on synthetic grooves.
 - [ ] Phonemes from the transcript (lip sync of drawn characters).
 - [x] Video: shot changes (`shots` tool, colour histograms), people boxes over time (`subjects` tool, YOLOS tiny through transformers.js, loaded on demand).
-- [ ] Video: pose, segmentation masks (subject cut-out), depth (they need step 5's layer inputs and mask sequences).
+- [x] Video: segmentation masks (`cutout` tool, `apps/editor/src/cutout.ts`): U²-Net (people, or any salient subject) through onnxruntime on WebGPU or the processor, kept to the people the detector finds, steadied from frame to frame, saved as a mask video timed like the file.
+- [ ] Video: pose, depth.
 - [x] Image: main colours as tokens (`palette` tool: plate, ink, accent).
 - [ ] Image: saliency and free space as data (the `subjects` text gives the free sides for now).
 - [x] Render-time access: nodes read JSON assets with `host.asset(id)`; expressions with `audio(source)` (`pulse`, `barPulse`, `hit`, `energy`, `beat`, `bar`, `phase`, `section`), mapped to the time of a sound layer; the `react` modifier for the same without code. The renderer gives the evaluator the loaded analyses.
@@ -102,7 +104,8 @@ Built-in plugins whose tools analyse the material at authoring time and save the
 - [x] Finishing effects in GLSL (`gl: { code }`, `stage: 'finish'`): run by the compositor on the accumulated frame in linear light, before glow and grain (ping-pong targets). Built-in: `look.chromatic`, `look.grade`.
 - [x] Layer effects in GLSL: a pass on the layer drawn alone, through one shared WebGL2 canvas (`packages/render/src/gpu.ts`); uniforms generated from the props schema, `uScale` for the preview size.
 - [x] Layer inputs: the `layer` property type (validated, picked in the inspector); GLSL effects get it as a texture of that layer drawn alone, hidden or not; `host.drawLayer(ctx, id)` for nodes. Built-in: `fx.matte` (alpha, luma, inverted), `fx.displace`.
-- [ ] Mask and depth sequences as assets, read per frame ("text behind the subject").
+- [x] Masks as assets read per frame: a mask video (luma) played by a hidden video layer and read through `fx.matte`, so "text behind the subject" needs no new render path.
+- [ ] Depth sequences, the same way.
 
 ### Step 6. Time and state
 

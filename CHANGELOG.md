@@ -19,6 +19,7 @@ Until 1.0.0, the document format and the APIs may still change between minor ver
 - Perception tools: `beats` analyses music (tempo, beats, bars, sections, loudness per band), `shots` finds the cuts of a video, `subjects` finds the people in a video or an image (a small model run in the browser), `palette` turns the colours of a picture into tokens.
 - Following the music: the `react` modifier and `audio()` in expressions make any property move with the beats, bars, hits or loudness of an analysed sound.
 - Check `text-over-subject`: warns when text covers a face, once the people are known.
+- Text behind the subject: the `cutout` tool (assistant and `/cutout`) cuts the person, or the main subject, out of a video layer with a small model run in the browser, saves the matte as a mask video timed like the file, and adds the same footage through that mask above the video. Titles placed between the two pass behind the person, in the preview and in every export.
 - GPU effects: plugins write layer and finishing effects in GLSL; new built-in effects `fx.matte` (track matte from another layer), `fx.displace` (displacement map), `look.chromatic` (chromatic aberration), `look.grade` (colour grade in linear light). New property type `layer`.
 - In the preview, a layer or effect that fails is drawn as a red frame and named in the error bar instead of blanking the whole picture.
 - 2.5D camera: a composition can have a camera (pan, zoom, perspective, focus, depth blur) and layers a depth, for parallax and depth of field.
