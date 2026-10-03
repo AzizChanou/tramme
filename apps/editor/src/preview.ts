@@ -29,6 +29,8 @@ class Preview {
   private busy = false;
   private frameQueued = false;
   private audio: AudioContext | null = null;
+  /** every sound of the preview goes through it: the volume set for the preview (the exports keep the mix as it is) */
+  private master: GainNode | null = null;
   private buffers = new Map<string, Promise<AudioBuffer | null>>();
   private sources: AudioBufferSourceNode[] = [];
   /** sound of video layers: media elements playing their cut, and the timers that start and stop them */
@@ -78,6 +80,7 @@ class Preview {
     });
     effect(() => { if (S.playing.value) this.play(); else this.stopAudio(); });
     effect(() => { void S.previewScale.value; void prefs.value; this.invalidate(); });
+    effect(() => { const p = prefs.value; if (this.master) this.master.gain.value = p.previewMuted ? 0 : p.previewVolume; });
   }
 
   /** the tours exported by the project's plugins join the editor's */
@@ -282,7 +285,12 @@ class Preview {
     const doc = viewDoc.peek();
     // audio layers and the sound of videos, each from its in point to its out point (the cuts)
     const clips = audioClips(doc, compIdOf(doc)).filter((c) => c.at + c.duration > from);
-    if (clips.length && !this.audio) this.audio = new AudioContext({ sampleRate: 48000 });
+    if (clips.length && !this.audio) {
+      this.audio = new AudioContext({ sampleRate: 48000 });
+      this.master = this.audio.createGain();
+      this.master.connect(this.audio.destination);
+      this.master.gain.value = prefs.peek().previewMuted ? 0 : prefs.peek().previewVolume;
+    }
     if (this.audio) await this.audio.resume();
     this.clock = { at: this.now(), t0: from, audio: false };
     if (!this.audio || !this.renderer || !clips.length) return;
@@ -293,15 +301,16 @@ class Preview {
     const startAt = ctx.currentTime + 0.03;
     this.clock = { at: startAt, t0: from, audio: true };
     // the mixer of the exports: filters, gain curves, fades and reverb sound the same here
+    const out = this.master!;
     sounds.forEach((c, i) => {
-      const src = bufs[i] && playClip(ctx, c, bufs[i]!, ctx.destination, startAt, from);
+      const src = bufs[i] && playClip(ctx, c, bufs[i]!, out, startAt, from);
       if (src) this.sources.push(src);
     });
     // a video's sound streams from its file (never decoded whole): one element per cut, started and stopped on the clock
     for (const c of clips.filter((x) => doc.assets[x.asset].type === 'video')) {
       const el = new Audio(r.assets.url(c.asset));
       el.preload = 'auto';
-      ctx.createMediaElementSource(el).connect(clipChain(ctx, c, ctx.destination, startAt, from));
+      ctx.createMediaElementSource(el).connect(clipChain(ctx, c, out, startAt, from));
       const skip = Math.max(0, from - c.at);
       const begin = () => { el.currentTime = c.offset + skip; el.play().catch(() => {}); };
       const wait = Math.max(0, c.at - from) * 1000 + 30;

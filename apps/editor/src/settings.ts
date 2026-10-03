@@ -1,7 +1,7 @@
 // Preferences of this machine (kept in the browser, not in the project): how
-// much the preview may cost. A powerful computer can keep everything at full
-// quality; a modest one lets the preview adapt. Exports always render at full
-// quality, whatever is set here.
+// much the preview may cost (a powerful computer keeps everything at full
+// quality, a modest one lets the preview adapt; exports always render at full
+// quality), and how the sound tools work by default.
 
 import { effect, signal } from '@preact/signals';
 
@@ -18,9 +18,30 @@ export interface Preferences {
   blur: 'document' | 'limited' | 'off';
   /** playback draws the composition's own frames (24, 30 i/s…), as the export, instead of every screen refresh */
   exactFrames: boolean;
+  /** sound: the level (dB) of the effects the tools place, of the music beds, and how much a music drops under a voice */
+  effectsDb: number;
+  musicDb: number;
+  duckDb: number;
+  /** a sound placed on several moments alternates its variants */
+  varySounds: boolean;
+  /** a sound made by a provider (it costs money) waits for the user's yes */
+  confirmPaid: boolean;
+  /** voice-overs: the provider (auto: the first the server has a key for) and the voice ('' for its own) */
+  voiceProvider: 'auto' | 'elevenlabs' | 'openai' | 'gemini';
+  voice: string;
+  /** what the preview plays at, 0 to 1, and muted; the exports keep the mix as it is */
+  previewVolume: number;
+  previewMuted: boolean;
 }
 
-export const DEFAULT_PREFERENCES: Preferences = { language: 'auto', theme: 'dark', motion: 'auto', still: 'display', blur: 'document', exactFrames: true };
+export const DEFAULT_PREFERENCES: Preferences = {
+  language: 'auto', theme: 'dark', motion: 'auto', still: 'display', blur: 'document', exactFrames: true,
+  effectsDb: -8, musicDb: -14, duckDb: -12, varySounds: true, confirmPaid: true, voiceProvider: 'auto', voice: '', previewVolume: 1, previewMuted: false,
+};
+const VOICE_PROVIDERS = ['auto', 'elevenlabs', 'openai', 'gemini'] as const;
+
+/** a number kept within its range, the default when it is not one */
+const within = (v: unknown, d: number, lo: number, hi: number) => (typeof v === 'number' && Number.isFinite(v) ? Math.min(hi, Math.max(lo, v)) : d);
 
 const KEY = 'tramme.preferences';
 
@@ -41,6 +62,16 @@ function load(): Preferences {
     p.exactFrames = p.exactFrames !== false;
     if (!['dark', 'light', 'system'].includes(p.theme)) p.theme = DEFAULT_PREFERENCES.theme;
     if (!['auto', 'fr', 'en'].includes(p.language)) p.language = DEFAULT_PREFERENCES.language;
+    const d = DEFAULT_PREFERENCES;
+    p.effectsDb = within(p.effectsDb, d.effectsDb, -40, 12);
+    p.musicDb = within(p.musicDb, d.musicDb, -40, 12);
+    p.duckDb = within(p.duckDb, d.duckDb, -40, -1);
+    p.previewVolume = within(p.previewVolume, d.previewVolume, 0, 1);
+    p.varySounds = p.varySounds !== false;
+    p.confirmPaid = p.confirmPaid !== false;
+    p.previewMuted = p.previewMuted === true;
+    if (!VOICE_PROVIDERS.includes(p.voiceProvider)) p.voiceProvider = d.voiceProvider;
+    if (typeof p.voice !== 'string') p.voice = d.voice;
     return p;
   } catch { return { ...DEFAULT_PREFERENCES }; }
 }
@@ -79,7 +110,7 @@ effect(() => {
 /** the settings dialog, opened from the top bar, the home screen or Ctrl+, */
 export const settingsOpen = signal(false);
 
-export type SettingsSection = 'appearance' | 'preview' | 'tours' | 'model' | 'behavior' | 'connection';
+export type SettingsSection = 'appearance' | 'preview' | 'sound' | 'tours' | 'model' | 'behavior' | 'connection';
 /** the section shown: the last one opened, or the one asked for */
 export const settingsSection = signal<SettingsSection>('appearance');
 export function openSettings(section?: SettingsSection) {

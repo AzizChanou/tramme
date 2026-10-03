@@ -10,7 +10,9 @@
 import { audioClips, isAudioAnalysis, pointer, searchSounds, soundFigures, staticValue, variantsOf, type Layer, type Op, type QualityIssue, type SoundEntry, type SoundFigures, type ToolContext, type ToolType } from '@tramme/core';
 import { encodeWav, mixComposition, renderSynth, SYNTH_MAX } from '@tramme/render';
 import { api } from './api.ts';
-import { freshId } from './model.ts';
+import { confirmWith } from './confirm.ts';
+import { clip, freshId } from './model.ts';
+import { prefs } from './settings.ts';
 import { analyses } from './perception.ts';
 import { SOUND_PRESETS } from './sound-presets.ts';
 import { t } from './i18n/index.ts';
@@ -163,7 +165,7 @@ const PLACING = {
   at: { type: ['array', 'number', 'string'], title: 'At (s)', description: 'composition times, e.g. [1.2, 3.5] or "1.2, 3.5"' },
   on: { type: 'string', title: 'On', description: `moments named by the document, comma separated: ${MOMENTS.join(', ')}` },
   layers: { type: ['array', 'string'], format: 'layer', title: 'Layers', description: 'whose entrances or exits (every visible layer when empty)' },
-  gain: { type: 'number', minimum: -40, maximum: 12, title: 'Volume (dB)', description: '-8 by default: under a voice or music' },
+  gain: { type: 'number', minimum: -40, maximum: 12, title: 'Volume (dB)', description: 'the level of the Sound settings by default (-8 dB unless changed): under a voice or music' },
   align: ALIGN,
 };
 
@@ -205,14 +207,14 @@ const sfx: ToolType<{ query?: string; sound?: string; at?: unknown; on?: string;
       sound: { type: 'string', title: 'Sound', description: 'id of a sound found by a search, to place it' },
       ...PLACING,
       rate: { type: 'number', minimum: 0.25, maximum: 4, title: 'Speed', description: 'under 1 lower and longer, over 1 higher and shorter' },
-      vary: { type: 'boolean', title: 'Vary', description: 'alternate its variants on repeated moments (yes by default)' },
+      vary: { type: 'boolean', title: 'Vary', description: 'alternate its variants on repeated moments (as the Sound settings say by default)' },
     },
   },
   ai: {
     when: 'to give the video its sound: a whoosh on each transition, a hit on a title, a riser before a reveal, clicks on a UI, a sting on the logo. Search first (query), listen with your eyes (the list says when each lands and how loud), then place one (sound, with at or on)',
     avoid: 'a sound on every element; two hits at the same instant; sounds louder than the voice (keep them around -8 dB under it)',
   },
-  async run({ query, sound, at, on, layers, gain = -8, rate, vary = true, align }, ctx) {
+  async run({ query, sound, at, on, layers, gain = prefs.peek().effectsDb, rate, vary = prefs.peek().varySounds, align }, ctx) {
     const all = await soundLibrary();
     if (!sound) {
       const found = searchSounds(all, query ?? '', { limit: 15 });
@@ -254,7 +256,7 @@ const synth: ToolType<{ name: string; code: string; duration: number; seed?: num
     when: 'when no sound of the library fits: a sound in the rhythm of the music, a tone in its key, a riser of an exact length, a designed logo sound. Start from a preset of the library (search "synth": its code is the example), look at the waveform, adjust',
     example: { name: 'logo-whoosh', duration: 0.9, code: "const n = kit.noise('pink'), f = ctx.createBiquadFilter(); f.type = 'bandpass'; kit.env(f.frequency, [[0, 300], [0.5, 2500], [0.9, 500]], 'exp'); const g = ctx.createGain(); kit.env(g.gain, [[0, 0.001], [0.5, 1], [0.9, 0.001]], 'exp'); n.connect(f).connect(g).connect(ctx.destination); n.start(0);", on: 'entrances' },
   },
-  async run({ name, code, duration, seed = 1, at, on, layers, gain = -8, align }, ctx) {
+  async run({ name, code, duration, seed = 1, at, on, layers, gain = prefs.peek().effectsDb, align }, ctx) {
     const buffer = await renderSynth(code, { duration, seed, signal: ctx.signal });
     const figures = soundFigures(Array.from({ length: buffer.numberOfChannels }, (_, c) => buffer.getChannelData(c)), buffer.sampleRate);
     const kept = await keepFile(ctx, name, wavBlob(buffer), name, figures, { code, duration, seed });
@@ -269,6 +271,9 @@ const synth: ToolType<{ name: string; code: string; duration: number; seed?: num
   },
 };
 
+/** what the user is asked to pay for, in their words */
+const KIND_LABEL: Record<'sfx' | 'music' | 'voice', () => string> = { sfx: () => t('sound.kindSfx'), music: () => t('sound.kindMusic'), voice: () => t('sound.kindVoice') };
+
 const generateSound: ToolType<{ kind: 'sfx' | 'music' | 'voice'; prompt: string; name?: string; duration?: number; voice?: string; style?: string; provider?: string; at?: unknown; on?: string; layers?: unknown; gain?: number; align?: 'peak' | 'start'; keep?: boolean }> = {
   name: 'generate-sound', title: 'Have a sound made', description: 'has a provider make a sound effect, a music bed or a voice-over (the server\'s keys), saves it in the project with what made it and places it',
   input: {
@@ -280,7 +285,7 @@ const generateSound: ToolType<{ kind: 'sfx' | 'music' | 'voice'; prompt: string;
       duration: { type: 'number', minimum: 0.5, maximum: 600, title: 'Length (s)', description: 'sfx up to 30 s; music from 3 s' },
       voice: { type: 'string', title: 'Voice', description: 'voice-over: a voice of the provider (Gemini: Kore, Puck, Charon…; OpenAI: alloy, coral, sage…)' },
       style: { type: 'string', title: 'Style', description: 'voice-over: how it is said ("warm and calm", "energetic")' },
-      provider: { enum: ['elevenlabs', 'openai', 'gemini'], title: 'Provider', description: 'the first one the server has a key for by default' },
+      provider: { enum: ['elevenlabs', 'openai', 'gemini'], title: 'Provider', description: 'voice-over: the one of the Sound settings by default; otherwise the first one the server has a key for' },
       ...PLACING,
       keep: { type: 'boolean', title: 'Keep in the library', description: 'also keep it in the library shared by the projects' },
     },
@@ -291,13 +296,23 @@ const generateSound: ToolType<{ kind: 'sfx' | 'music' | 'voice'; prompt: string;
     avoid: 'music under a voice without ducking it (duck); a voice-over text the user did not approve',
   },
   async run({ kind, prompt, name, duration, voice, style, provider, at, on, layers, gain, align, keep }, ctx) {
+    const p = prefs.peek();
+    // a voice-over in the voice chosen in the settings, unless the call names one
+    if (kind === 'voice') {
+      provider ??= p.voiceProvider === 'auto' ? undefined : p.voiceProvider;
+      voice ??= p.voice || undefined;
+    }
+    // it costs money: the user says yes first (Sound settings)
+    if (p.confirmPaid && !await confirmWith(t('sound.paidTitle'), t('sound.paidText', { kind: KIND_LABEL[kind](), prompt: clip(prompt, 140) }), t('sound.paidYes'))) {
+      throw new Error('the user declined to have this sound made (it costs money): ask before trying again, or use the library or synth');
+    }
     const made = await api.generate({ kind, prompt, duration, voice, style, provider }, ctx.signal);
     const { buffer, figures } = await measure(made.blob);
     const label = name ?? `${kind}-${prompt.toLowerCase().split(/\s+/).slice(0, 4).join('-')}`;
     const record = { kind, prompt, provider: made.provider, model: made.model, voice: made.voice, style, duration };
     const kept = await keepFile(ctx, label, made.blob, label, figures, record);
     const times = await timesOf(ctx, { at, on: on ?? (at === undefined ? 'now' : undefined), layers });
-    const placed = place(ctx, [{ asset: kept.asset, title: label, figures, kind: kind === 'sfx' ? 'sfx' : kind }], times, { gain: gain ?? (kind === 'music' ? -14 : kind === 'voice' ? 0 : -8), align, vary: false });
+    const placed = place(ctx, [{ asset: kept.asset, title: label, figures, kind: kind === 'sfx' ? 'sfx' : kind }], times, { gain: gain ?? (kind === 'music' ? p.musicDb : kind === 'voice' ? 0 : p.effectsDb), align, vary: false });
     if (keep) await keepInLibrary(label, made.blob, { kind: kind === 'sfx' ? 'sfx' : kind, title: label, tags: prompt.toLowerCase().split(/[^a-z0-9]+/).filter((w) => w.length > 2).slice(0, 8), figures, prompt, provider: made.provider });
     return {
       ops: [...kept.ops, ...placed.ops], reload: kept.reload, label: `Sound ${label}`,
@@ -354,13 +369,13 @@ const duck: ToolType<{ layers?: unknown; under?: string; depth?: number; attack?
     properties: {
       layers: { type: ['array', 'string'], format: 'layer', title: 'Layers', description: 'the sounds to lower (every audio layer that is not the voice by default)' },
       under: { type: 'string', format: 'asset', assetType: 'json', title: 'Voice', description: 'the transcript of the voice (the one of the edit by default)' },
-      depth: { type: 'number', minimum: -40, maximum: -1, title: 'Depth (dB)', description: '-12 by default' },
+      depth: { type: 'number', minimum: -40, maximum: -1, title: 'Depth (dB)', description: 'the depth of the Sound settings by default (-12 dB unless changed)' },
       attack: { type: 'number', minimum: 0.02, maximum: 2, title: 'Down in (s)', description: '0.15 by default' },
       release: { type: 'number', minimum: 0.05, maximum: 4, title: 'Back in (s)', description: '0.5 by default' },
     },
   },
   ai: { when: 'music or an ambience plays under someone speaking: always, so the voice stays clear' },
-  async run({ layers, under, depth = -12, attack = 0.15, release = 0.5 }, ctx) {
+  async run({ layers, under, depth = prefs.peek().duckDb, attack = 0.15, release = 0.5 }, ctx) {
     const c = ctx.doc.compositions[ctx.compId];
     const transcripts = Object.entries(ctx.doc.assets).filter(([id, a]) => a.type === 'json' && id.startsWith('transcription-')).map(([id]) => id);
     const voiceId = under ?? transcripts.find((id) => id.endsWith('-edit')) ?? transcripts[0];

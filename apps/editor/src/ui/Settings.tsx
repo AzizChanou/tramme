@@ -5,14 +5,16 @@
 // their section.
 
 import { createContext, type ComponentChildren, type FunctionComponent } from 'preact';
-import { useContext, useEffect, useState } from 'preact/hooks';
+import { useContext, useEffect, useRef, useState } from 'preact/hooks';
+import type { SoundEntry } from '@tramme/core';
+import { api } from '../api.ts';
 import { EffortPicker, ModelPicker } from './ModelPicker.tsx';
 import { aiSettings, aiStatus, ensureStatus, refreshStatus, setAiSettings, statusLabels } from '../ai/index.ts';
 import { allowNotifications, notificationState } from '../notify.ts';
 import { previewInfo } from '../preview.ts';
 import { DEFAULT_PREFERENCES, prefs, resetPrefs, setLanguage, setPrefs, settingsOpen, settingsSection, type Preferences, type SettingsSection } from '../settings.ts';
-import { S } from '../state.ts';
-import { Modal, Select, Seg, Toggle } from './controls.tsx';
+import { S, toast } from '../state.ts';
+import { Modal, NumberField, Select, Seg, Toggle } from './controls.tsx';
 import { Icon } from './icons.tsx';
 import { resetSeen, setAutoTours, toursState } from '../tours/index.ts';
 import { LOCALES, m, t } from '../i18n/index.ts';
@@ -46,14 +48,18 @@ function Section({ title, children }: { title: string; children: ComponentChildr
   );
 }
 
-function Row({ label, hint, children }: { label: string; hint?: string; children: ComponentChildren }) {
+/** a setting: its label and hint, its control; `below`, what goes under it (a list), found by the search with it */
+function Row({ label, hint, children, below }: { label: string; hint?: string; children: ComponentChildren; below?: ComponentChildren }) {
   const { query, whole } = useContext(Search);
   if (!whole && !norm(`${label} ${hint ?? ''}`).includes(query)) return null;
   return (
-    <div class="set-row">
-      <div class="set-label"><span>{label}</span>{hint && <span class="faint">{hint}</span>}</div>
-      <div class="set-control">{children}</div>
-    </div>
+    <>
+      <div class="set-row">
+        <div class="set-label"><span>{label}</span>{hint && <span class="faint">{hint}</span>}</div>
+        <div class="set-control">{children}</div>
+      </div>
+      {below}
+    </>
   );
 }
 
@@ -101,6 +107,92 @@ function Preview() {
             : t('settings.previewRenderStillWhenStill', { still: size(info.still), motion: size(info.motion) })}</span>
         </div>
       )}
+    </Section>
+  );
+}
+
+/** a level in dB (or %), the same field everywhere in the section */
+function Level({ value, min, max, step = 1, unit = 'dB', onChange }: { value: number; min: number; max: number; step?: number; unit?: string; onChange: (v: number) => void }) {
+  return <div class="set-number"><NumberField value={value} min={min} max={max} step={step} unit={unit} onCommit={onChange} /></div>;
+}
+
+/** the sounds kept in the library shared by the projects: listened to, deleted */
+function SoundLibrary() {
+  const [list, setList] = useState<{ name: string; entry?: unknown }[] | null>(null);
+  const [playing, setPlaying] = useState<string | null>(null);
+  const [doomed, setDoomed] = useState<string | null>(null);
+  const audio = useRef<HTMLAudioElement | null>(null);
+  const load = () => api.sounds().then(setList).catch(() => setList([]));
+  useEffect(() => { load(); return () => audio.current?.pause(); }, []);
+  const play = (name: string) => {
+    audio.current?.pause();
+    if (playing === name) { setPlaying(null); return; }
+    const a = new Audio(api.soundUrl(name));
+    a.onended = () => setPlaying(null);
+    a.play().catch(() => setPlaying(null));
+    audio.current = a;
+    setPlaying(name);
+  };
+  const remove = async (name: string) => {
+    if (playing === name) { audio.current?.pause(); setPlaying(null); }
+    await api.soundDelete(name).catch((e) => toast((e as Error).message, 'error'));
+    setDoomed(null);
+    load();
+  };
+  const sounds = (list ?? []).map((x) => ({ name: x.name, e: (x.entry ?? {}) as Partial<SoundEntry> }));
+  return (
+    <Row label={t('settings.soundLibrary')} hint={list === null ? t('common.searching') : list.length ? t('settings.soundLibraryN', { n: list.length }) : t('settings.soundLibraryEmpty')}
+      below={sounds.length > 0 && (
+        <ul class="set-list">
+          {sounds.map(({ name, e }) => (
+            <li key={name}>
+              <button class="icon-btn sm" title={playing === name ? t('settings.stopListening') : t('settings.listen')} onClick={() => play(name)}><Icon name={playing === name ? 'stop' : 'play'} /></button>
+              <span class="set-list-name">{e.title ?? name}</span>
+              <span class="faint">{[e.kind, typeof e.duration === 'number' ? `${e.duration.toFixed(2)} s` : null].filter(Boolean).join(' · ')}</span>
+              {doomed === name
+                ? <><button class="btn sm" onClick={() => setDoomed(null)}>{t('common.cancel')}</button><button class="btn sm danger-solid" onClick={() => remove(name)}>{t('common.delete')}</button></>
+                : <button class="icon-btn sm" title={t('common.delete')} onClick={() => setDoomed(name)}><Icon name="trash" /></button>}
+            </li>
+          ))}
+        </ul>
+      )}>
+      <button class="btn sm" onClick={load}><Icon name="loop" />{t('settings.refresh')}</button>
+    </Row>
+  );
+}
+
+function Sound() {
+  const p = prefs.value;
+  return (
+    <Section title={t('settings.sound')}>
+      <Row label={t('settings.previewVolume')} hint={t('settings.previewVolumeHint')}>
+        <Level value={Math.round(p.previewVolume * 100)} min={0} max={100} step={5} unit="%" onChange={(v) => setPrefs({ previewVolume: v / 100 })} />
+      </Row>
+      <Row label={t('settings.previewMuted')} hint={t('settings.previewMutedHint')}>
+        <Toggle on={p.previewMuted} onChange={(v) => setPrefs({ previewMuted: v })} />
+      </Row>
+      <Row label={t('settings.effectsDb')} hint={t('settings.effectsDbHint')}>
+        <Level value={p.effectsDb} min={-40} max={12} onChange={(v) => setPrefs({ effectsDb: v })} />
+      </Row>
+      <Row label={t('settings.musicDb')} hint={t('settings.musicDbHint')}>
+        <Level value={p.musicDb} min={-40} max={12} onChange={(v) => setPrefs({ musicDb: v })} />
+      </Row>
+      <Row label={t('settings.duckDb')} hint={t('settings.duckDbHint')}>
+        <Level value={p.duckDb} min={-40} max={-1} onChange={(v) => setPrefs({ duckDb: v })} />
+      </Row>
+      <Row label={t('settings.varySounds')} hint={t('settings.varySoundsHint')}>
+        <Toggle on={p.varySounds} onChange={(v) => setPrefs({ varySounds: v })} />
+      </Row>
+      <Row label={t('settings.confirmPaid')} hint={t('settings.confirmPaidHint')}>
+        <Toggle on={p.confirmPaid} onChange={(v) => setPrefs({ confirmPaid: v })} />
+      </Row>
+      <Row label={t('settings.voiceOver')} hint={t('settings.voiceOverHint')}>
+        <div class="set-pair">
+          <Select value={p.voiceProvider} options={[['auto', t('common.automatic')], ['elevenlabs', 'ElevenLabs'], ['openai', 'OpenAI'], ['gemini', 'Gemini']]} onChange={(v) => setPrefs({ voiceProvider: v as Preferences['voiceProvider'] })} />
+          <div class="field"><input value={p.voice} placeholder={t('settings.voicePlaceholder')} onChange={(e) => setPrefs({ voice: (e.target as HTMLInputElement).value.trim() })} /></div>
+        </div>
+      </Row>
+      <SoundLibrary />
     </Section>
   );
 }
@@ -198,6 +290,7 @@ const GROUPS: { title: () => string; panes: Pane[] }[] = [
     panes: [
       { id: 'appearance', icon: 'palette', title: () => t('settings.appearance'), body: Appearance },
       { id: 'preview', icon: 'eye', title: () => t('common.preview'), body: Preview },
+      { id: 'sound', icon: 'audio', title: () => t('settings.sound'), body: Sound },
       { id: 'tours', icon: 'help', title: () => t('common.guidedTours'), body: Tours },
     ],
   },

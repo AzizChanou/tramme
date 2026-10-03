@@ -5,6 +5,8 @@ import { searchSounds, variantsOf, type SoundEntry, type ToolContext, type Trans
 import { builtinRegistry } from '@tramme/nodes';
 import { momentsOf, SOUND_TOOLS } from '../src/sound.ts';
 import { SOUND_PRESETS } from '../src/sound-presets.ts';
+// the preferences the tools read (imported here, before any module reset)
+import { DEFAULT_PREFERENCES, prefs, setPrefs } from '../src/settings.ts';
 
 const ROOT = path.resolve(__dirname, '../../..');
 const catalog = JSON.parse(fs.readFileSync(path.join(ROOT, 'sounds/catalog.json'), 'utf8')).sounds as SoundEntry[];
@@ -140,6 +142,18 @@ describe('the sfx tool', () => {
     const rates = again.ops.filter((o) => /\/layers\//.test(o.path)).map((o) => o.value.props.rate ?? 1);
     expect(new Set(rates).size).toBe(3);
     expect(rates.every((r) => r > 0.95 && r < 1.05)).toBe(true);
+  });
+
+  it('follows the Sound settings when the call does not say: its level, no variants', async () => {
+    setPrefs({ effectsDb: -14, varySounds: false });
+    try {
+      const { ctx } = context();
+      const out = await tool('sfx').run({ sound: 'impact-impact-metal-heavy-000', on: 'entrances' }, ctx) as { ops: any[] };
+      const layers = out.ops.filter((o) => /\/layers\//.test(o.path)).map((o) => o.value);
+      expect(layers.map((l) => l.props.gain)).toEqual([-14, -14, -14]);
+      expect(new Set(layers.map((l) => l.props.audio)).size).toBe(1);
+      expect(prefs.peek().effectsDb).toBe(-14);
+    } finally { setPrefs({ effectsDb: DEFAULT_PREFERENCES.effectsDb, varySounds: DEFAULT_PREFERENCES.varySounds }); }
   });
 
   it('says where to place when nothing tells it', async () => {

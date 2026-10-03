@@ -4,7 +4,8 @@
 import { useEffect } from 'preact/hooks';
 import { S, undo, redo, frameStep, setTime, comp, saveNow, toast, select } from '../state.ts';
 import { Assistant } from './Assistant.tsx';
-import { MenuHost, useSize } from './controls.tsx';
+import { MenuHost, Modal, useSize } from './controls.tsx';
+import { answer, question } from '../confirm.ts';
 import { Icon } from './icons.tsx';
 import { Inspector } from './Inspector.tsx';
 import { deleteSelection, duplicateSelection, LeftPanel } from './LeftPanel.tsx';
@@ -65,6 +66,23 @@ export function Toasts() {
   );
 }
 
+/** a question the editor waits an answer for (a sound that costs money) */
+function QuestionDialog() {
+  const q = question.value;
+  if (!q) return null;
+  return (
+    <Modal title={q.title} onClose={() => answer(false)}>
+      <div class="modal-body">
+        <p>{q.text}</p>
+        <div class="modal-foot">
+          <button class="btn ghost" onClick={() => answer(false)}>{t('common.cancel')}</button>
+          <button class="btn primary" onClick={() => answer(true)}>{q.yes}</button>
+        </div>
+      </div>
+    </Modal>
+  );
+}
+
 const TABS: [typeof S.mobileTab.value, string, string][] = [
   ['viewport', t('common.image'), 'image'], ['layers', t('common.layers'), 'layers'], ['timeline', t('common.timeline'), 'timeline'], ['inspector', t('app.properties'), 'sliders'], ['ai', t('common.assistant'), 'chat'],
 ];
@@ -102,6 +120,7 @@ export function App() {
         ))}
       </nav>
       <SettingsDialog />
+      <QuestionDialog />
       <MenuHost />
       <Toasts />
     </div>

@@ -94,6 +94,7 @@ export const api = {
   sounds: () => call<{ name: string; size: number; modified: string; entry?: unknown }[]>('/api/sounds'),
   soundUrl: (name: string) => `/api/sounds/${encodeURIComponent(name)}`,
   /** a sound kept with its description (kind, tags, length, the moment it lands on) */
+  soundDelete: (name: string) => call<{ deleted: string }>(api.soundUrl(name), { method: 'DELETE' }),
   soundPut: (name: string, data: Blob, entry: unknown) => call<{ name: string; size: number }>(api.soundUrl(name), { method: 'PUT', headers: { 'content-type': data.type || 'application/octet-stream', 'x-tramme-entry': JSON.stringify(entry) }, body: data }),
   /** a sound effect, a music bed or a voice-over made by a provider through the server */
   async generate(ask: { kind: 'sfx' | 'music' | 'voice'; prompt: string; duration?: number; voice?: string; style?: string; provider?: string }, signal?: AbortSignal): Promise<MadeSound> {
