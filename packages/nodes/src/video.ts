@@ -3,7 +3,7 @@
 // starts and lengths make the cuts of an edit. Its sound plays with it unless
 // muted (mixed like an audio layer, in the preview and the exports).
 
-import type { NodeType, Vec2, VideoAsset } from '@tramme/core';
+import { pictureRect, type NodeType, type Vec2, type VideoAsset } from '@tramme/core';
 import { SOUND_PROPS } from './sound.ts';
 
 interface VideoProps {
@@ -40,11 +40,9 @@ export const video: NodeType<VideoProps> = {
       const { image, exact } = src.frameAt(t);
       if (!exact) host.defer?.(src.request(t));
       if (!image || !src.width || !src.height) return;
-      const iw = src.width, ih = src.height;
-      if (p.fit === 'fill') { ctx.drawImage(image, -w / 2, -h / 2, w, h); return; }
-      const s = p.fit === 'cover' ? Math.max(w / iw, h / ih) : Math.min(w / iw, h / ih);
+      const r = pictureRect(p.fit, w, h, src.width, src.height);
       if (p.fit === 'cover') { ctx.beginPath(); ctx.rect(-w / 2, -h / 2, w, h); ctx.clip(); }
-      ctx.drawImage(image, (-iw * s) / 2, (-ih * s) / 2, iw * s, ih * s);
+      ctx.drawImage(image, r.x, r.y, r.w, r.h);
     },
   },
 };

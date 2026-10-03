@@ -195,7 +195,7 @@ export class Renderer {
       compositionSize: (id: string) => { const c = this.doc.compositions[id]; return c ? { width: c.width, height: c.height, duration: c.duration } : null; },
       drawComposition: (ctx: CanvasRenderingContext2D, id: string, t: number) => this.drawNested(ctx, id, t),
       drawLayer: (ctx: CanvasRenderingContext2D, id: string) => { const L = this.layerOf(id, f.t, compId); if (L) drawLayers(ctx, [{ ...L, layer: { ...L.layer, visible: true } }], this.env(f, compId)); },
-      layer: (id: string) => { const L = this.layerOf(id, f.t, compId); return L ? { props: L.props, transform: L.transform } : null; },
+      layer: (id: string) => { const L = this.layerOf(id, f.t, compId); return L ? { props: L.props, transform: L.transform, in: L.layer.in ?? 0, out: L.layer.out ?? comp.duration } : null; },
       state: <T>() => this.simState(compId, layerId, f.t) as T,
       defer: (p: Promise<unknown>) => { this.pending.push(p); },
     });

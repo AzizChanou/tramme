@@ -7,9 +7,10 @@
 // vocabulary: the assistant runs it (use_tool), the user too (/ menu).
 
 import { eventsReader, isColor, isEventList, parseFormatted, pointer, type Composition, type EventList, type EventsReader, type TimedEvent, type ToolContext, type ToolType, type TotalSpec } from '@tramme/core';
-import { receiptRows, rowStarts } from '@tramme/nodes';
+import { CAP, receiptRows, rowStarts } from '@tramme/nodes';
 import { t } from './i18n/index.ts';
 import { parseTime, slug } from './model.ts';
+import { readJson } from './perception.ts';
 import { compOf, counterWidth, measure, r, style } from './recipes.ts';
 import { adder } from './templates.ts';
 
@@ -158,8 +159,6 @@ type Corner = 'bottom-right' | 'bottom-left' | 'top-right' | 'top-left';
 const CORNERS: Corner[] = ['bottom-right', 'bottom-left', 'top-right', 'top-left'];
 /** the dark chip behind each counter and the light type on it; the tags' red */
 const CHIP = 'rgba(11,15,18,0.72)', INK = '#F4F1EA', RED = '#E5402A';
-/** capitals sit on the baseline this fraction of the size below their middle (as the tag node draws them) */
-const CAP = 0.36;
 const TRACK = 0.04;
 const LIST_FIELD = { type: 'string', format: 'asset', assetType: 'json', title: 'Event list', description: 'the project\'s first event list by default' };
 
@@ -172,8 +171,7 @@ async function readList(ctx: ToolContext, wanted?: string): Promise<{ id: string
   const id = !wanted ? lists[0] : ctx.doc.assets[wanted] || !ctx.doc.assets[`events-${wanted}`] ? wanted : `events-${wanted}`;
   if (!id) throw new Error('the project has no event list yet: make one with the events tool');
   if (!ctx.doc.assets[id]) throw new Error(`unknown asset: ${id}${lists.length ? ` (event lists: ${lists.join(', ')})` : ''}`);
-  let list: unknown;
-  try { list = await (await fetch(ctx.assetUrl(id), { cache: 'no-store' })).json(); } catch (e) { throw new Error(`${id} could not be read: ${(e as Error).message}`); }
+  const list = await readJson(ctx, id);
   if (!isEventList(list)) throw new Error(`${id} is not an event list (a JSON { "kind": "events", "events": [...] })`);
   return { id, list, r: eventsReader(list, Infinity) };
 }

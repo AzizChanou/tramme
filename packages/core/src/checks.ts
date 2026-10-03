@@ -6,6 +6,8 @@
 // user from the / menu. Plugins add their own (`checks` export).
 
 import { Evaluator, type EvaluatedLayer } from './evaluate.ts';
+import { layerMatrix, matMul, type Mat2D } from './math.ts';
+import { pictureRect } from './track.ts';
 import type { Host, NodeType, Rect, Registry } from './registry.ts';
 import type { Composition, Layer, TrammeDoc } from './types.ts';
 
@@ -62,15 +64,7 @@ export interface CheckType {
 }
 
 // ── placing layers ───────────────────────────────────────────
-type M = [number, number, number, number, number, number];
-const mul = (p: M, q: M): M => [p[0] * q[0] + p[2] * q[1], p[1] * q[0] + p[3] * q[1], p[0] * q[2] + p[2] * q[3], p[1] * q[2] + p[3] * q[3], p[0] * q[4] + p[2] * q[5] + p[4], p[1] * q[4] + p[3] * q[5] + p[5]];
-function local(L: EvaluatedLayer): M {
-  const { position: [x, y], rotation, scale: [sx, sy], anchor: [ax, ay] } = L.transform;
-  const r = (rotation * Math.PI) / 180, c = Math.cos(r), s = Math.sin(r);
-  // translate(position) · rotate · scale · translate(-anchor), as the renderer does
-  return mul([c * sx, s * sx, -s * sy, c * sy, x, y], [1, 0, 0, 1, -ax, -ay]);
-}
-function boxOf(m: M, r: Rect): Rect {
+function boxOf(m: Mat2D, r: Rect): Rect {
   const pts = [[r.x, r.y], [r.x + r.w, r.y], [r.x, r.y + r.h], [r.x + r.w, r.y + r.h]].map(([x, y]) => [m[0] * x + m[2] * y + m[4], m[1] * x + m[3] * y + m[5]]);
   const xs = pts.map((p) => p[0]), ys = pts.map((p) => p[1]);
   return { x: Math.min(...xs), y: Math.min(...ys), w: Math.max(...xs) - Math.min(...xs), h: Math.max(...ys) - Math.min(...ys) };
@@ -98,9 +92,9 @@ function estimateText(p: Record<string, unknown>): Rect {
   return { x, y, w, h };
 }
 
-function place(doc: TrammeDoc, comp: Composition, t: number, layers: EvaluatedLayer[], parent: M, alpha: number, out: PlacedLayer[]) {
+function place(doc: TrammeDoc, comp: Composition, t: number, layers: EvaluatedLayer[], parent: Mat2D, alpha: number, out: PlacedLayer[]) {
   for (const L of layers) {
-    const m = mul(parent, local(L)), opacity = alpha * L.transform.opacity;
+    const m = matMul(parent, layerMatrix(L.transform)), opacity = alpha * L.transform.opacity;
     let r: Rect | null = null;
     try { r = L.node.bounds?.(L.props, measureHost(doc, comp, t, L.id)) ?? null; } catch { r = null; }
     const text = isTextLayer(L);
@@ -257,10 +251,8 @@ export function subjectsOn(p: PlacedLayer, t: number, data: (id: string) => unkn
   const ft = p.node.type === 'video' ? t - (p.layer.in ?? 0) + (Number(p.props.start) || 0) : 0;
   const frame = s.frames.reduce((a, b) => (Math.abs(b.t - ft) < Math.abs(a.t - ft) ? b : a));
   // the picture in its frame: cover crops, contain fits, fill stretches (focus and zoom left aside)
-  const f = p.box, fit = String(p.props.fit ?? 'cover');
-  const k = fit === 'contain' ? Math.min(f.w / s.width, f.h / s.height) : Math.max(f.w / s.width, f.h / s.height);
-  const sx = fit === 'fill' ? f.w : s.width * k, sy = fit === 'fill' ? f.h : s.height * k;
-  const ox = f.x + (f.w - sx) / 2, oy = f.y + (f.h - sy) / 2;
+  const f = p.box, r = pictureRect(String(p.props.fit ?? 'cover'), f.w, f.h, s.width, s.height);
+  const sx = r.w, sy = r.h, ox = f.x + f.w / 2 + r.x, oy = f.y + f.h / 2 + r.y;
   return frame.boxes.filter((b) => b.label === 'person').map((b) => {
     const box = { x: ox + b.x * sx, y: oy + b.y * sy, w: b.w * sx, h: b.h * sy };
     return { box, head: { x: box.x + box.w * 0.15, y: box.y, w: box.w * 0.7, h: Math.min(box.h, box.w * 1.1) * 0.9 } };

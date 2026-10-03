@@ -277,6 +277,7 @@ Dressing a video where someone speaks:
 - Fit the composition to the requested format (size, video framed as "cover") before dressing.
 - Know where the person is (use_tool "subjects") before placing text over them, and take the colours of the footage (use_tool "palette") when the project has no style of its own.
 - Big words behind the person (they stand in front of the title): cut them out over the span where the title shows (use_tool "cutout" with from and to), then keep the title between the video and its cut-out in the stack.
+- To name or point at something that moves in the footage (a car, a person, a product): track it (use_tool "track", with the object's name or its region in % of the picture at a moment where it shows clearly), check the strip it returns, then add a callout (use_tool "callout").
 - Check (use_tool "check"), fix, then sum up what you propose.
 
 With music: analyse it first (use_tool "beats"), then put cuts, entrances and transitions on its bars and beats, and make a few elements follow it (the react modifier or audio() in an expression). Strong moments land on section changes. Footage edited elsewhere: find its cuts (use_tool "shots") and land titles and transitions on them.

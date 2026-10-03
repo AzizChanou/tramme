@@ -9,6 +9,12 @@ import { t } from './i18n/index.ts';
 
 const RATE = 16000;
 
+/** a canvas and its 2D context, set up for reading its pixels often */
+export const canvas = (width: number, height: number) => {
+  const c = Object.assign(document.createElement('canvas'), { width, height });
+  return { c, g: c.getContext('2d', { willReadFrequently: true })! };
+};
+
 /** the sound of a media file, mono, decoded a minute at a time */
 async function decodeMono(url: string, signal: AbortSignal): Promise<Float32Array> {
   const input = new Input({ source: new UrlSource(url), formats: ALL_FORMATS });
@@ -47,11 +53,16 @@ function mediaOf(ctx: ToolContext, asset: string | undefined, kinds: string[]): 
   throw new Error(`the project has no ${kinds.join(' or ')}`);
 }
 
+/** what a JSON asset holds, read from its file */
+export async function readJson(ctx: ToolContext, id: string): Promise<unknown> {
+  try { return await (await fetch(ctx.assetUrl(id), { cache: 'no-store' })).json(); } catch (e) { throw new Error(`${id} could not be read: ${(e as Error).message}`); }
+}
+
 /** the analyses of the project (the JSON assets these tools save) and its event lists, loaded for the checks, the sounds' moments and the expressions that read them */
 export async function analyses(ctx: ToolContext): Promise<(id: string) => unknown> {
   const loaded = new Map<string, unknown>();
   await Promise.all(Object.entries(ctx.doc.assets).filter(([id, a]) => a.type === 'json' && /^(analysis|subjects|shots|events)-/.test(id)).map(async ([id]) => {
-    try { loaded.set(id, await (await fetch(ctx.assetUrl(id), { cache: 'no-store' })).json()); } catch { /* unreadable: left out */ }
+    try { loaded.set(id, await readJson(ctx, id)); } catch { /* unreadable: left out */ }
   }));
   return (id) => loaded.get(id);
 }
@@ -104,6 +115,8 @@ export function histogram(g: CanvasRenderingContext2D, w: number, h: number): Fl
   return bins;
 }
 export const distance = (a: Float32Array, b: Float32Array) => { let s = 0; for (let k = 0; k < a.length; k++) s += Math.abs(a[k] - b[k]); return s / 6; };
+/** a change of picture this large (their distance) is a cut */
+export const CUT = 0.3;
 
 const shots: ToolType<{ asset?: string; sensitivity?: number }> = {
   name: 'shots', title: 'Find the shots', description: 'finds the cuts between shots in a video',
@@ -125,7 +138,7 @@ const shots: ToolType<{ asset?: string; sensitivity?: number }> = {
       if (!track) throw new Error('this file has no picture');
       duration = await input.computeDuration();
       const W = 48, H = 27, step = 0.2, sink = new CanvasSink(track, { width: W, height: H, fit: 'fill', poolSize: 2 });
-      const g = Object.assign(document.createElement('canvas'), { width: W, height: H }).getContext('2d', { willReadFrequently: true })!;
+      const { g } = canvas(W, H);
       const times = Array.from({ length: Math.floor(duration / step) }, (_, i) => +(i * step).toFixed(3));
       let prev: Float32Array | null = null, i = 0;
       for await (const frame of sink.canvasesAtTimestamps(times)) {
@@ -178,15 +191,18 @@ const loadDetector = onDemand('the detection model', () => import('@huggingface/
 
 export interface PersonBox { x: number; y: number; w: number; h: number; label: string; score: number }
 
-/** the people in a picture (a canvas about 512 px wide is enough): boxes in 0..1 of its size */
-export async function peopleIn(canvas: HTMLCanvasElement, threshold = 0.6): Promise<PersonBox[]> {
+/** what the detector sees in a picture (a canvas about 512 px wide is enough): boxes in 0..1 of its size, labelled (person, car, dog, bicycle, surfboard, bottle…) */
+export async function objectsIn(canvas: HTMLCanvasElement, threshold = 0.6): Promise<PersonBox[]> {
   const { detect, fromCanvas } = await loadDetector();
   const found = await detect(fromCanvas(canvas), { threshold });
-  return found.filter((d) => d.label === 'person').map((d) => ({
+  return found.map((d) => ({
     x: +(d.box.xmin / canvas.width).toFixed(3), y: +(d.box.ymin / canvas.height).toFixed(3),
     w: +((d.box.xmax - d.box.xmin) / canvas.width).toFixed(3), h: +((d.box.ymax - d.box.ymin) / canvas.height).toFixed(3), label: d.label, score: +d.score.toFixed(2),
   }));
 }
+
+/** the people in a picture */
+export const peopleIn = async (canvas: HTMLCanvasElement, threshold = 0.6) => (await objectsIn(canvas, threshold)).filter((d) => d.label === 'person');
 
 /** where the people are, summed up for the assistant: their extent and the free sides */
 function layoutOf(frames: { boxes: { x: number; y: number; w: number; h: number }[] }[]): string {
@@ -209,13 +225,12 @@ const subjects: ToolType<{ asset?: string; every?: number }> = {
   ai: { when: 'before placing titles, captions or graphics over filmed people: the check tool then warns when text covers a face' },
   async run({ asset: wanted, every = 0.5 }, ctx) {
     const asset = mediaOf(ctx, wanted, ['video', 'image']), a = ctx.doc.assets[asset];
-    const canvas = document.createElement('canvas'), g = canvas.getContext('2d', { willReadFrequently: true })!;
-    const frames: { t: number; boxes: PersonBox[] }[] = [];
+    const pic = canvas(1, 1), frames: { t: number; boxes: PersonBox[] }[] = [];
     const look = async (t: number, source: CanvasImageSource, w: number, h: number) => {
       const k = Math.min(1, 512 / Math.max(w, h));
-      canvas.width = Math.round(w * k); canvas.height = Math.round(h * k);
-      g.drawImage(source, 0, 0, canvas.width, canvas.height);
-      frames.push({ t: +t.toFixed(3), boxes: await peopleIn(canvas) });
+      pic.c.width = Math.round(w * k); pic.c.height = Math.round(h * k);
+      pic.g.drawImage(source, 0, 0, pic.c.width, pic.c.height);
+      frames.push({ t: +t.toFixed(3), boxes: await peopleIn(pic.c) });
     };
     let width = 0, height = 0;
     if (a.type === 'image') {
@@ -295,7 +310,7 @@ const palette: ToolType<{ asset?: string; t?: number; tokens?: boolean }> = {
   ai: { when: 'dressing footage or a photo: graphics in the colours of the picture look designed for it' },
   async run({ asset: wanted, t: at = 0, tokens = true }, ctx) {
     const asset = mediaOf(ctx, wanted, ['image', 'video']), a = ctx.doc.assets[asset];
-    const g = Object.assign(document.createElement('canvas'), { width: 96, height: 96 }).getContext('2d', { willReadFrequently: true })!;
+    const { g } = canvas(96, 96);
     if (a.type === 'image') {
       const img = new Image();
       img.src = ctx.assetUrl(asset);

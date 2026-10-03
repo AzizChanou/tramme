@@ -13,6 +13,12 @@ export function canvasPaint(ctx: CanvasRenderingContext2D, paint: Paint): string
   return g;
 }
 
+/** a rounded rectangle as the current path, its radius kept within its size */
+export function roundRect(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number) {
+  ctx.beginPath();
+  ctx.roundRect(x, y, w, h, Math.min(r, h / 2, w / 2));
+}
+
 /** fill then stroke a path with the node's paint props */
 export function fillStroke(ctx: CanvasRenderingContext2D, path: Path2D, p: { fill: Paint; stroke: Paint; strokeWidth: number }) {
   const fill = canvasPaint(ctx, p.fill);

@@ -804,6 +804,13 @@
     "receipt": "Ticket",
     "receiptLabel": "Ticket de {name}"
   },
+  "tracking": {
+    "reading": "lecture de la vidéo",
+    "following": "suivi",
+    "done": "« {name} » suivi : vu {share} % du temps, de {from} à {to} s. Ajoutez-lui des crochets et une étiquette avec /callout.",
+    "trackLabel": "Suivi de {name}",
+    "calloutLabel": "Annotation {label}"
+  },
   "library": {
     "kept": "Plugin gardé dans la bibliothèque : {name}. Les autres projets peuvent l'utiliser.",
     "used": "Plugin {name} ajouté à ce projet."
@@ -1340,6 +1347,43 @@
     "saves what happens in a story and when: timed events with a label, a detail and what each one does to running totals (money in any currency, laughs, points, kilometres, a weight, a time), as a JSON asset that counters, tags, a receipt and expressions read": "enregistre ce qui se passe dans une histoire et quand : des événements datés avec un libellé, un détail et ce que chacun fait à des totaux cumulés (de l'argent dans n'importe quelle devise, des rires, des points, des kilomètres, un poids, une durée), en un asset JSON que lisent compteurs, étiquettes, ticket et expressions",
     "total": "total",
     "Road trip": "Road trip",
-    "One event list drives everything: the title, the counters that roll, a tag at each purchase and the receipt at the end (type / in the assistant: events, event-counter, event-tags, event-receipt).": "Une seule liste d'événements anime tout : le titre, les compteurs qui défilent, une étiquette à chaque achat et le ticket de fin (tapez / dans l'assistant : events, event-counter, event-tags, event-receipt)."
+    "One event list drives everything: the title, the counters that roll, a tag at each purchase and the receipt at the end (type / in the assistant: events, event-counter, event-tags, event-receipt).": "Une seule liste d'événements anime tout : le titre, les compteurs qui défilent, une étiquette à chaque achat et le ticket de fin (tapez / dans l'assistant : events, event-counter, event-tags, event-receipt).",
+    "Brackets": "Crochets",
+    "Callout": "Annotation",
+    "Detail": "Détail",
+    "Label background": "Fond de l'étiquette",
+    "Line": "Trait",
+    "Line width": "Épaisseur du trait",
+    "Lines": "Traits",
+    "Object": "Objet",
+    "Region": "Zone",
+    "Side": "Côté",
+    "Track": "Suivi",
+    "Track an object": "Suivre un objet",
+    "a line from the object to its label": "un trait de l'objet à son étiquette",
+    "a rectangle drawn over the object at the current time (the selected rectangle by default)": "un rectangle tracé sur l'objet à l'instant courant (le rectangle sélectionné par défaut)",
+    "above": "au-dessus",
+    "after the label, lighter": "après le libellé, plus clair",
+    "after the label, lighter: \"1990s estate · powder blue\"": "après le libellé, plus clair : « break des années 90 · bleu poudre »",
+    "as long as the object is seen by default": "tant que l'objet est visible par défaut",
+    "below": "en dessous",
+    "brackets and a label on something tracked in a video, following it (a car, a person, a product); after the track tool": "des crochets et une étiquette sur quelque chose de suivi dans une vidéo, qui le suivent (une voiture, une personne, un produit) ; après l'outil track",
+    "brackets and a label that follow something filmed, from a track of its video": "des crochets et une étiquette qui suivent quelque chose de filmé, d'après un suivi de sa vidéo",
+    "composition time; the end of the video layer by default": "temps de la composition ; la fin du calque vidéo par défaut",
+    "composition time; the start of the video layer by default": "temps de la composition ; le début du calque vidéo par défaut",
+    "composition time; when the object is first seen by default": "temps de la composition ; quand l'objet apparaît par défaut",
+    "e.g. \"EV.00 · THE CAR\"; the name of the track by default": "par exemple « EV.00 · LA VOITURE » ; le nom du suivi par défaut",
+    "follows something filmed through a video (a car, a person, a product) from a rectangle drawn over it at the current time, a region of the picture or its name, and saves where it is over time: callouts and expressions follow it": "suit quelque chose de filmé dans une vidéo (une voiture, une personne, un produit) à partir d'un rectangle tracé dessus à l'instant courant, d'une zone de l'image ou de son nom, et enregistre où il se trouve au fil du temps : annotations et expressions le suivent",
+    "of the track: the object by default; the same name replaces it": "du suivi : l'objet par défaut ; le même nom le remplace",
+    "or what it is, found at the current time: person, car, dog, bicycle, surfboard, bottle…": "ou ce que c'est, trouvé à l'instant courant : personne, voiture, chien, vélo, planche, bouteille…",
+    "or where it is in the picture at the current time: x, y, width, height in % of the picture (\"40, 30, 20, 25\")": "ou sa place dans l'image à l'instant courant : x, y, largeur, hauteur en % de l'image (« 40, 30, 20, 25 »)",
+    "room between the object and its brackets": "espace entre l'objet et ses crochets",
+    "the brackets and the line": "les crochets et le trait",
+    "the latest track by default": "le dernier suivi par défaut",
+    "the layer the object is filmed in (the one playing the tracked file by default)": "le calque où l'objet est filmé (celui qui lit le fichier suivi par défaut)",
+    "the track averaged over this span, steadier": "le suivi moyenné sur cette durée, plus stable",
+    "the video layer the object is filmed in": "le calque vidéo où l'objet est filmé",
+    "time between two looks (0.1 s by default; shorter for fast motion, but slower)": "temps entre deux regards (0,1 s par défaut ; plus court pour un mouvement rapide, mais plus lent)",
+    "where the object is in that video over time (the track tool)": "où se trouve l'objet dans cette vidéo au fil du temps (l'outil track)"
   }
 }

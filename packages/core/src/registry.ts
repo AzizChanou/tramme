@@ -112,8 +112,8 @@ export interface Host {
    * is hidden: the context is in frame pixels (layer inputs of effects)
    */
   drawLayer?(ctx: CanvasRenderingContext2D, layerId: string): void;
-  /** another layer of the composition at this instant: its evaluated props and transform (in its parent's space), or null */
-  layer?(layerId: string): { props: Record<string, unknown>; transform: { anchor: Vec2; position: Vec2; scale: Vec2; rotation: number; opacity: number } } | null;
+  /** another layer of the composition at this instant: its evaluated props and transform (in its parent's space), its in and out points, or null */
+  layer?(layerId: string): { props: Record<string, unknown>; transform: { anchor: Vec2; position: Vec2; scale: Vec2; rotation: number; opacity: number }; in: number; out: number } | null;
   /** the state of this layer's simulation at this frame (nodes with `simulate`) */
   state?<T = unknown>(): T;
 }

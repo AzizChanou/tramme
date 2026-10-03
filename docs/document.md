@@ -75,7 +75,7 @@ Wherever a color is expected (gradient stops included), `"@name"` refers to the 
 
 ### Expressions
 
-A single expression (`value + 10`) or a body with `return`. Available names: `t` (= `time`), `frame`, `fps`, `value`, `comp` (`width`, `height`, `duration`, `fps`), `prop('layer.prop')`, `token('name')`, `marker('id|kind|label')` (`{ t, frame }`), `ease(spec, x)`, `clamp`, `lerp`, `prog(t, a, b)`, `smoothstep`, `linear(t, t0, t1, v0, v1)`, `random(seed)`, `noise(x, y, z)`, `add`, `sub`, `mul`, `Math` (without `Math.random`), `audio(source)` and `events(source)` (below), and the modifiers below. An expression must stay a pure function of `t`: no state, no unseeded randomness, no access to the browser.
+A single expression (`value + 10`) or a body with `return`. Available names: `t` (= `time`), `frame`, `fps`, `value`, `comp` (`width`, `height`, `duration`, `fps`), `prop('layer.prop')`, `token('name')`, `marker('id|kind|label')` (`{ t, frame }`), `ease(spec, x)`, `clamp`, `lerp`, `prog(t, a, b)`, `smoothstep`, `linear(t, t0, t1, v0, v1)`, `random(seed)`, `noise(x, y, z)`, `add`, `sub`, `mul`, `Math` (without `Math.random`), `audio(source)`, `events(source)` and `track(layer, name?)` (below), and the modifiers below. An expression must stay a pure function of `t`: no state, no unseeded randomness, no access to the browser.
 
 ### Camera (2.5D)
 
@@ -122,6 +122,17 @@ Expressions read it with `events(source)`, the asset id or the list's name: `.to
 
 Three tools show a list, each with layers that read it as they render: `event-counter` (the running totals in a corner: `text.counter` layers whose `from`, `to`, `progress` and `direction` are `events()` expressions), `event-tags` (an `events.tag` layer: a tag at each event, above the counters) and `event-receipt` (an `events.receipt` layer: every event, line by line, then the totals).
 
+### Tracks
+
+Where something filmed is over time. The `track` tool follows an object through a video once, framed by a rectangle drawn over it at the current time, a region of the picture, or its name for what the detector knows (person, car, dog, bicycle…), and saves a JSON asset `track-<video asset>-<name>` (`assets/tracks/…`):
+
+```json
+{ "version": 1, "kind": "track", "source": "clip", "name": "car", "width": 1920, "height": 1080,
+  "frames": [{ "t": 3.2, "box": [0.479, 0.393, 0.068, 0.245] }, { "t": 3.3, "box": null }] }
+```
+
+Times are those of the file and boxes `[x, y, width, height]` fractions of its picture, `null` where the object was lost; a cut ends the track. Read through a video layer, a track follows that layer: moved, scaled or cut otherwise, the object stays under its callout. Expressions read it with `track(layer, name?)`, the video layer and the track's name (its first track without one): `.found` (0 to 1: 0 when lost, out of the track or out of the layer's frame), `.box` `[x, y, width, height]`, `.center` and `.size`, in the space the video layer sits in (the composition for a layer at the root). For example a dot that rides on the car: `"position": { "$expr": "track('video', 'car').center" }`. The `callout` tool adds a `callout` layer that reads the track: brackets around the object, a label beside them.
+
 ## Built-in nodes
 
 Each layer type declares its property schema; the inspector and the validator use it. Full list with defaults: the assistant's `list_nodes` tool, or `tramme nodes`.
@@ -136,6 +147,7 @@ Each layer type declares its property schema; the inspector and the validator us
 | `text` | `text`, `font` (asset), `size`, `weight` (animatable), `italic`, `tracking` (em), `color`, `align`, `lineHeight`, `baseline` |
 | `text.counter` | `from`, `to`, `progress` (0 to 1), `turns`, `direction` (`up`, or `down` to roll back for a value that goes down) + typography: a rolling counter |
 | `events.tag` | `events` (event list asset), `key` (only the events that change this total), `show` (`change`, `total`: the total the event leaves, `label`), `hold` (s), `animation` (`pop`, `snap`, `rise`, `fade`), `uppercase`, `fill`, `padding`, `radius`, `gap` + typography: a tag at each event of the list, with what it changes |
+| `callout` | `source` (the video layer), `track` (asset), `label`, `detail`, `side` (`auto`, `right`, `left`, `above`, `below`), `line`, `brackets` (`corners`, `box`, `none`), `padding`, `smooth` (s), `uppercase`, `fill`, `stroke`, `strokeWidth` + typography: brackets and a label that follow a tracked object, fading where it is lost; drawn in the space its video layer sits in (keep it beside the video, its transform at rest) |
 | `events.receipt` | `events`, `title`, `subtitle`, `column` (`auto`, `detail`, `change`, `total`, `none`), `numbered`, `totals` (`"Spent: -cash; Change: cash"`: `-key` adds up the decreases, `+key` the increases), `interval` (s between lines), `typing`, `uppercase`, `lineHeight`, `paper`, `rule`, `highlight` (the last total), `width` (0: as wide as needed), `padding` + typography: every event on a receipt, typed line by line from the in point, then the totals; its origin is the middle, left or right of its top edge (`align`) |
 | `group` | container: `children` |
 | `comp` | `comp` (id of another composition), `time` (local time, animatable), `size`: nested composition |

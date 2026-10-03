@@ -8,11 +8,11 @@
 // vocabulary: the assistant runs it (use_tool), the user too (/ menu).
 
 import { ALL_FORMATS, BufferTarget, CanvasSink, CanvasSource, getFirstEncodableVideoCodec, Input, Mp4OutputFormat, Output, Quality, UrlSource, type InputVideoTrack } from 'mediabunny';
-import { pointer, type Composition, type Op, type ToolType, type TrammeDoc } from '@tramme/core';
+import { pointer, type Op, type ToolType, type TrammeDoc } from '@tramme/core';
 import { AVC_FROM_STREAM } from './avc.ts';
 import { t } from './i18n/index.ts';
-import { freshId } from './model.ts';
-import { distance, histogram, onDemand, peopleIn } from './perception.ts';
+import { freshId, siblingsOf } from './model.ts';
+import { canvas, CUT, distance, histogram, onDemand, peopleIn } from './perception.ts';
 
 /** long side of the pictures the mattes are made at */
 const PROC = 1024;
@@ -22,8 +22,6 @@ const MASK = 1280;
 const LOOK = 512;
 /** seconds between two looks for the people within a shot, by default: the detector is the slow part */
 const LOOK_EVERY = 0.5;
-/** a change of picture this large (colour histograms, 0..1) is a cut: the people are looked for again */
-const CUT = 0.3;
 /** the side of the square U²-Net looks at */
 const SIDE = 320;
 
@@ -41,11 +39,6 @@ export interface Look { t: number; shot: number; boxes: Box[] }
 const MODELS: Record<Subject, string> = {
   person: 'https://huggingface.co/BritishWerewolf/U-2-Net-Human-Seg/resolve/e6d4c494535f62778e47f3676a5a3674de96b844/onnx/model.onnx',
   any: 'https://huggingface.co/BritishWerewolf/U-2-Netp/resolve/7112208dbac3a3642496c8d54e2f0f9bb3dc1dc8/onnx/model.onnx',
-};
-
-const canvas = (width: number, height: number) => {
-  const c = Object.assign(document.createElement('canvas'), { width, height });
-  return { c, g: c.getContext('2d', { willReadFrequently: true })! };
 };
 
 /** a file of the model hub, kept in the browser's cache (the one transformers.js uses) after the first download */
@@ -142,14 +135,6 @@ export function steady(prev: Uint8ClampedArray | null, cur: Uint8ClampedArray): 
   return out;
 }
 
-/** the list that holds a layer: the composition's order or a group's children */
-function parentOf(c: Composition, id: string): { path: string[]; list: string[] } {
-  if (c.order.includes(id)) return { path: ['order'], list: c.order };
-  const g = Object.entries(c.layers).find(([, l]) => l.children?.includes(id));
-  if (!g) throw new Error(`${id} is not in the composition's tree`);
-  return { path: ['layers', g[0], 'children'], list: g[1].children! };
-}
-
 /**
  * The layers of a cut-out of `source` through the mask video `mask`: the mask
  * (hidden) and the person (the same video through it), right above the
@@ -161,7 +146,7 @@ export function cutoutLayers(doc: TrammeDoc, compId: string, source: string, mas
   const ops: Op[] = [];
   let matte = Object.keys(c.layers).find((id) => c.layers[id].type === 'video' && c.layers[id].props?.video === mask);
   let front = matte && Object.keys(c.layers).find((id) => c.layers[id].effects?.some((e) => e.type === 'fx.matte' && e.props?.source === matte));
-  const { path, list: was } = parentOf(c, source);
+  const { path, list: was } = siblingsOf(c, source);
   let list = [...was];
   if (!matte || !front) {
     const taken: Record<string, unknown> = { ...c.layers };

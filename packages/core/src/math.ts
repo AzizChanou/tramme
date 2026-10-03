@@ -1,5 +1,7 @@
-// Scalar helpers, easing curves and seeded noise. Everything here is pure:
-// the same input always gives the same output, on every machine.
+// Scalar helpers, easing curves, seeded noise and 2D matrices. Everything
+// here is pure: the same input always gives the same output, on every machine.
+
+import type { Vec2 } from './types.ts';
 
 export const clamp = (x: number, a = 0, b = 1) => (x < a ? a : x > b ? b : x);
 export const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
@@ -45,6 +47,28 @@ export function lastIndex(list: number[], t: number): number {
   let lo = 0, hi = list.length - 1, at = -1;
   while (lo <= hi) { const m = (lo + hi) >> 1; if (list[m] <= t + 1e-9) { at = m; lo = m + 1; } else hi = m - 1; }
   return at;
+}
+
+// ── 2D matrices ──────────────────────────────────────────────
+/** an affine matrix [a, b, c, d, e, f], as canvas setTransform takes it */
+export type Mat2D = [number, number, number, number, number, number];
+
+export const matMul = (p: Mat2D, q: Mat2D): Mat2D => [p[0] * q[0] + p[2] * q[1], p[1] * q[0] + p[3] * q[1], p[0] * q[2] + p[2] * q[3], p[1] * q[2] + p[3] * q[3], p[0] * q[4] + p[2] * q[5] + p[4], p[1] * q[4] + p[3] * q[5] + p[5]];
+
+/** a layer's own matrix: translate(position) · rotate(rotation) · scale · translate(-anchor), as the renderer draws it */
+export function layerMatrix(tr: { anchor: Vec2; position: Vec2; scale: Vec2; rotation: number }): Mat2D {
+  const { position: [x, y], rotation, scale: [sx, sy], anchor: [ax, ay] } = tr;
+  const r = (rotation * Math.PI) / 180, c = Math.cos(r), s = Math.sin(r);
+  return matMul([c * sx, s * sx, -s * sy, c * sy, x, y], [1, 0, 0, 1, -ax, -ay]);
+}
+
+export const applyMat = (m: Mat2D, [x, y]: Vec2): Vec2 => [m[0] * x + m[2] * y + m[4], m[1] * x + m[3] * y + m[5]];
+
+/** the inverse of a matrix, null when it flattens the plane (a scale of 0) */
+export function invertMat(m: Mat2D): Mat2D | null {
+  const det = m[0] * m[3] - m[1] * m[2];
+  if (Math.abs(det) < 1e-12) return null;
+  return [m[3] / det, -m[1] / det, -m[2] / det, m[0] / det, (m[2] * m[5] - m[3] * m[4]) / det, (m[1] * m[4] - m[0] * m[5]) / det];
 }
 
 // ── seeded random and noise ─────────────────────────────────

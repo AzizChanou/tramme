@@ -804,6 +804,13 @@
     "receipt": "Receipt",
     "receiptLabel": "Receipt of {name}"
   },
+  "tracking": {
+    "reading": "reading the video",
+    "following": "following",
+    "done": "Tracked \"{name}\": seen {share} % of the time, from {from} to {to} s. Put brackets and a label on it with /callout.",
+    "trackLabel": "Track of {name}",
+    "calloutLabel": "Callout {label}"
+  },
   "library": {
     "kept": "Plugin kept in the library: {name}. Other projects can use it.",
     "used": "Plugin {name} added to this project."

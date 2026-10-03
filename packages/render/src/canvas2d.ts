@@ -10,7 +10,7 @@
 // When the environment isolates errors (the editor's preview), a layer that
 // fails is drawn as a red frame and reported; the rest of the frame renders.
 
-import type { BlendMode, EvaluatedFrame, EvaluatedLayer, EvaluatedTransform, Host, Registry } from '@tramme/core';
+import { layerMatrix, type BlendMode, type EvaluatedFrame, type EvaluatedLayer, type EvaluatedTransform, type Host, type Registry } from '@tramme/core';
 import { glPass } from './gpu.ts';
 
 const BLEND: Record<BlendMode, GlobalCompositeOperation> = {
@@ -18,13 +18,7 @@ const BLEND: Record<BlendMode, GlobalCompositeOperation> = {
   darken: 'darken', lighten: 'lighten', add: 'lighter',
 };
 
-export function localMatrix(tr: EvaluatedTransform): DOMMatrix {
-  return new DOMMatrix()
-    .translate(tr.position[0], tr.position[1])
-    .rotate(tr.rotation)
-    .scale(tr.scale[0], tr.scale[1])
-    .translate(-tr.anchor[0], -tr.anchor[1]);
-}
+export const localMatrix = (tr: EvaluatedTransform): DOMMatrix => new DOMMatrix(layerMatrix(tr));
 
 export type HostFactory = (layerId: string) => Host;
 

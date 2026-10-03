@@ -7,6 +7,7 @@
 
 import { audioReader, type AudioReader } from './analysis.ts';
 import { eventsReader, type EventsReader } from './events.ts';
+import { trackId, trackReader, type TrackReader } from './track.ts';
 import { compileExpr, type ExprScope } from './expr.ts';
 import { modifierParams, seedOf, type ModifierContext } from './modifiers.ts';
 import { asExpr, asKeyframed, asLink, easeFn, modsOf, propKind, resolveTokens, sampleKeyframes, staticValue, tokenValue } from './props.ts';
@@ -125,6 +126,19 @@ export class Evaluator {
   private eventsAt(ctx: FrameCtx, source: string): EventsReader {
     const id = this.doc.assets[source] || !this.doc.assets[`events-${source}`] ? source : `events-${source}`;
     return eventsReader(this.data?.(id), ctx.t);
+  }
+
+  /** a track of a video layer at time t: where its object is, in the space the layer sits in (its first track without a name) */
+  private trackAt(ctx: FrameCtx, layerId: string, name = ''): TrackReader {
+    const layer = ctx.comp.layers[layerId];
+    if (!layer || layer.type !== 'video' || !layerActive(layer, ctx.comp, ctx.t)) return trackReader(null, 0, null);
+    const asset = String(staticValue(layer.props?.video) ?? ''), start = Number(staticValue(layer.props?.start) ?? 0) || 0;
+    const id = this.doc.assets[name] ? name : name ? trackId(asset, name) : Object.keys(this.doc.assets).find((a) => a.startsWith(`track-${asset}-`)) ?? '';
+    const video = {
+      size: this.read(ctx, `${layerId}.size`) as Vec2, fit: String(this.read(ctx, `${layerId}.fit`)),
+      transform: this.evalSchema(ctx, `${layerId}.transform`, TRANSFORM_SCHEMA) as unknown as EvaluatedTransform,
+    };
+    return trackReader(this.data?.(id), start + ctx.t - (layer.in ?? 0), video);
   }
 
   comp(compId = this.doc.root): Composition {
@@ -342,6 +356,7 @@ export class Evaluator {
       marker: (q: string) => markerInfo(comp, q),
       audio: (source: string) => this.audioAt(ctx, source),
       events: (source: string) => this.eventsAt(ctx, source),
+      track: (layer: string, name?: string) => { this.depend(address, `${layer}.transform.position`); return this.trackAt(ctx, layer, name); },
       ease: (spec: unknown, x: number) => {
         const f = easeFn(spec as any, tokens);
         return f === 'hold' ? (x >= 1 ? 1 : 0) : f(x);

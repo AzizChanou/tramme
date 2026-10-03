@@ -92,6 +92,7 @@ Built-in plugins whose tools analyse the material at authoring time and save the
 - [x] Video: shot changes (`shots` tool, colour histograms), people boxes over time (`subjects` tool, YOLOS tiny through transformers.js, loaded on demand).
 - [x] Video: segmentation masks (`cutout` tool, `apps/editor/src/cutout.ts`): U²-Net (people, or any salient subject) through onnxruntime on WebGPU or the processor, kept to the people the detector finds, steadied from frame to frame, saved as a mask video timed like the file.
 - [ ] Video: pose, depth.
+- [x] Video: an object followed over time (`track` tool: template matching in `packages/core/src/track.ts`, framed by a rectangle, a region or the detector), saved as a JSON asset that the `callout` node and `track()` in expressions read through the video layer: tracked callouts.
 - [x] Image: main colours as tokens (`palette` tool: plate, ink, accent).
 - [ ] Image: saliency and free space as data (the `subjects` text gives the free sides for now).
 - [x] Render-time access: nodes read JSON assets with `host.asset(id)`; expressions with `audio(source)` (`pulse`, `barPulse`, `hit`, `energy`, `beat`, `bar`, `phase`, `section`), mapped to the time of a sound layer; the `react` modifier for the same without code. The renderer gives the evaluator the loaded analyses.

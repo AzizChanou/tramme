@@ -26,6 +26,14 @@ export function parentOf(comp: Composition, id: string): string | null {
   return null;
 }
 
+/** the list that holds a layer (the composition's order or a group's children) and its path in the composition */
+export function siblingsOf(comp: Composition, id: string): { path: string[]; list: string[] } {
+  if (comp.order.includes(id)) return { path: ['order'], list: comp.order };
+  const p = parentOf(comp, id);
+  if (!p) throw new Error(`${id} is not in the composition's tree`);
+  return { path: ['layers', p, 'children'], list: comp.layers[p].children! };
+}
+
 /** ids of a layer and all its descendants */
 export function subtree(comp: Composition, id: string): string[] {
   const out = [id];

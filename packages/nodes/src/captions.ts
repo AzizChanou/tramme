@@ -5,7 +5,7 @@
 // a transcript remapped after cuts starts at 0.
 
 import { captionGroups, isTranscript, type CaptionGroup, type NodeType, type Paint, type Transcript, type Vec2 } from '@tramme/core';
-import { canvasPaint } from './paint.ts';
+import { canvasPaint, roundRect } from './paint.ts';
 
 interface CaptionProps {
   transcript: string | null;
@@ -42,11 +42,6 @@ function groupsOf(t: Transcript, maxWords: number, maxChars: number): CaptionGro
 const clamp = (x: number) => Math.max(0, Math.min(1, x));
 const easeOut = (x: number) => 1 - Math.pow(1 - x, 3);
 const back = (x: number) => { const c = 1.7; return 1 + (c + 1) * Math.pow(x - 1, 3) + c * Math.pow(x - 1, 2); };
-
-function roundRect(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number) {
-  ctx.beginPath();
-  ctx.roundRect(x, y, w, h, Math.min(r, h / 2, w / 2));
-}
 
 export const captions: NodeType<CaptionProps> = {
   type: 'captions', title: 'Captions', category: 'Text',

@@ -2,8 +2,8 @@
 // (the tracking added after the last glyph is not counted). Weight is a
 // number so variable fonts animate continuously.
 
-import type { Host, NodeType, Paint, PropSchema } from '@tramme/core';
-import { canvasPaint } from './paint.ts';
+import type { Host, NodeType, Paint, PropSchema, Vec2 } from '@tramme/core';
+import { canvasPaint, roundRect } from './paint.ts';
 
 export const TYPE: PropSchema = {
   font: { type: 'asset', default: null, nullable: true, assetType: 'font', label: 'Font', group: 'Typography' },
@@ -18,7 +18,7 @@ export const TYPE: PropSchema = {
 export interface TypeProps { font: string | null; size: number; weight: number; italic: boolean; tracking: number; color: Paint; align: 'left' | 'center' | 'right' }
 
 /** set font, tracking and colour on the context */
-export function setType(ctx: CanvasRenderingContext2D, p: TypeProps, host: Host) {
+export function setType(ctx: CanvasRenderingContext2D, p: Omit<TypeProps, 'align'>, host: Host) {
   const family = p.font ? host.asset<string>(p.font) : 'sans-serif';
   ctx.font = `${p.italic ? 'italic ' : ''}${Math.round(p.weight)} ${p.size.toFixed(2)}px "${family}", sans-serif`;
   ctx.letterSpacing = `${p.tracking * p.size}px`;
@@ -36,6 +36,46 @@ export function measureCtx(): CanvasRenderingContext2D {
 /** left edge of a run of width w for the alignment */
 export const alignX = (align: TypeProps['align'], w: number) => (align === 'center' ? -w / 2 : align === 'right' ? -w : 0);
 
+/** capitals sit on the baseline this fraction of the size below the middle of their line: type centred in a box */
+export const CAP = 0.36;
+
+/** the width of a run of text set on ctx, the tracking after its last glyph not counted */
+export const runWidth = (ctx: CanvasRenderingContext2D, s: string, p: { tracking: number; size: number }) => (s ? ctx.measureText(s).width - p.tracking * p.size : 0);
+
+/** a label and what follows it on a filled chip, measured: pad and gap in pixels, lw the label's width */
+export interface Chip { label: string; value: string; pad: number; lw: number; gap: number; w: number; h: number }
+
+/** the height of a chip of type of this size: its capitals and the padding above and below them (em) */
+export const chipHeight = (size: number, padY: number) => size * (2 * CAP + padY * 2);
+
+/** a chip measured with the type set on ctx: padding and gap in em */
+export function chipOf(ctx: CanvasRenderingContext2D, p: { tracking: number; size: number }, label: string, value: string, padding: Vec2, gap: number): Chip {
+  const pad = p.size * padding[0], g = label && value ? gap * p.size : 0, lw = runWidth(ctx, label, p);
+  return { label, value, pad, lw, gap: g, w: pad * 2 + lw + g + runWidth(ctx, value, p), h: chipHeight(p.size, padding[1]) };
+}
+
+/**
+ * A chip drawn with its top left corner at (x, y): its fill, then the label
+ * and what follows it in the colour of the type, the first `letters` of them
+ * (the space between them counted), what follows at `soft` opacity.
+ */
+export function drawChip(ctx: CanvasRenderingContext2D, c: Chip, x: number, y: number, p: { size: number; color: Paint; fill: Paint }, { radius = 0, letters = Infinity, soft = 1 } = {}) {
+  const fill = canvasPaint(ctx, p.fill);
+  if (fill) { ctx.fillStyle = fill; roundRect(ctx, x, y, c.w, c.h, radius); ctx.fill(); }
+  const ink = canvasPaint(ctx, p.color);
+  if (ink) ctx.fillStyle = ink;
+  ctx.textAlign = 'left';
+  ctx.textBaseline = 'alphabetic';
+  const x0 = x + c.pad, base = y + c.h / 2 + p.size * CAP;
+  if (c.label) ctx.fillText(c.label.slice(0, letters), x0, base);
+  if (c.value && letters > c.label.length + 1) {
+    const alpha = ctx.globalAlpha;
+    ctx.globalAlpha = alpha * soft;
+    ctx.fillText(c.value.slice(0, letters - c.label.length - 1), x0 + c.lw + c.gap, base);
+    ctx.globalAlpha = alpha;
+  }
+}
+
 interface TextProps extends TypeProps { text: string; lineHeight: number; baseline: CanvasTextBaseline }
 
 export const text: NodeType<TextProps> = {
@@ -49,8 +89,7 @@ export const text: NodeType<TextProps> = {
   bounds(p, host) {
     const ctx = measureCtx();
     setType(ctx, p, host);
-    const lines = (p.text || ' ').split('\n'), trail = p.tracking * p.size;
-    const w = Math.max(...lines.map((l) => ctx.measureText(l).width - (l.length ? trail : 0)));
+    const lines = (p.text || ' ').split('\n'), w = Math.max(...lines.map((l) => runWidth(ctx, l, p)));
     const top = p.baseline === 'top' ? 0 : p.baseline === 'middle' ? -p.size * 0.5 : p.baseline === 'bottom' ? -p.size : -p.size * 0.8;
     return { x: alignX(p.align, w), y: top, w, h: p.size * (1 + (lines.length - 1) * p.lineHeight) };
   },
@@ -60,11 +99,7 @@ export const text: NodeType<TextProps> = {
       setType(ctx, p, host);
       ctx.textBaseline = p.baseline;
       ctx.textAlign = 'left';
-      const trail = p.tracking * p.size;
-      p.text.split('\n').forEach((line, i) => {
-        const w = ctx.measureText(line).width - (line.length ? trail : 0);
-        ctx.fillText(line, alignX(p.align, w), i * p.lineHeight * p.size);
-      });
+      p.text.split('\n').forEach((line, i) => ctx.fillText(line, alignX(p.align, runWidth(ctx, line, p)), i * p.lineHeight * p.size));
     },
   },
 };

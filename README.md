@@ -72,7 +72,7 @@ apps/
   worker/    the Cloudflare Worker: serves the editor, projects in R2, assistant relay, Cloudflare Access check
 packages/
   core/      document, properties, keyframes, expressions, modifiers, evaluation, operations, validation
-  nodes/     built-in nodes: shapes, path, image, text, counter, event tag and receipt, group, composition, particles, shader, code, sound; effects
+  nodes/     built-in nodes: shapes, path, image, text, counter, event tag and receipt, callout, group, composition, particles, shader, code, sound; effects
   render/    rendering: Canvas2D backend, WebGL2 compositor (motion blur, linear color, finishing), assets
   interop/   Lottie and SVG export, Lottie import (browser and Node)
   project/   the tramme-project/1 project format: manifest, allowed paths, checks, .tramme archive
@@ -103,6 +103,7 @@ examples/
 - Sound: "Sound" layers with volume (animatable: fades, ducking), fades, low and high cut, reverb and speed, mixed by one mixer in the preview, the exports and the command line. A library of 421 recorded sounds (Kenney, CC0) and sounds written as code ships with the editor; your own sounds go into a library shared by the projects.
 - Speech: right click on a sound or a video, "Transcribe speech"; the transcript (words and times) becomes a JSON asset. The "Captions" layer shows it a few words at a time, the spoken word highlighted (color, pill or scale).
 - Event lists: a story that keeps score (money spent, laughs, points) writes its events once (`/events`: `3.1 Petrol cash -18 | full tank`). Counters in a corner roll at each change (`/event-counter`), a tag pops up at each event (`/event-tags`), a receipt lists them all at the end (`/event-receipt`), and expressions read the running totals with `events()`. They all read the list: change it and they follow.
+- Tracked callouts: draw a rectangle over something filmed (or name it: a car, a person), `/track` follows it through the shot and `/callout` puts brackets and a label on it that stay on it; expressions read where it is with `track()`.
 - Export in the browser, with the preview's engine: MP4 (H.264), WebM (VP9 with alpha), GIF, PNG sequence (zip), Lottie, SVG of the current frame, WAV. The file is saved to the computer or kept in the project's `renders/`.
 - Responsive and touch: under 760 px, panels become tabs under the picture, and the header gathers composition, format, frame rate, help and settings in a "⋯" menu; the home screen goes to one column. With a finger, pinch to zoom, two fingers move the view, one finger on the background too. The editor can be installed on a phone's home screen (web manifest).
 

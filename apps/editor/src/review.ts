@@ -4,34 +4,38 @@
 // up (use_tool) or by the user from the / menu.
 
 import { runChecks, type QualityIssue, type ToolContext, type ToolType, type TrammeDoc } from '@tramme/core';
-import { analyses } from './perception.ts';
+import { analyses, canvas } from './perception.ts';
 import { soundIssues } from './sound.ts';
 import { t } from './i18n/index.ts';
 
 const CELL = 360;
 
-/** a picture of several stills side by side, each labelled with its time */
-async function sheet(ctx: ToolContext, times: number[], cols: number, compId: string): Promise<string> {
-  const c = ctx.doc.compositions[compId], w = CELL, h = Math.round((CELL * c.height) / c.width), gap = 6;
-  const rows = Math.ceil(times.length / cols);
-  const canvas = document.createElement('canvas');
-  canvas.width = cols * w + (cols + 1) * gap; canvas.height = rows * h + (rows + 1) * gap;
-  const g = canvas.getContext('2d')!;
-  g.fillStyle = '#0b0f12'; g.fillRect(0, 0, canvas.width, canvas.height);
-  for (const [i, at] of times.entries()) {
-    if (ctx.signal.aborted) throw new Error('stopped');
-    const img = new Image();
-    img.src = await ctx.renderStill(at, compId);
-    await img.decode();
+/** pictures side by side, `cols` to a row, each w × h with its label in a corner (a JPEG data URL) */
+export function sheetOf(cells: { image: CanvasImageSource; label: string }[], w: number, h: number, cols: number): string {
+  const gap = 6, rows = Math.ceil(cells.length / cols), { c, g } = canvas(cols * w + (cols + 1) * gap, rows * h + (rows + 1) * gap);
+  g.fillStyle = '#0b0f12'; g.fillRect(0, 0, c.width, c.height);
+  g.font = '600 13px system-ui, sans-serif';
+  cells.forEach(({ image, label }, i) => {
     const x = gap + (i % cols) * (w + gap), y = gap + Math.floor(i / cols) * (h + gap);
-    g.drawImage(img, x, y, w, h);
-    const label = `${at.toFixed(2)} s`;
-    g.font = '600 13px system-ui, sans-serif';
+    g.drawImage(image, x, y, w, h);
     const lw = g.measureText(label).width + 12;
     g.fillStyle = 'rgba(0,0,0,0.7)'; g.fillRect(x + 6, y + h - 26, lw, 20);
     g.fillStyle = '#fff'; g.fillText(label, x + 12, y + h - 11);
+  });
+  return c.toDataURL('image/jpeg', 0.85);
+}
+
+/** a picture of several stills side by side, each labelled with its time */
+async function sheet(ctx: ToolContext, times: number[], cols: number, compId: string): Promise<string> {
+  const c = ctx.doc.compositions[compId], cells: { image: CanvasImageSource; label: string }[] = [];
+  for (const at of times) {
+    if (ctx.signal.aborted) throw new Error('stopped');
+    const image = new Image();
+    image.src = await ctx.renderStill(at, compId);
+    await image.decode();
+    cells.push({ image, label: `${at.toFixed(2)} s` });
   }
-  return canvas.toDataURL('image/jpeg', 0.85);
+  return sheetOf(cells, CELL, Math.round((CELL * c.height) / c.width), cols);
 }
 
 /** the moments worth looking at: just after entrances, markers, problems, and enough to cover the whole */

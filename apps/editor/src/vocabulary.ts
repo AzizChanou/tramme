@@ -13,6 +13,7 @@ import { EDITOR_PRESETS } from './presets.ts';
 import { BUILTIN_KITS, RECIPE_TOOLS } from './recipes.ts';
 import { REVIEW_TOOLS } from './review.ts';
 import { SOUND_TOOLS } from './sound.ts';
+import { TRACKING_TOOLS } from './tracking.ts';
 import { TEMPLATES, type TemplateArgs } from './templates.ts';
 
 const at = { type: 'number', minimum: 0, title: 'Start (s)', description: 'composition time; the current time by default' };
@@ -61,5 +62,5 @@ export const EDITOR_PROMPTS: PromptType[] = [
 
 /** the base vocabulary of the editor, before a document's plugins */
 export function editorRegistry() {
-  return builtinRegistry().registerTool(...EDITOR_TOOLS, ...RECIPE_TOOLS, ...EVENT_TOOLS, ...PERCEPTION_TOOLS, ...CUTOUT_TOOLS, ...REVIEW_TOOLS, ...SOUND_TOOLS, ...LIBRARY_TOOLS).registerPrompt(...EDITOR_PROMPTS).registerKit(...BUILTIN_KITS).registerPreset(...EDITOR_PRESETS);
+  return builtinRegistry().registerTool(...EDITOR_TOOLS, ...RECIPE_TOOLS, ...EVENT_TOOLS, ...PERCEPTION_TOOLS, ...TRACKING_TOOLS, ...CUTOUT_TOOLS, ...REVIEW_TOOLS, ...SOUND_TOOLS, ...LIBRARY_TOOLS).registerPrompt(...EDITOR_PROMPTS).registerKit(...BUILTIN_KITS).registerPreset(...EDITOR_PRESETS);
 }

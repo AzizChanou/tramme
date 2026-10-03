@@ -6,12 +6,10 @@
 
 import { clamp, cubicBezier, eventsReader, isEventList, type EventList, type EventsReader, type Host, type NodeType, type Paint, type TimedEvent, type Vec2 } from '@tramme/core';
 import { canvasPaint } from './paint.ts';
-import { alignX, measureCtx, setType, TYPE, type TypeProps } from './text.ts';
+import { alignX, CAP, chipHeight, chipOf, drawChip, measureCtx, runWidth, setType, TYPE, type TypeProps } from './text.ts';
 
 const LIST = { type: 'asset', default: null, nullable: true, assetType: 'json', label: 'Event list', animatable: false } as const;
 const POP = cubicBezier(0.34, 1.56, 0.64, 1), OUT = cubicBezier(0.16, 1, 0.3, 1);
-/** capitals sit on the baseline at this fraction of the size below the middle of a line */
-const CAP = 0.36;
 
 /** the list a layer reads, once loaded */
 function listOf(id: string | null, host: Host): EventList | null {
@@ -43,13 +41,11 @@ export function tagMotion(animation: TagProps['animation'], age: number, left: n
   return { scale, lift, alpha };
 }
 
-/** the tag of an event measured with the type set on ctx: its texts and its box */
+/** the tag of an event measured with the type set on ctx: its chip and where it starts */
 function tagBox(ctx: CanvasRenderingContext2D, p: TagProps, r: EventsReader, e: TimedEvent) {
   const label = upper(p.uppercase, String(e.label ?? '')), value = p.show === 'change' ? r.changes(e, p.key) : p.show === 'total' ? r.after(e, p.key) : '';
-  const trail = p.tracking * p.size, width = (s: string) => (s ? ctx.measureText(s).width - trail : 0);
-  const gap = label && value ? p.gap * p.size : 0, lw = width(label);
-  const w = p.size * p.padding[0] * 2 + lw + gap + width(value), h = p.size * (0.72 + p.padding[1] * 2);
-  return { label, value, lw, gap, w, h, x: alignX(p.align, w) };
+  const chip = chipOf(ctx, p, label, value, p.padding, p.gap);
+  return { ...chip, x: alignX(p.align, chip.w) };
 }
 
 export const tag: NodeType<TagProps> = {
@@ -77,7 +73,7 @@ export const tag: NodeType<TagProps> = {
     setType(ctx, p, host);
     const list = listOf(p.events, host), r = eventsReader(list, Infinity);
     const widths = r.list.filter((e) => !p.key || r.changes(e, p.key)).map((e) => tagBox(ctx, p, r, e).w);
-    const w = Math.max(p.size * 4, ...widths), h = p.size * (0.72 + p.padding[1] * 2);
+    const w = Math.max(p.size * 4, ...widths), h = chipHeight(p.size, p.padding[1]);
     return { x: alignX(p.align, w), y: -h / 2, w, h };
   },
   render: {
@@ -94,18 +90,7 @@ export const tag: NodeType<TagProps> = {
       ctx.translate(mid, m.lift * p.size * 0.6);
       ctx.scale(m.scale, m.scale);
       ctx.translate(-mid, 0);
-      const fill = canvasPaint(ctx, p.fill);
-      if (fill) {
-        ctx.fillStyle = fill;
-        ctx.beginPath(); ctx.roundRect(b.x, -b.h / 2, b.w, b.h, Math.min(p.radius, b.h / 2, b.w / 2)); ctx.fill();
-      }
-      const ink = canvasPaint(ctx, p.color);
-      if (ink) ctx.fillStyle = ink;
-      ctx.textAlign = 'left';
-      ctx.textBaseline = 'alphabetic';
-      const x = b.x + p.size * p.padding[0];
-      if (b.label) ctx.fillText(b.label, x, p.size * CAP);
-      if (b.value) ctx.fillText(b.value, x + b.lw + b.gap, p.size * CAP);
+      drawChip(ctx, b, b.x, -b.h / 2, p, { radius: p.radius });
       ctx.restore();
     },
   },
@@ -148,8 +133,7 @@ export function rowStarts(rows: ReceiptRow[], interval: number): number[] {
 
 /** the receipt laid out with the type set on ctx: its lines, their tops, the columns and the whole height */
 function receiptLayout(ctx: CanvasRenderingContext2D, p: ReceiptProps, list: EventList) {
-  const rows = receiptRows(list, p), trail = p.tracking * p.size;
-  const width = (s: string) => (s ? ctx.measureText(s).width - trail : 0);
+  const rows = receiptRows(list, p), width = (s: string) => runWidth(ctx, s, p);
   const rights = rows.map((row) => width(row.right));
   const px = p.padding[0] * p.size, py = p.padding[1] * p.size, gap = p.size * 0.8, lh = p.lineHeight * p.size;
   const leftCol = Math.max(0, ...rows.map((row) => width(row.left))), rightCol = Math.max(0, ...rights);
