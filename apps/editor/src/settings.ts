@@ -78,3 +78,11 @@ effect(() => {
 
 /** the settings dialog, opened from the top bar, the home screen or Ctrl+, */
 export const settingsOpen = signal(false);
+
+export type SettingsSection = 'appearance' | 'preview' | 'tours' | 'model' | 'behavior' | 'connection';
+/** the section shown: the last one opened, or the one asked for */
+export const settingsSection = signal<SettingsSection>('appearance');
+export function openSettings(section?: SettingsSection) {
+  if (section) settingsSection.value = section;
+  settingsOpen.value = true;
+}

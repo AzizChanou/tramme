@@ -732,7 +732,22 @@ a.btn { text-decoration: none; }
 .viewport .toolbar .quality.reduced { color: var(--key); }
 
 /* ── settings ──────────────────────────────────────────────── */
-.modal-body.settings { gap: 18px; max-height: calc(100dvh - 120px); overflow: auto; }
+/* a menu of sections on the left, the one chosen on the right; the same height whatever the section */
+.modal-body.settings { display: grid; grid-template-columns: 196px minmax(0, 1fr); gap: 0; padding: 0; height: min(560px, calc(100dvh - 120px)); border-top: 1px solid var(--line); }
+.set-nav { display: flex; flex-direction: column; gap: 10px; padding: 12px 10px; border-right: 1px solid var(--line); overflow: auto; }
+.set-search { height: 30px; gap: 6px; padding-left: 8px; }
+.set-search svg.i { width: 14px; height: 14px; color: var(--text-3); flex: none; }
+.set-group { display: flex; flex-direction: column; gap: 1px; }
+.set-group-title { padding: 2px 8px 4px; font-size: 10.5px; font-weight: 600; letter-spacing: .03em; text-transform: uppercase; color: var(--text-3); }
+.set-nav-item { display: flex; align-items: center; gap: 9px; height: 30px; padding: 0 8px; border: 0; border-radius: var(--radius-sm); background: transparent; color: var(--text-2); font-size: 12.5px; text-align: left; cursor: pointer; }
+.set-nav-item svg.i { width: 15px; height: 15px; flex: none; }
+.set-nav-item:hover { background: var(--field-hover); color: var(--text); }
+.set-nav-item.on { background: var(--field-active); color: var(--text); font-weight: 600; }
+.set-nav .grow { flex: 1; }
+.set-nav > .btn { justify-content: flex-start; }
+.set-pane { display: flex; flex-direction: column; gap: 22px; padding: 14px 18px 18px; overflow: auto; user-select: text; }
+.set-results:not(:has(.set-row))::after { content: attr(data-empty); color: var(--text-3); font-size: 12px; }
+.set-results .set-section:not(:has(.set-row)) { display: none; }
 .set-section { display: flex; flex-direction: column; gap: 12px; }
 .set-section h3 { margin: 0; font-size: 12.5px; font-weight: 600; }
 .set-section > p { margin: -4px 0 0; font-size: 11.5px; line-height: 1.5; }
@@ -750,10 +765,20 @@ a.btn { text-decoration: none; }
 .set-info { display: flex; gap: 8px; align-items: flex-start; padding: 8px 10px; border-radius: 6px; background: var(--panel); color: var(--text-2); font-size: 11.5px; line-height: 1.45; }
 .set-info svg.i { width: 13px; height: 13px; flex: none; margin-top: 2px; color: var(--text-3); }
 .modal-foot .grow { flex: 1; }
-.modal.wide:has(.settings) { width: min(680px, 100%); }
+.modal.wide:has(.settings) { width: min(860px, 100%); }
 @media (max-width: 760px) {
   .set-row { grid-template-columns: 1fr; }
   .set-control { justify-content: flex-start; overflow-x: auto; }
+  /* on a phone: the search, then the sections as a row of tabs above the settings */
+  .modal-body.settings { grid-template-columns: 1fr; grid-template-rows: auto minmax(0, 1fr); height: calc(100dvh - 90px); }
+  .set-nav { flex-direction: row; flex-wrap: wrap; align-items: center; gap: 4px; padding: 10px 12px; border-right: 0; border-bottom: 1px solid var(--line); }
+  /* the search and the reset on the first line, the sections under them */
+  .set-search { flex: 0 0 calc(100% - 40px); }
+  .set-nav > .btn { order: 1; flex: none; }
+  .set-group { order: 2; flex-direction: row; gap: 4px; }
+  .set-group-title, .set-nav .grow, .set-nav > .btn span { display: none; }
+  .set-nav-item { height: 28px; padding: 0 9px; white-space: nowrap; }
+  .set-pane { padding: 12px; }
 }
 
 /* ── guided tours (driver.js), in the theme ──────────────────── */
