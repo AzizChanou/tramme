@@ -44,7 +44,7 @@ function measure(doc: TrammeDoc, text: string, size: number, weight: number, fon
 /** the width of a counter: digits in equal cells (the widest digit), other signs at their own width, as the node draws it */
 function counterWidth(doc: TrammeDoc, text: string, size: number, weight: number, font: string | null): number {
   const cell = Math.max(...'0123456789'.split('').map((d) => measure(doc, d, size, weight, font)));
-  return [...text].reduce((w, ch) => w + (/d/.test(ch) ? cell : measure(doc, ch, size, weight, font)), 0);
+  return [...text].reduce((w, ch) => w + (/\d/.test(ch) ? cell : measure(doc, ch, size, weight, font)), 0);
 }
 
 const r = (x: number) => Math.round(x * 100) / 100;

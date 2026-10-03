@@ -78,10 +78,10 @@ interface CounterProps extends TypeProps { from: string; to: string; progress: n
  * full turns. `progress` (0..1) usually carries its own ease in keyframes.
  */
 /** the width of each character of a counter: digits in equal cells (the widest digit), other signs (separators, units) at their own width */
-function cells(ctx: CanvasRenderingContext2D, s: string): number[] {
+export function cells(ctx: CanvasRenderingContext2D, s: string): number[] {
   let cw = 0;
   for (const d of '0123456789') cw = Math.max(cw, ctx.measureText(d).width);
-  return [...s].map((ch) => (/d/.test(ch) ? cw : ctx.measureText(ch).width));
+  return [...s].map((ch) => (/\d/.test(ch) ? cw : ctx.measureText(ch).width));
 }
 
 export const counter: NodeType<CounterProps> = {

@@ -62,6 +62,8 @@ Until 1.0.0, the document format and the APIs may still change between minor ver
 - Assistant: a server that does not answer, or an answer whose stream breaks before anything was shown, is tried again by itself (twice) instead of ending the turn.
 - 2.5D camera: a nested composition is drawn through its own camera (parallax and depth of field); it was ignored everywhere but in the root composition.
 - Check `stillness`: a nested composition counts as playing, as a video does, instead of making its parent look frozen; its own still stretches are found when it is checked.
+- Counters: digits share one cell again, as wide as the widest digit (the test looked for the letter "d", so each digit took its own width and the number shifted as it rolled); the `stat` and `bar-chart` recipes measure them the same way.
+- `tramme pack` and `tramme unpack` check a project with its own plugins loaded, as the editor's import does; a project using plugin nodes (the night-sky example) was refused with "unknown node type".
 
 ## [0.1.0] - 2026-10-02
 

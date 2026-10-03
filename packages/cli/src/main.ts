@@ -24,7 +24,7 @@ import { launch, openDoc } from './browser.ts';
 import { compareFiles } from './compare.ts';
 import { renderAudio, renderVideo } from './jobs.ts';
 import { VIDEO_FORMATS, type VideoFormat } from './media.ts';
-import { docRegistry } from './plugins.ts';
+import { docRegistry, filesRegistry } from './plugins.ts';
 import { readConfig, Server } from './server.ts';
 import { checkProject, DOCUMENT, isChatPath, MANIFEST, newProject, packProject, unpackProject, LEGACIES, migrateProject } from '@tramme/project';
 
@@ -200,31 +200,34 @@ function readFolder(dir: string): Map<string, Uint8Array> {
   return migrateProject(files);
 }
 
-/** structure (format) then meaning (registry, plugins) of a project's files */
-function reportProject(files: Map<string, Uint8Array>, label: string) {
+/** structure (format) then meaning (registry with the project's own plugins) of a project's files */
+async function reportProject(files: Map<string, Uint8Array>, label: string) {
   const { issues, doc } = checkProject(files);
   const all = [...issues];
-  if (doc && !issues.length) all.push(...validate(doc, builtinRegistry()).map((i) => ({ path: `${DOCUMENT}${i.path}`, message: i.message })));
+  if (doc && !issues.length) {
+    try { all.push(...validate(doc, await filesRegistry(doc, files)).map((i) => ({ path: `${DOCUMENT}${i.path}`, message: i.message }))); }
+    catch (e) { all.push({ path: `${DOCUMENT}/plugins`, message: (e as Error).message }); }
+  }
   if (all.length) {
     for (const i of all.slice(0, 40)) console.log(`  ${i.path} : ${i.message}`);
     throw new Error(`${label}: ${all.length} issue(s)`);
   }
 }
 
-function cmdPack(dir: string) {
+async function cmdPack(dir: string) {
   if (!dir || !fs.existsSync(path.join(dir, MANIFEST))) throw new Error(`no tramme project in ${dir ?? '(none)'} (${MANIFEST} missing)`);
   const files = readFolder(dir);
   for (const k of [...files.keys()]) if (k.startsWith('.tramme/') && !isChatPath(k)) files.delete(k);
-  reportProject(files, dir);
+  await reportProject(files, dir);
   const out = path.resolve(str('out') ?? `${path.basename(path.resolve(dir))}.tramme`);
   fs.writeFileSync(out, packProject(files));
   console.log(`wrote ${path.relative(process.cwd(), out)} (${files.size} files, ${(fs.statSync(out).size / 1024).toFixed(0)} KB)`);
 }
 
-function cmdUnpack(file: string) {
+async function cmdUnpack(file: string) {
   if (!file || !fs.existsSync(file)) throw new Error(`archive not found: ${file ?? '(none)'}`);
   const files = unpackProject(new Uint8Array(fs.readFileSync(file)));
-  reportProject(files, file);
+  await reportProject(files, file);
   const dir = path.resolve(str('out') ?? path.basename(file).replace(/\.(tramme|trame|emotion)$/, ''));
   if (fs.existsSync(dir) && fs.readdirSync(dir).length) throw new Error(`folder ${dir} exists and is not empty`);
   for (const [p, data] of files) { fs.mkdirSync(path.dirname(path.join(dir, p)), { recursive: true }); fs.writeFileSync(path.join(dir, p), data); }
