@@ -6,6 +6,8 @@
 // user from the / menu. Plugins add their own (`checks` export).
 
 import { Evaluator, type EvaluatedLayer } from './evaluate.ts';
+import { asKeyframed, modsOf, propKind } from './props.ts';
+import { animatedSlots, motionFigures, motionStretches, sampleAddress, spanOf } from './motion.ts';
 import { layerMatrix, matMul, type Mat2D } from './math.ts';
 import { pictureRect } from './track.ts';
 import type { Host, NodeType, Rect, Registry } from './registry.ts';
@@ -333,7 +335,106 @@ const stillness: CheckType = {
   },
 };
 
-export const BUILTIN_CHECKS: CheckType[] = [textSize, textTime, safeZone, overlap, crossing, overSubject, crowd, stillness];
+// ── the movement, measured (motion.ts: the figures of the sampled series) ──
+const NM = (comp: Composition, id: string) => comp.layers[id]?.name ?? id;
+
+const linearTravel: CheckType = {
+  name: 'linear-travel', title: 'Linear travel', description: 'a position or a scale moving at a constant speed, the tell of a missing ease',
+  texts: ['"{name}" moves at a constant speed: ease it (ease out on an entrance, ease in on an exit)'],
+  run(ctx) {
+    const min = 0.08 * u(ctx.comp), out: QualityIssue[] = [];
+    for (const { address, layerId, raw } of animatedSlots(ctx.doc, ctx.registry, ctx.compId)) {
+      if (!layerId || (!address.endsWith('.transform.position') && !address.endsWith('.transform.scale'))) continue;
+      const [from, to] = spanOf(ctx.comp, layerId);
+      if (to - from < 0.3) continue;
+      // the keyframes on the grid, so each segment reads true (a half-step at the ends would dilute the evenness)
+      const keys = propKind(raw) === 'keyframes' ? asKeyframed(raw).$k.map((k) => k.t) : [];
+      const s = sampleAddress(ctx.evaluator, address, ctx.compId, from, to, 32, keys);
+      if (!s) continue;
+      // the move itself, holds left out: a layer that lives longer than its move is judged on the move
+      const stretch = motionStretches(s.times, s.values).find((st) => st.to - st.from >= 0.3 && st.figures.evenness >= 0.92 && st.figures.turns === 0);
+      if (!stretch) continue;
+      const isPosition = address.endsWith('.transform.position');
+      if (isPosition ? stretch.figures.travel < min : stretch.figures.change < 0.08) continue;
+      const nm = NM(ctx.comp, layerId);
+      out.push({
+        check: 'linear-travel', severity: 'warning', t: s2(stretch.from), layers: [layerId],
+        message: `"${nm}" moves at a constant speed from ${s2(stretch.from)} to ${s2(stretch.to)} s (${address}): ease it (ease out on an entrance, ease in on an exit).`,
+        say: { text: '"{name}" moves at a constant speed: ease it (ease out on an entrance, ease in on an exit)', params: { name: nm } },
+      });
+    }
+    return out;
+  },
+};
+
+const springSettle: CheckType = {
+  name: 'spring-settle', title: 'Spring settle', description: 'a spring still moving when its layer leaves, or bouncing too far past its mark',
+  texts: ['"{name}" is still moving when it leaves: more damping, or more time', '"{name}" overshoots its mark by {pct}%: one bounce is lively, more is nervous'],
+  run(ctx) {
+    const out: QualityIssue[] = [];
+    for (const { address, layerId, raw } of animatedSlots(ctx.doc, ctx.registry, ctx.compId)) {
+      if (!layerId || !modsOf(raw)?.some((m) => m.type === 'spring')) continue;
+      const [from, to] = spanOf(ctx.comp, layerId);
+      if (to - from < 0.2) continue;
+      const s = sampleAddress(ctx.evaluator, address, ctx.compId, from, to, 48);
+      const f = s && motionFigures(s.times, s.values);
+      if (!f || f.travel < 0.002 * u(ctx.comp)) continue;
+      const nm = NM(ctx.comp, layerId);
+      if (f.settle === undefined && f.turns >= 1) {
+        out.push({
+          check: 'spring-settle', severity: 'warning', t: s2(to - 0.05), layers: [layerId],
+          message: `"${nm}" is still moving when it leaves at ${s2(to)} s (${address}): more damping, or more time.`,
+          say: { text: '"{name}" is still moving when it leaves: more damping, or more time', params: { name: nm } },
+        });
+      } else if (f.settle !== undefined && f.turns >= 1 && Math.abs(f.change) > 1e-9 && f.overshoot > 0.3 * Math.abs(f.change)) {
+        const pct = Math.round((100 * f.overshoot) / Math.abs(f.change));
+        out.push({
+          check: 'spring-settle', severity: 'info', t: s2(from + f.peakAt), layers: [layerId],
+          message: `"${nm}" overshoots its mark by ${pct}% (${address}): one bounce is lively, more is nervous.`,
+          say: { text: '"{name}" overshoots its mark by {pct}%: one bounce is lively, more is nervous', params: { name: nm, pct } },
+        });
+      }
+    }
+    return out;
+  },
+};
+
+const twinMotion: CheckType = {
+  name: 'twin-motion', title: 'Twin motions', description: 'two layers whose positions follow the same series, which reads as a copy',
+  texts: ['"{a}" and "{b}" move identically: offset, stagger or vary one'],
+  run(ctx) {
+    const ids = [...new Set(animatedSlots(ctx.doc, ctx.registry, ctx.compId).filter((s) => s.layerId && s.address.endsWith('.transform.position')).map((s) => s.layerId))];
+    const out: QualityIssue[] = [];
+    for (let i = 0; i < ids.length; i++) for (let j = i + 1; j < ids.length; j++) {
+      const a = spanOf(ctx.comp, ids[i]), b = spanOf(ctx.comp, ids[j]);
+      const from = Math.max(a[0], b[0]), to = Math.min(a[1], b[1]);
+      if (to - from < 0.4) continue;
+      const A = sampleAddress(ctx.evaluator, `${ids[i]}.transform.position`, ctx.compId, from, to, 24);
+      const B = sampleAddress(ctx.evaluator, `${ids[j]}.transform.position`, ctx.compId, from, to, 24);
+      if (!A || !B) continue;
+      const fa = motionFigures(A.times, A.values), fb = motionFigures(B.times, B.values);
+      if (!fa || !fb || Math.max(fa.travel, fb.travel) < 0.06 * u(ctx.comp)) continue;
+      if (Math.abs(fa.travel - fb.travel) > 0.1 * Math.max(fa.travel, fb.travel)) continue;
+      // the same series: each reduced to its own start, close at every sample (2 % of the travel)
+      const rel = (s: { values: (number | number[])[] }): [number, number][] => {
+        const p0 = s.values[0], x0 = Array.isArray(p0) ? p0[0] : p0 as number, y0 = Array.isArray(p0) ? p0[1] ?? 0 : 0;
+        return s.values.map((v) => { const p = Array.isArray(v) ? v : [v as number, 0]; return [p[0] - x0, p[1] - y0]; });
+      };
+      const ra = rel(A), rb = rel(B);
+      let drift = 0;
+      for (let k = 0; k < Math.min(ra.length, rb.length); k++) drift = Math.max(drift, Math.hypot(ra[k][0] - rb[k][0], ra[k][1] - rb[k][1]));
+      if (drift > 0.02 * Math.max(fa.travel, fb.travel)) continue;
+      out.push({
+        check: 'twin-motion', severity: 'info', t: s2(from), layers: [ids[i], ids[j]],
+        message: `"${NM(ctx.comp, ids[i])}" and "${NM(ctx.comp, ids[j])}" move identically from ${s2(from)} to ${s2(to)} s: offset, stagger or vary one.`,
+        say: { text: '"{a}" and "{b}" move identically: offset, stagger or vary one', params: { a: NM(ctx.comp, ids[i]), b: NM(ctx.comp, ids[j]) } },
+      });
+    }
+    return out;
+  },
+};
+
+export const BUILTIN_CHECKS: CheckType[] = [textSize, textTime, safeZone, overlap, crossing, overSubject, crowd, stillness, linearTravel, springSettle, twinMotion];
 
 /** every check of the registry on one composition, the failures of a check reported as issues */
 export async function runChecks(doc: TrammeDoc, registry: Registry, compId = doc.root, { step = 0.25, only, data = () => undefined }: { step?: number; only?: string[]; data?: (assetId: string) => unknown } = {}): Promise<QualityIssue[]> {

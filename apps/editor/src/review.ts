@@ -3,7 +3,7 @@
 // are tools of the editor's vocabulary, run by the assistant before it sums
 // up (use_tool) or by the user from the / menu.
 
-import { runChecks, type QualityIssue, type ToolContext, type ToolType, type TrammeDoc } from '@tramme/core';
+import { Evaluator, motionReport, runChecks, type QualityIssue, type ToolContext, type ToolType, type TrammeDoc } from '@tramme/core';
 import { analyses, canvas } from './perception.ts';
 import { soundIssues } from './sound.ts';
 import { t } from './i18n/index.ts';
@@ -93,15 +93,25 @@ const motion: ToolType<{ t: number; span?: number; steps?: number }> = {
     },
     required: ['t'],
   },
-  ai: { when: 'checking an entrance, a transition or a bounce: span 0.4 to 1 s, 6 to 8 frames' },
+  ai: { when: 'checking an entrance, a transition or a bounce: span 0.4 to 1 s, 6 to 8 frames. The figures say how far it travels, how fast at the peak, whether the speed is even (the linear tell), how it turns, how far it overshoots and when it settles: judge with them, not only the spacing' },
   async run({ t: from, span = 0.6, steps = 6 }, ctx) {
     const c = ctx.doc.compositions[ctx.compId];
+    const to = Math.min(c.duration, from + span);
     const times = Array.from({ length: steps }, (_, i) => +Math.min(c.duration - 0.01, from + (span * i) / (steps - 1)).toFixed(3));
     const url = await sheet(ctx, times, Math.min(steps, 6), ctx.compId);
+    // the same evaluation the render uses, so the figures are the movement's
+    const report = motionReport(new Evaluator(ctx.doc, ctx.registry), ctx.compId, from, to, { limit: 6 });
+    const figs = report.figures.map(({ address, figures: f }) => {
+      const pace = f.evenness > 0.92 ? 'constant speed (the linear tell: ease it)' : f.evenness > 0.6 ? 'eased' : 'strongly eased';
+      const way = f.turns === 0 ? 'one way' : `${f.turns} turn(s)`;
+      const over = f.overshoot > 0 ? `, overshoots its end by ${f.overshoot.toFixed(2)} u` : '';
+      const end = f.settle === undefined ? ', still moving at the end of the span' : `, settled at ${(from + f.settle).toFixed(2)} s`;
+      return `- ${address}: ${f.travel.toFixed(1)} u over ${f.span.toFixed(2)} s, peak ${f.peak.toFixed(1)} u/s at ${(from + f.peakAt).toFixed(2)} s, ${pace}, ${way}${over}${end}`;
+    });
     return {
-      text: `Frames at ${times.join(', ')} s (left to right, top to bottom): check the spacing between frames, it shows the easing.`,
-      notice: t('review.motionStrip', { from: from.toFixed(2), to: (from + span).toFixed(2) }),
-      images: [{ url, caption: t('review.motionStrip', { from: from.toFixed(2), to: (from + span).toFixed(2) }) }],
+      text: `Frames at ${times.join(', ')} s (left to right, top to bottom): check the spacing between frames, it shows the easing.${figs.length ? `\nMotion in the span, biggest travels first (u: the property's units):\n${figs.join('\n')}` : ''}`,
+      notice: t('review.motionStrip', { from: from.toFixed(2), to: to.toFixed(2) }),
+      images: [{ url, caption: t('review.motionStrip', { from: from.toFixed(2), to: to.toFixed(2) }) }],
     };
   },
 };

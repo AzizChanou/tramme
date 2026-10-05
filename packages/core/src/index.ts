@@ -17,6 +17,7 @@ export * from './sounds.ts';
 export * from './transcript.ts';
 export * from './tools.ts';
 export * from './checks.ts';
+export * from './motion.ts';
 export * from './analysis.ts';
 export * from './events.ts';
 export * from './track.ts';
