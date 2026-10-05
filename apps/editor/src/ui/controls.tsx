@@ -30,7 +30,7 @@ export function MenuHost() {
   useLayoutEffect(() => {
     if (!m || !ref.current) return;
     const r = ref.current.getBoundingClientRect();
-    setPos({ x: Math.min(m.x, innerWidth - r.width - 8), y: Math.min(m.y, innerHeight - r.height - 8) });
+    setPos({ x: Math.max(8, Math.min(m.x, innerWidth - r.width - 8)), y: Math.max(8, Math.min(m.y, innerHeight - r.height - 8)) });
   }, [m]);
   useEffect(() => {
     if (!m) return;
