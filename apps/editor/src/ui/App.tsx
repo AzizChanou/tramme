@@ -14,7 +14,7 @@ import { TopBar } from './TopBar.tsx';
 import { uploads } from '../files.ts';
 import { transcriptions } from '../speech.ts';
 import { SettingsDialog } from './Settings.tsx';
-import { settingsOpen } from '../settings.ts';
+import { prefs, settingsOpen } from '../settings.ts';
 import { Viewport } from './Viewport.tsx';
 import { t } from '../i18n/index.ts';
 
@@ -94,7 +94,7 @@ export function App() {
   const [bottomH, bottomHandle] = useSize('bottom', 300, 140, 640);
   const [aiH, aiHandle] = useSize('ai', 340, 160, 900);
   return (
-    <div class="app" data-tab={S.mobileTab.value}>
+    <div class="app" data-tab={S.mobileTab.value} data-summon={S.summon.value} data-chat={S.chatHidden.value ? 'hidden' : 'shown'}>
       <TopBar />
       <div class="workspace" style={{ gridTemplateColumns: `${leftW}px 1px minmax(0, 1fr) 1px ${rightW}px` }}>
         <aside class="col left" data-tour="left-panel"><LeftPanel /></aside>
@@ -114,6 +114,21 @@ export function App() {
           <Assistant style={{ height: aiH, flex: 'none' }} />
         </aside>
       </div>
+      {prefs.value.display !== 'editor' && (
+        <nav class="summon">
+          {prefs.value.display === 'cinema' && (
+            <button class={`edge at-left${S.summon.value === 'left' ? ' on' : ''}`} title={t('common.layers')} onClick={() => { S.summon.value = S.summon.value === 'left' ? 'none' : 'left'; }}><Icon name="layers" /></button>
+          )}
+          {prefs.value.display === 'conversation' && (
+            <button class={`edge at-left${S.chatHidden.value ? '' : ' on'}`} title={t('common.assistant')} onClick={() => { S.chatHidden.value = !S.chatHidden.value; }}><Icon name="chat" /></button>
+          )}
+          <button class={`edge at-bottom${S.summon.value === 'bottom' ? ' on' : ''}`} title={t('common.timeline')} onClick={() => { S.summon.value = S.summon.value === 'bottom' ? 'none' : 'bottom'; }}><Icon name="timeline" /></button>
+          <button class={`edge at-right${S.summon.value === 'right' ? ' on' : ''}`} title={prefs.value.display === 'conversation' ? t('common.layers') : t('app.properties')} onClick={() => { S.summon.value = S.summon.value === 'right' ? 'none' : 'right'; }}><Icon name={prefs.value.display === 'conversation' ? 'layers' : 'sliders'} /></button>
+        </nav>
+      )}
+      {prefs.value.display === 'conversation' && S.summon.value === 'props' && (
+        <aside class="inspector-wrap panel-body summon-card"><Inspector /></aside>
+      )}
       <nav class="mobile-tabs">
         {TABS.map(([id, label, icon]) => (
           <button key={id} class={S.mobileTab.value === id ? 'on' : ''} onClick={() => { S.mobileTab.value = id; }}><Icon name={icon} />{label}</button>

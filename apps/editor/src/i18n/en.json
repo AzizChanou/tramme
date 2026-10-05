@@ -159,7 +159,11 @@
     "projectIdHasNo": "project {id} has no document (interrupted import?)",
     "couldNotOpenThe": "Could not open the project",
     "uploadingName": "Uploading {name}",
-    "properties": "Properties"
+    "properties": "Properties",
+    "display": "Display",
+    "displayEditor": "Editor",
+    "displayCinema": "Cinema",
+    "displayConversation": "Conversation"
   },
   "editor": {
     "newLayerNameType": "new layer \"{name}\" ({type})",
@@ -601,11 +605,14 @@
     "appearance": "Appearance",
     "language": "Language",
     "automaticTheBrowserS": "Automatic: the browser's (French, otherwise English). The page reloads to apply it.",
-    "theme": "Theme",
-    "systemFollowsTheComputer": "System: follows the computer's light or dark setting.",
-    "dark": "Dark",
-    "lightGray": "Light gray",
-    "system": "System",
+    "themes": {
+      "studio": "Studio",
+      "obsidian": "Obsidian",
+      "carbon": "Carbon",
+      "dusk": "Dusk",
+      "paper": "Paper",
+      "system": "System"
+    },
     "settingsForThisComputer": "Settings for this computer, kept in this browser. Exports always render at full quality, whatever is chosen here.",
     "limited": "Limited",
     "playAtTheComposition": "Play at the composition's frames",
@@ -700,7 +707,11 @@
     "customProvider": "Custom provider",
     "providerCustom": "Any service of the OpenAI chat format, by its base URL (DeepSeek, Groq, Mistral…)",
     "save": "Save",
-    "editProvider": "Edit"
+    "editProvider": "Edit",
+    "theme": "Theme",
+    "themeHint": "One palette for the whole interface. System follows the computer’s light or dark setting.",
+    "display": "Display",
+    "displayHint": "How the interface is laid out; the panels stay reachable from the edges of the screen."
   },
   "timeline": {
     "startHome": "Start (Home)",

@@ -159,7 +159,11 @@
     "projectIdHasNo": "le projet {id} n'a pas de document (import interrompu ?)",
     "couldNotOpenThe": "Impossible d'ouvrir le projet",
     "uploadingName": "Envoi de {name}",
-    "properties": "Propriétés"
+    "properties": "Propriétés",
+    "display": "Affichage",
+    "displayEditor": "Éditeur",
+    "displayCinema": "Cinéma",
+    "displayConversation": "Conversation"
   },
   "editor": {
     "newLayerNameType": "nouveau calque « {name} » ({type})",
@@ -601,11 +605,14 @@
     "appearance": "Apparence",
     "language": "Langue",
     "automaticTheBrowserS": "Automatique : celle du navigateur (français, sinon anglais). La page se recharge pour l'appliquer.",
-    "theme": "Thème",
-    "systemFollowsTheComputer": "Système : suit le réglage clair ou sombre de l'ordinateur.",
-    "dark": "Sombre",
-    "lightGray": "Clair gris",
-    "system": "Système",
+    "themes": {
+      "studio": "Studio",
+      "obsidian": "Obsidienne",
+      "carbon": "Carbone",
+      "dusk": "Crépuscule",
+      "paper": "Papier",
+      "system": "Système"
+    },
     "settingsForThisComputer": "Réglages de cet ordinateur, gardés dans ce navigateur. Les exports sont toujours rendus en pleine qualité, quoi qu'il soit choisi ici.",
     "limited": "Limité",
     "playAtTheComposition": "Lecture aux images de la composition",
@@ -700,7 +707,11 @@
     "customProvider": "Fournisseur personnalisé",
     "providerCustom": "Tout service au format de chat OpenAI, par son URL de base (DeepSeek, Groq, Mistral…)",
     "save": "Enregistrer",
-    "editProvider": "Modifier"
+    "editProvider": "Modifier",
+    "theme": "Thème",
+    "themeHint": "Une palette pour toute l’interface. Système suit le réglage clair ou sombre de l’ordinateur.",
+    "display": "Affichage",
+    "displayHint": "La façon dont l’interface est disposée ; les panneaux restent joignables depuis les bords de l’écran."
   },
   "timeline": {
     "startHome": "Début (Origine)",

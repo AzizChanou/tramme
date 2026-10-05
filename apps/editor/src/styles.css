@@ -1,4 +1,6 @@
-/* tramme editor: one dark theme, defined as tokens. Interface colours stay
+/* tramme editor: the themes, defined as tokens. The default (studio) sits on
+   :root and the others override it by their data-theme (settings: the mode says
+   dark or light, a theme is the palette of that mode). Interface colours stay
    neutral so the picture is the only colourful thing on screen; colour in
    the UI carries meaning (selection, keyframes, expressions, links). */
 
@@ -76,8 +78,8 @@
   --ease: cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
-/* light grey theme: the same tokens, set from the settings (Apparence) */
-:root[data-theme="light"] {
+/* the light themes: paper, and the former "light" kept as an alias */
+:root[data-theme="paper"], :root[data-theme="light"] {
   color-scheme: light;
   --bg: #d8dde0;
   --panel: #e6eaec;
@@ -144,6 +146,125 @@
   --tour-overlay: #1c2328;
   --tour-overlay-opacity: 0.34;
 }
+
+/* ── the dark themes: the neutrals move, the meaning (accent, keyframes, expressions, links) stays ── */
+
+/* obsidian: near-black and warm, the chrome recedes into the room */
+:root[data-theme="obsidian"] {
+  --bg: #040607;
+  --panel: #0a0d0f;
+  --panel-2: #0d1113;
+  --raised: #101417;
+  --field: #121719;
+  --field-hover: #181e21;
+  --field-active: #1e262a;
+  --line: #151c20;
+  --line-soft: #0f1417;
+  --line-strong: #222c31;
+  --text: #e2e9ec;
+  --text-2: #92a0a8;
+  --text-3: #5a6870;
+  --text-4: #3d474d;
+  --hover-soft: rgba(255,255,255,.02);
+  --edge-soft: rgba(255,255,255,.05);
+  --edge: rgba(255,255,255,.11);
+  --edge-hover: rgba(255,255,255,.13);
+  --stage: #070a0c;
+  --float: rgba(10,13,15,.88);
+  --glass: rgba(4,6,8,.85);
+  --scrim: rgba(2,4,5,.68);
+  --shadow: 0 14px 44px rgba(0,0,0,.65), 0 0 0 1px var(--line-strong);
+  --shadow-soft: 0 12px 40px rgba(0,0,0,.6);
+  --card-shadow: rgba(0,0,0,.5);
+  --scroll: #1c2429;
+  --scroll-hover: #29333a;
+  --grid: rgba(255,255,255,.09);
+  --sunken: rgba(0,0,0,.3);
+  --clip-base: #0d1418;
+  --media: #080d10;
+  --checker-a: #0e1519;
+  --checker-b: #0b1114;
+  --out-range: rgba(0,0,0,.42);
+  --play-hover: #ffffff;
+}
+
+/* carbon: pure graphite, no blue in it, lines a touch crisper */
+:root[data-theme="carbon"] {
+  --bg: #0f1011;
+  --panel: #151617;
+  --panel-2: #191a1b;
+  --raised: #1e1f20;
+  --field: #222325;
+  --field-hover: #2a2c2e;
+  --field-active: #323538;
+  --line: #232527;
+  --line-soft: #1b1d1e;
+  --line-strong: #323538;
+  --text: #ececec;
+  --text-2: #a6a9ac;
+  --text-3: #72757a;
+  --text-4: #4c4f53;
+  --hover-soft: rgba(255,255,255,.03);
+  --edge-soft: rgba(255,255,255,.07);
+  --edge: rgba(255,255,255,.16);
+  --edge-hover: rgba(255,255,255,.18);
+  --stage: #121314;
+  --float: rgba(21,22,23,.9);
+  --glass: rgba(15,16,17,.88);
+  --scrim: rgba(5,5,6,.6);
+  --scroll: #2a2d2f;
+  --scroll-hover: #383c3f;
+  --grid: rgba(255,255,255,.14);
+  --sunken: rgba(0,0,0,.22);
+  --clip-base: #191b1c;
+  --media: #101112;
+  --checker-a: #151718;
+  --checker-b: #121415;
+  --play-hover: #ffffff;
+}
+
+/* dusk: a warm dark, for the long sessions; the teal accent reads brighter against it */
+:root[data-theme="dusk"] {
+  --bg: #14110c;
+  --panel: #1a1712;
+  --panel-2: #1f1b15;
+  --raised: #252019;
+  --field: #2a251c;
+  --field-hover: #332c21;
+  --field-active: #3d3426;
+  --line: #2a241b;
+  --line-soft: #211d16;
+  --line-strong: #3b3325;
+  --text: #ece4d4;
+  --text-2: #b1a78f;
+  --text-3: #80765f;
+  --text-4: #584f3d;
+  --hover-soft: rgba(255,240,210,.03);
+  --edge-soft: rgba(255,235,200,.07);
+  --edge: rgba(255,235,200,.15);
+  --edge-hover: rgba(255,235,200,.17);
+  --stage: #16130d;
+  --float: rgba(26,23,18,.9);
+  --glass: rgba(20,17,12,.88);
+  --scrim: rgba(8,6,3,.6);
+  --scroll: #352e21;
+  --scroll-hover: #443b2b;
+  --grid: rgba(255,240,210,.13);
+  --sunken: rgba(0,0,0,.2);
+  --clip-base: #1f1b14;
+  --media: #161309;
+  --checker-a: #1b1811;
+  --checker-b: #171510;
+  --play-hover: #ffffff;
+}
+
+/* the theme chips of the settings */
+.theme-chips { display: flex; gap: 6px; flex-wrap: wrap; }
+.theme-chip { display: inline-flex; align-items: center; gap: 8px; padding: 5px 10px; border-radius: 8px; border: 1px solid var(--line-strong); background: var(--field); color: var(--text-2); font-size: 12px; }
+.theme-chip:hover { background: var(--field-hover); }
+.theme-chip.on { border-color: var(--accent-line); color: var(--text); background: var(--accent-soft); }
+.theme-chip .sw { display: inline-flex; gap: 3px; }
+.theme-chip .sw i { width: 10px; height: 10px; border-radius: 50%; box-shadow: inset 0 0 0 1px rgba(255,255,255,.14); }
 
 * { box-sizing: border-box; }
 html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text); }
@@ -1055,3 +1176,61 @@ html { -webkit-tap-highlight-color: transparent; -webkit-text-size-adjust: 100%;
 @media (max-height: 520px) and (orientation: landscape) {
   .menu { max-height: calc(100dvh - 16px); overflow-y: auto; }
 }
+
+/* ── the display modes: the same interface, laid out so the film leads (settings, Display) ── */
+:root[data-display="cinema"] .workspace, :root[data-display="conversation"] .workspace { display: block; }
+:root[data-display="cinema"] .center, :root[data-display="conversation"] .center { position: absolute; inset: 0; }
+:root[data-display="cinema"] .resizer, :root[data-display="conversation"] .resizer { display: none; }
+:root[data-display="cinema"] .topbar, :root[data-display="conversation"] .topbar {
+  position: relative; z-index: 30; background: var(--glass); backdrop-filter: blur(14px); border-bottom-color: transparent;
+}
+
+/* the panels become floating glass cards, summoned from the edges */
+:root[data-display="cinema"] .col.left, :root[data-display="cinema"] .col.right,
+:root[data-display="conversation"] .col.left, :root[data-display="conversation"] .col.right {
+  position: fixed; z-index: 40; overflow: hidden; border-radius: 14px; border: 1px solid var(--line-strong);
+  background: var(--float); backdrop-filter: blur(16px); box-shadow: var(--shadow);
+  transition: transform .18s var(--ease);
+}
+:root[data-display="cinema"] .col.left { left: 12px; top: 58px; bottom: 20px; width: 300px; transform: translateX(calc(-100% - 24px)); }
+:root[data-display="cinema"] .col.right { right: 12px; top: 58px; bottom: 20px; width: 340px; transform: translateX(calc(100% + 24px)); }
+/* conversation: the thread is the main column, always there; the film sits beside it */
+:root[data-display="conversation"] .col.right { left: 12px; top: 58px; bottom: 20px; width: 380px; }
+:root[data-display="conversation"] .center { left: 404px; }
+/* the conversation card put away from its left edge: the film takes the whole width */
+:root[data-display="conversation"] .app[data-chat="hidden"] .col.right { transform: translateX(calc(-100% - 24px)); }
+:root[data-display="conversation"] .app[data-chat="hidden"] .center { left: 0; }
+:root[data-display="conversation"] .col.left { right: 12px; top: 58px; bottom: 20px; width: 300px; transform: translateX(calc(100% + 24px)); }
+:root[data-display="conversation"] .inspector-wrap { display: none; }
+:root[data-display="conversation"] .col.right > :last-child { height: auto !important; flex: 1 !important; }
+:root[data-display="cinema"] .app[data-summon="left"] .col.left { transform: none; }
+:root[data-display="cinema"] .app[data-summon="right"] .col.right { transform: none; }
+:root[data-display="conversation"] .app[data-summon="right"] .col.left { transform: none; }
+
+/* the transport and the timeline: a drawer at the bottom */
+:root[data-display="cinema"] .bottom, :root[data-display="conversation"] .bottom {
+  position: fixed !important; left: 50%; bottom: 16px; z-index: 40;
+  width: min(1020px, calc(100vw - 44px)); height: 320px !important;
+  transform: translate(-50%, calc(100% + 32px));
+  transition: transform .18s var(--ease);
+  flex-direction: column; gap: 4px; padding: 10px 12px;
+  border-radius: 14px; border: 1px solid var(--line-strong);
+  background: var(--float); backdrop-filter: blur(16px); box-shadow: var(--shadow);
+}
+.app[data-summon="bottom"] .bottom { transform: translate(-50%, 0) !important; }
+
+/* the edges that summon the cards */
+.summon { display: contents; }
+.summon .edge { position: fixed; z-index: 41; width: 30px; height: 46px; display: flex; align-items: center; justify-content: center; border: 1px solid var(--line-strong); background: var(--float); backdrop-filter: blur(12px); color: var(--text-3); }
+.summon .edge:hover { color: var(--text); }
+.summon .edge.on { color: var(--accent); border-color: var(--accent-line); }
+.summon .edge.at-left { left: 0; top: 50%; transform: translateY(-50%); border-left: 0; border-radius: 0 10px 10px 0; }
+.summon .edge.at-right { right: 0; top: 50%; transform: translateY(-50%); border-right: 0; border-radius: 10px 0 0 10px; }
+.summon .edge.at-bottom { left: 50%; bottom: 0; transform: translateX(-50%); border-bottom: 0; border-radius: 10px 10px 0 0; width: 56px; height: 26px; }
+
+/* a row whose control is wide (the theme chips): the label and the hint above, the control below */
+.set-row.stack { grid-template-columns: 1fr; }
+.set-row.stack .set-control { justify-content: flex-start; }
+
+/* the composition properties, summoned as a card in the conversation display mode */
+.summon-card { position: fixed; right: 12px; top: 58px; bottom: 20px; width: 340px; z-index: 40; overflow: hidden auto; border-radius: 14px; border: 1px solid var(--line-strong); background: var(--float); backdrop-filter: blur(16px); box-shadow: var(--shadow); }

@@ -49,7 +49,11 @@ export const S = {
   toasts: signal<Toast[]>([]),
   bottomTab: signal<'timeline' | 'graph'>('timeline'),
   mobileTab: signal<'viewport' | 'layers' | 'timeline' | 'inspector' | 'ai'>('viewport'),
+  /** the panel summoned from an edge, in the cinema and conversation display modes */
+  summon: signal<'none' | 'left' | 'right' | 'bottom' | 'props'>('none'),
   assistantFull: signal(false),
+  /** the conversation card put away, in the conversation display mode */
+  chatHidden: signal(false),
 };
 
 /**

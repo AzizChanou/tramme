@@ -11,7 +11,7 @@ import { openMenu, Popover, Select, type MenuItem } from './controls.tsx';
 import { VIDEO, WEB_FORMATS, type WebFormat } from '../formats.ts';
 import { Icon } from './icons.tsx';
 import { LogoMark } from './Logo.tsx';
-import { settingsOpen } from '../settings.ts';
+import { settingsOpen, setPrefs, prefs, DISPLAYS } from '../settings.ts';
 import { HelpButton, helpMenu } from './Help.tsx';
 import { t } from '../i18n/index.ts';
 
@@ -114,6 +114,8 @@ async function rename(value: string) {
 const FPS = [24, 25, 30, 50, 60];
 
 /** format, frame rate, compositions, help and settings, for the narrow bar */
+const DISPLAY_LABEL: Record<string, string> = { editor: t('app.displayEditor'), cinema: t('app.displayCinema'), conversation: t('app.displayConversation') };
+
 function moreMenu(e: MouseEvent, o: { fmt: string; fps: number; setFormat: (id: string) => void; setFps: (n: number) => void; comps: [string, string][] }) {
   const btn = e.currentTarget as HTMLElement, r = btn.getBoundingClientRect();
   const items: MenuItem[] = [];
@@ -121,6 +123,9 @@ function moreMenu(e: MouseEvent, o: { fmt: string; fps: number; setFormat: (id: 
   items.push({ section: t('common.format') }, ...FORMATS.map(([id, label]): MenuItem => ({ label, icon: id === o.fmt ? 'check' : undefined, onClick: () => o.setFormat(id) })));
   items.push('sep', { section: t('common.frameRate') }, ...FPS.map((n): MenuItem => ({ label: t('common.nFps', { n }), icon: n === o.fps ? 'check' : undefined, onClick: () => o.setFps(n) })));
   items.push('sep',
+    { section: t('app.display') },
+    ...DISPLAYS.map((id): MenuItem => ({ label: DISPLAY_LABEL[id], icon: prefs.value.display === id ? 'check' : undefined, onClick: () => setPrefs({ display: id }) })),
+    'sep',
     { label: t('common.helpAndGuidedTours'), icon: 'help', onClick: () => helpMenu({ currentTarget: btn } as unknown as MouseEvent, 'editor') },
     { label: t('common.settings'), icon: 'gear', onClick: () => { settingsOpen.value = true; } });
   openMenu({ clientX: r.right, clientY: r.bottom + 4 }, items);
@@ -166,6 +171,10 @@ export function TopBar() {
         </div>
       </div>
       <HelpButton page="editor" />
+      <button class="icon-btn" title={t('app.display')} onClick={(e) => {
+        const r = (e.currentTarget as HTMLElement).getBoundingClientRect();
+        openMenu({ clientX: r.right, clientY: r.bottom + 4 }, DISPLAYS.map((id): MenuItem => ({ label: DISPLAY_LABEL[id], icon: prefs.value.display === id ? 'check' : undefined, onClick: () => setPrefs({ display: id }) })));
+      }}><Icon name="expand" /></button>
       <button class="icon-btn" data-tour="settings" title={t('common.settingsCtrl')} onClick={() => { settingsOpen.value = true; }}><Icon name="gear" /></button>
       <button class="btn primary" data-tour="export" onClick={(e) => setExp(exp ? null : (e.currentTarget as HTMLElement))}><Icon name="download" /><span class="label">{t('common.export')}</span></button>
       {/* narrow screens: what no longer fits in the bar moves here */}

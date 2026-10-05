@@ -13,7 +13,7 @@ import { EffortPicker, ModelPicker } from './ModelPicker.tsx';
 import { aiSettings, aiStatus, connectProvider, disconnectProvider, ensureStatus, refreshStatus, removeCustomProvider, saveCustomProvider, setAiSettings, statusLabels } from '../ai/index.ts';
 import { allowNotifications, notificationState } from '../notify.ts';
 import { previewInfo } from '../preview.ts';
-import { DEFAULT_PREFERENCES, prefs, resetPrefs, setLanguage, setPrefs, settingsOpen, settingsSection, type Preferences, type SettingsSection } from '../settings.ts';
+import { DEFAULT_PREFERENCES, DISPLAYS, prefs, resetPrefs, setLanguage, setPrefs, settingsOpen, settingsSection, THEMES, type Preferences, type SettingsSection, type ThemeInfo } from '../settings.ts';
 import { S, toast } from '../state.ts';
 import { Modal, NumberField, Select, Seg, Toggle } from './controls.tsx';
 import { Icon } from './icons.tsx';
@@ -50,12 +50,12 @@ function Section({ title, children }: { title: string; children: ComponentChildr
 }
 
 /** a setting: its label (and a badge) and hint, its control; `below`, what goes under it (a list), found by the search with it */
-function Row({ label, badge, hint, children, below }: { label: string; badge?: string; hint?: string; children: ComponentChildren; below?: ComponentChildren }) {
+function Row({ label, badge, hint, children, below, stack }: { label: string; badge?: string; hint?: string; children: ComponentChildren; below?: ComponentChildren; stack?: boolean }) {
   const { query, whole } = useContext(Search);
   if (!whole && !norm(`${label} ${hint ?? ''}`).includes(query)) return null;
   return (
     <>
-      <div class="set-row">
+      <div class={`set-row${stack ? ' stack' : ''}`}>
         <div class="set-label"><span>{label}{badge && <span class="set-badge">{badge}</span>}</span>{hint && <span class="faint">{hint}</span>}</div>
         <div class="set-control">{children}</div>
       </div>
@@ -69,6 +69,39 @@ const size = (k: number) => {
   return c ? `${Math.round(c.width * k)}×${Math.round(c.height * k)}` : `${Math.round(k * 100)} %`;
 };
 
+/** the theme picker: a chip per theme, its three colours beside its name; system's first dot splits dark and light */
+const THEME_NAME: Record<string, string> = {
+  system: m('settings.themes.system'),
+  studio: m('settings.themes.studio'),
+  obsidian: m('settings.themes.obsidian'),
+  carbon: m('settings.themes.carbon'),
+  dusk: m('settings.themes.dusk'),
+  paper: m('settings.themes.paper'),
+};
+
+const DISPLAY_NAME: Record<string, string> = {
+  editor: m('app.displayEditor'),
+  cinema: m('app.displayCinema'),
+  conversation: m('app.displayConversation'),
+};
+
+function ThemeChips({ value, onPick }: { value: Preferences['theme']; onPick: (id: Preferences['theme']) => void }) {
+  return (
+    <div class="theme-chips">
+      {THEMES.map((th: ThemeInfo) => (
+        <button key={th.id} class={`theme-chip${value === th.id ? ' on' : ''}`} onClick={() => onPick(th.id)}>
+          <span class="sw">
+            <i style={th.id === 'system' ? { background: 'linear-gradient(90deg, #0b0f12 50%, #d8dde0 50%)' } : { background: th.bg }} />
+            <i style={{ background: th.panel }} />
+            <i style={{ background: th.accent }} />
+          </span>
+          {t(THEME_NAME[th.id] ?? th.id)}
+        </button>
+      ))}
+    </div>
+  );
+}
+
 function Appearance() {
   const p = prefs.value;
   return (
@@ -76,8 +109,11 @@ function Appearance() {
       <Row label={t('settings.language')} hint={t('settings.automaticTheBrowserS')}>
         <Seg value={p.language} options={[['auto', t('common.automatic')], ...LOCALES]} onChange={(v) => setLanguage(v as Preferences['language'])} />
       </Row>
-      <Row label={t('settings.theme')} hint={t('settings.systemFollowsTheComputer')}>
-        <Seg value={p.theme} options={[['dark', t('settings.dark')], ['light', t('settings.lightGray')], ['system', t('settings.system')]]} onChange={(v) => setPrefs({ theme: v as Preferences['theme'] })} />
+      <Row label={t('settings.theme')} hint={t('settings.themeHint')} stack>
+        <ThemeChips value={p.theme} onPick={(id) => setPrefs({ theme: id })} />
+      </Row>
+      <Row label={t('settings.display')} hint={t('settings.displayHint')}>
+        <Seg value={p.display} options={DISPLAYS.map((id) => [id, t(DISPLAY_NAME[id])] as [Preferences['display'], string])} onChange={(v) => { setPrefs({ display: v as Preferences['display'] }); S.summon.value = 'none'; }} />
       </Row>
     </Section>
   );
