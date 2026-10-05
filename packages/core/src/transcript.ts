@@ -3,6 +3,9 @@
 // by the assistant. Times are in seconds, in the time of the file, or of the
 // timeline once the cuts of an edit are applied (remapTranscript).
 
+/** id of the transcript asset of a media asset (transcription-<id>) */
+export const transcriptIdOf = (assetId: string) => `transcription-${assetId}`.slice(0, 64);
+
 export interface TranscriptWord {
   /** the word as written, with its punctuation */
   w: string;

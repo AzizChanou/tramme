@@ -115,6 +115,11 @@
     "paidText": "Un fournisseur va la dessiner, ce qui coûte de l'argent : « {prompt} »",
     "paidYes": "La dessiner"
   },
+  "shorts": {
+    "candidates": "{n} passage(s) qui se tiennent seuls.",
+    "built": "{n} short(s) construit(s) en compositions.",
+    "nothing": "Aucun passage assez long dans le transcript."
+  },
   "attachments": {
     "nameImageSoundVideo": "{name} : image, son, vidéo ou JSON attendus",
     "attachmentName": "Pièce jointe : {name}",
@@ -1058,6 +1063,10 @@
     "a spring still moving when its layer leaves, or bouncing too far past its mark": "un ressort qui bouge encore quand son calque part, ou rebondit trop loin après sa cible",
     "Twin motions": "Mouvements jumeaux",
     "two layers whose positions follow the same series, which reads as a copy": "deux calques dont les positions suivent la même courbe, ce qui se lit comme une copie",
+    "Cut shorts": "Couper en shorts",
+    "a long video as shorts: lists the passages that stand alone (candidates), or builds one composition per passage of a plan — the video framed for the format, captions on the remapped transcript, a title": "une longue vidéo en shorts : liste les passages qui se tiennent seuls (candidats), ou construit une composition par passage du plan : la vidéo cadrée pour le format, les sous-titres sur le transcript remappé, un titre",
+    "Cut shorts from a long video": "Couper des shorts dans une longue vidéo",
+    "the strongest moments as shorts of the asked format, captions and titles included": "les meilleurs moments en shorts du format demandé, sous-titres et titres compris",
     "Octaves": "Octaves",
     "Offset": "Décalage",
     "offsets the animation by the layer's rank among its siblings": "décale l'animation selon le rang du calque parmi ses frères",

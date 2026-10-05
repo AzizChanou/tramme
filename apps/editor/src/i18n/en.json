@@ -115,6 +115,11 @@
     "paidText": "A provider will draw it, which costs money: \"{prompt}\"",
     "paidYes": "Draw it"
   },
+  "shorts": {
+    "candidates": "{n} passage(s) that stand alone.",
+    "built": "{n} short(s) built as compositions.",
+    "nothing": "No passage long enough in the transcript."
+  },
   "attachments": {
     "nameImageSoundVideo": "{name}: image, sound, video or JSON expected",
     "attachmentName": "Attachment: {name}",

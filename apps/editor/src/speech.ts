@@ -6,7 +6,7 @@
 
 import { signal } from '@preact/signals';
 import { ALL_FORMATS, AudioBufferSink, Input, UrlSource } from 'mediabunny';
-import { mergeChunks, pointer, type Transcript, type TranscriptWord } from '@tramme/core';
+import { mergeChunks, pointer, transcriptIdOf, type Transcript, type TranscriptWord } from '@tramme/core';
 import { aiStatus, companionLink, refreshStatus } from './ai/index.ts';
 import { safeName, takenPaths, upload } from './files.ts';
 import { commit, S, toast } from './state.ts';
@@ -103,8 +103,8 @@ export async function transcribeUrl(url: string, opts: { language?: string; onPr
   }
 }
 
-/** id of the transcript asset of a media asset */
-export const transcriptIdOf = (assetId: string) => `transcription-${assetId}`.slice(0, 64);
+/** id of the transcript asset of a media asset (defined in the core, with the rest of the transcript domain) */
+export { transcriptIdOf };
 
 /**
  * Transcribes a media asset of the open project: the words go to

@@ -13,6 +13,7 @@ import { PERCEPTION_TOOLS } from './perception.ts';
 import { EDITOR_PRESETS } from './presets.ts';
 import { BUILTIN_KITS, RECIPE_TOOLS } from './recipes.ts';
 import { REVIEW_TOOLS } from './review.ts';
+import { SHORTS_TOOLS } from './shorts.ts';
 import { SOUND_TOOLS } from './sound.ts';
 import { TRACKING_TOOLS } from './tracking.ts';
 import { TEMPLATES, type TemplateArgs } from './templates.ts';
@@ -59,9 +60,13 @@ export const EDITOR_PROMPTS: PromptType[] = [
     name: 'sound-design', title: 'Sound design', description: 'gives the video its sound: effects on the moments that matter, a bed if it needs one, levels under the voice',
     prompt: 'Give this video its sound, following your guide for sound: look at the key moments (check), say in a few lines which sounds go where and why, then search the library (sfx with a query) and place them on the moments (on: entrances, cuts, markers, beats), write the ones the library lacks (synth), duck any music under a voice (duck), and check the mix (check) before summing up.',
   },
+  {
+    name: 'shorts', title: 'Cut shorts from a long video', description: 'the strongest moments as shorts of the asked format, captions and titles included',
+    prompt: 'Cut shorts from the long video of this project, following your guide for shorts: ask how many and which format if I have not said them, read the candidates (use_tool "shorts" without plan) and say which you would pick and why, build them (shorts with a plan), then check each short (check, after switching to it) and fix what matters before summing up.',
+  },
 ];
 
 /** the base vocabulary of the editor, before a document's plugins */
 export function editorRegistry() {
-  return builtinRegistry().registerTool(...EDITOR_TOOLS, ...RECIPE_TOOLS, ...EVENT_TOOLS, ...PERCEPTION_TOOLS, ...TRACKING_TOOLS, ...CUTOUT_TOOLS, ...REVIEW_TOOLS, ...SOUND_TOOLS, ...IMAGE_TOOLS, ...LIBRARY_TOOLS).registerPrompt(...EDITOR_PROMPTS).registerKit(...BUILTIN_KITS).registerPreset(...EDITOR_PRESETS);
+  return builtinRegistry().registerTool(...EDITOR_TOOLS, ...RECIPE_TOOLS, ...EVENT_TOOLS, ...PERCEPTION_TOOLS, ...TRACKING_TOOLS, ...CUTOUT_TOOLS, ...REVIEW_TOOLS, ...SOUND_TOOLS, ...IMAGE_TOOLS, ...SHORTS_TOOLS, ...LIBRARY_TOOLS).registerPrompt(...EDITOR_PROMPTS).registerKit(...BUILTIN_KITS).registerPreset(...EDITOR_PRESETS);
 }
