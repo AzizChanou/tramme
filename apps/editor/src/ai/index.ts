@@ -360,7 +360,10 @@ export async function* ask(p: AskPayload, signal: AbortSignal): AsyncGenerator<A
   // the companion keeps its own history: another model taking over the conversation reads what was said
   if (route !== 'companion' && !session.server.messages.length) notes.unshift(...earlier());
   const prompt = userPrompt(p.text, p.context, notes);
-  const system = systemPrompt(reference);
+  // the project's brief, when there is one, rides in the system prompt: the assistant follows it from the first word
+  let brief: string | null = null;
+  try { brief = (await api.readText(S.project.peek().id, 'assets/brief.json'))?.text ?? null; } catch { brief = null; }
+  const system = systemPrompt(reference, brief ?? undefined);
   const model = aiSettings.peek().model, effort = currentEffort(model);
   if (route === 'companion') yield* companionTurn(link(), { prompt, system, model, effort, sessionId: session.companion, images }, runner, signal, (id) => { session.companion = id; });
   else {

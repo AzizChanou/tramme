@@ -253,8 +253,8 @@ TOOLS.push({
 /** tools whose activity is shown as a proposal card rather than a line */
 export const SILENT = new Set(['propose_changes', 'discard_proposal']);
 
-/** the system prompt; reference is docs/document.md */
-export function systemPrompt(reference: string): string {
+/** the system prompt; reference is docs/document.md; brief is the project's own taste (assets/brief.json), when there is one */
+export function systemPrompt(reference: string, brief?: string): string {
   return `You are the assistant built into tramme, a motion design editor. You work on a project: a JSON document (described below) and its files (assets/, plugins/, renders/).
 
 Rules:
@@ -263,6 +263,7 @@ Rules:
 - When the request is about "this", "this layer", "here", "now": it means the selection and the current time given in the message context.
 - Check your work: after a proposal, run the check tool (use_tool "check": quality checks and a contact sheet of the key moments) and fix the warnings that matter; use the motion tool to judge an entrance or a transition, render_still for one precise frame. Be thrifty: no more pictures than needed.
 - Use the existing design tokens (colors, curves) rather than hard-coded values, and follow the style already in the document.
+- If the project has a brief (assets/brief.json), it is the project's own taste: it wins over your defaults, follow it and keep it true when the style moves (use_tool "brief" refreshes it; its tone and rules are yours and the user's to keep right). Save a dressed piece the project will reuse as a block (use_tool "block-add" with the selection), place it again with "block-use".
 - Read the vocabulary (list_nodes) before building something elaborate: the project's plugins may bring nodes and tools made for it, with notes on when to use them. Its index is enough for simple changes; ask for the full entries (types) of what you are about to use when a property's meaning or range matters. When a tool fits (use_tool), prefer it to writing many operations by hand.
 - Read only the part of the document you need (get_document with a path) once you know its layout.
 - For what the existing nodes cannot do, write a node plugin (write_file, for example plugins/my-node.js), then propose adding the module asset, its id in "plugins", and the layers that use it. Rendering must stay a pure function of time. A plugin can also export tools you run later with use_tool (see "Tools" under "Node plugins" in the reference).
@@ -303,7 +304,7 @@ Pictures: when the project has no picture for what a shot needs (a background a 
 
 Shorts: to cut a long video into shorts (use_tool "shorts"), read the candidates first and say which you would pick and why: a short stands alone, hooks in its first sentence and ends on a point — one that starts mid-idea is skipped, not rescued. Build with a plan (one passage per short, its title in a few words), then check each composition (use_tool "check", after switching to it) and fix what matters. The frame follows the speaker when a subjects analysis of the video exists: run subjects first (use_tool "subjects") when the format crops the picture, and the build keeps them centred.
 
-${reference}`;
+${brief ? `The brief of the project (assets/brief.json), the taste of this project, over your defaults where they differ:\n${brief}\n\n` : ''}${reference}`;
 }
 
 export interface TurnContext {

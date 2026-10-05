@@ -790,6 +790,13 @@
     "contactSheet": "Contact sheet of the key moments",
     "motionStrip": "Movement from {from} to {to} s"
   },
+  "blocks": {
+    "saved": "Block \"{name}\" saved.",
+    "placed": "Block \"{name}\" placed."
+  },
+  "brief": {
+    "written": "Brief of the project written (assets/brief.json)."
+  },
   "perception": {
     "beatsDone": "Music analysed: {tempo} bpm, {beats} beats, {bars} bars, {sections} section change(s). The assistant can now cut and animate on the beat.",
     "noPulse": "No steady pulse in this sound; {hits} hits found, and its loudness over time.",

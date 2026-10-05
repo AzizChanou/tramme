@@ -790,6 +790,13 @@
     "contactSheet": "Planche des moments clés",
     "motionStrip": "Mouvement de {from} à {to} s"
   },
+  "blocks": {
+    "saved": "Bloc « {name} » enregistré.",
+    "placed": "Bloc « {name} » placé."
+  },
+  "brief": {
+    "written": "Brief du projet écrit (assets/brief.json)."
+  },
   "perception": {
     "beatsDone": "Musique analysée : {tempo} bpm, {beats} temps, {bars} mesures, {sections} changement(s) de section. L'assistant peut maintenant couper et animer sur le temps.",
     "noPulse": "Pas de pulsation régulière dans ce son ; {hits} coups trouvés, et son volume dans le temps.",
@@ -1074,6 +1081,12 @@
     "a group entering with even offsets, which reads as mechanical": "un groupe qui entre avec des décalages réguliers, ce qui se lit comme mécanique",
     "Polish the motion": "Peaufiner le mouvement",
     "brings the movement to standard: easings, durations, stagger, arcs, settles": "remet le mouvement au standard : easings, durées, décalages, arcs, stabilisations",
+    "Save a block": "Enregistrer un bloc",
+    "saves the selected layers (or the given ones) as a reusable block of the project": "enregistre les calques sélectionnés (ou donnés) en bloc réutilisable du projet",
+    "Blocks": "Blocs",
+    "the blocks saved in the project (list), or places one at a time": "les blocs enregistrés du projet (liste), ou en place un à un instant",
+    "Project brief": "Brief du projet",
+    "writes the brief of the project (assets/brief.json): the facts of the document, the tone and the rules kept; the assistant follows it over its defaults": "écrit le brief du projet (assets/brief.json) : les faits du document, le ton et les règles conservés ; l'assistant le suit plutôt que ses réglages par défaut",
     "Cut shorts": "Couper en shorts",
     "a long video as shorts: lists the passages that stand alone (candidates), or builds one composition per passage of a plan — the video framed for the format, captions on the remapped transcript, a title": "une longue vidéo en shorts : liste les passages qui se tiennent seuls (candidats), ou construit une composition par passage du plan : la vidéo cadrée pour le format, les sous-titres sur le transcript remappé, un titre",
     "Cut shorts from a long video": "Couper des shorts dans une longue vidéo",
