@@ -2,7 +2,7 @@
 
 How tramme gains the taste of a motion designer: the rules of the craft, distilled from the public references of the field and encoded where the engine can act on them. The goal: a simple request produces a result that already moves well, without the user asking for it.
 
-Status: steps 1 to 4 done. Tick the boxes as steps land, and keep this file as the reference instead of re-deciding the plan.
+Status: steps 1 to 7 done. Tick the boxes as steps land, and keep this file as the reference instead of re-deciding the plan.
 
 ## Why
 
@@ -37,15 +37,15 @@ A model writes keyframes but tunes motion poorly: it cannot see what it animates
 
 ### Step 5. The per-node sense
 
-- [ ] Notes per node family on what its movement should be (a counter rolls, a receipt types line by line, a callout follows without lag), as `ai` notes: the model picks curve and duration from the node instead of guessing. Shared with motion-roadmap step 6.
+- [x] Notes per node family on what its movement should be, in `packages/nodes/src/notes.ts`: text moves as a whole block or word by word and never letter by letter, a counter rolls with an ease out over 0.8 to 1.6 s, a bar draws along its x, a path draws itself over 0.4 to 0.8 s, a callout's brackets follow without lag and its label settles a beat after, captions pop on the spoken word, a group staggers its children 30 to 60 ms with uneven gaps, footage drifts or zooms slowly (never both), a shader drifts on a period of 5 s or more. The model picks the curve and the duration from the node instead of guessing.
 
 ### Step 6. The kits
 
-- [ ] Style kits expose the four curves as tokens and set the pace (productive or expressive) of the recipes they dress, so a "punchy" project and a "calm" one differ by their tokens, not by hand-tuned layers.
+- [x] The four kits expose `standard` and `emphasized` beside `enter` and `exit`, flavored per kit (punchy overshoots, calm rounds, neon cuts, editorial unhurried); `style()` reads them, so every recipe that follows a kit speaks its four curves, and a punchy project and a calm one differ by their tokens.
 
 ### Step 7. What the checks cannot judge
 
-- [ ] Optical flow between rendered stills, for what property figures cannot see (a crossing, a smear, a background that should hold): shared with motion-roadmap step 4.
+- [x] Optical flow between two rendered stills (block matching on a downsampled luma grid, `apps/editor/src/flow.ts`), read by the `motion` tool beside the property figures: the whole-frame move and its speed in px/s, and the blocks that move differently from the whole, with where they sit (a crossing, something holding against a pan). Shared with motion-roadmap step 4.
 
 ## Sources
 

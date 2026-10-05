@@ -13,6 +13,7 @@ import { clip } from './model.ts';
 // ── the look of the document ─────────────────────────────────
 type Bezier = [number, number, number, number];
 const ENTER: Bezier = [0.16, 1, 0.3, 1], EXIT: Bezier = [0.7, 0, 0.84, 0], POP: Bezier = [0.34, 1.56, 0.64, 1];
+const STANDARD: Bezier = [0.4, 0, 0.2, 1], EMPHASIZED: Bezier = [0.2, 0, 0, 1];
 
 /** a token when the document has one of that type, a fallback otherwise */
 export function style(doc: TrammeDoc) {
@@ -25,6 +26,8 @@ export function style(doc: TrammeDoc) {
     ink: has('ink', 'color') ? '@ink' : '#FFFFFF',
     enter: (has('enter', 'ease') ? '@enter' : ENTER) as EaseSpec,
     exit: (has('exit', 'ease') ? '@exit' : EXIT) as EaseSpec,
+    standard: (has('standard', 'ease') ? '@standard' : STANDARD) as EaseSpec,
+    emphasized: (has('emphasized', 'ease') ? '@emphasized' : EMPHASIZED) as EaseSpec,
     pace: num('pace', 0.6),
     stagger: num('stagger', 0.06),
     font: Object.entries(doc.assets).find(([, a]) => a.type === 'font')?.[0] ?? null,
@@ -244,10 +247,10 @@ const transition: ToolType<TransitionArgs> = {
 const tok = (type: 'color' | 'ease' | 'number', value: unknown, description?: string) => ({ type, value, ...(description ? { description } : {}) });
 
 export const BUILTIN_KITS: KitType[] = [
-  { name: 'editorial', title: 'Editorial', description: 'paper and ink, a burnt orange accent, unhurried curves', tokens: { plate: tok('color', '#F4EFE6'), ink: tok('color', '#1B1A17'), accent: tok('color', '#C2410C'), accent2: tok('color', '#1E3A8A'), enter: tok('ease', [0.22, 1, 0.36, 1]), exit: tok('ease', [0.64, 0, 0.78, 0]), pace: tok('number', 0.7, 'seconds of an entrance'), stagger: tok('number', 0.07, 'seconds between siblings') } },
-  { name: 'punchy', title: 'Punchy', description: 'black and white with a yellow accent, fast entrances that overshoot', tokens: { plate: tok('color', '#0E0E10'), ink: tok('color', '#FFFFFF'), accent: tok('color', '#FFD400'), accent2: tok('color', '#FF4D6D'), enter: tok('ease', [0.34, 1.56, 0.64, 1]), exit: tok('ease', [0.7, 0, 0.84, 0]), pace: tok('number', 0.4, 'seconds of an entrance'), stagger: tok('number', 0.04, 'seconds between siblings') } },
-  { name: 'calm', title: 'Calm', description: 'soft blue-grey, slow and smooth movements', tokens: { plate: tok('color', '#E8EEF2'), ink: tok('color', '#23313B'), accent: tok('color', '#5B8DB8'), accent2: tok('color', '#8FB89A'), enter: tok('ease', [0.45, 0, 0.2, 1]), exit: tok('ease', [0.55, 0, 0.55, 1]), pace: tok('number', 1, 'seconds of an entrance'), stagger: tok('number', 0.1, 'seconds between siblings') } },
-  { name: 'neon', title: 'Neon', description: 'a night plate, cyan and pink accents, sharp curves', tokens: { plate: tok('color', '#07060F'), ink: tok('color', '#F2F0FF'), accent: tok('color', '#22D3EE'), accent2: tok('color', '#F0ABFC'), enter: tok('ease', [0.16, 1, 0.3, 1]), exit: tok('ease', [0.7, 0, 0.84, 0]), pace: tok('number', 0.5, 'seconds of an entrance'), stagger: tok('number', 0.05, 'seconds between siblings') } },
+  { name: 'editorial', title: 'Editorial', description: 'paper and ink, a burnt orange accent, unhurried curves', tokens: { plate: tok('color', '#F4EFE6'), ink: tok('color', '#1B1A17'), accent: tok('color', '#C2410C'), accent2: tok('color', '#1E3A8A'), enter: tok('ease', [0.22, 1, 0.36, 1]), exit: tok('ease', [0.64, 0, 0.78, 0]), standard: tok('ease', [0.42, 0, 0.24, 1]), emphasized: tok('ease', [0.2, 0.8, 0.16, 1]), pace: tok('number', 0.7, 'seconds of an entrance'), stagger: tok('number', 0.07, 'seconds between siblings') } },
+  { name: 'punchy', title: 'Punchy', description: 'black and white with a yellow accent, fast entrances that overshoot', tokens: { plate: tok('color', '#0E0E10'), ink: tok('color', '#FFFFFF'), accent: tok('color', '#FFD400'), accent2: tok('color', '#FF4D6D'), enter: tok('ease', [0.34, 1.56, 0.64, 1]), exit: tok('ease', [0.7, 0, 0.84, 0]), standard: tok('ease', [0.3, 0, 0.15, 1]), emphasized: tok('ease', [0.34, 1.3, 0.5, 1]), pace: tok('number', 0.4, 'seconds of an entrance'), stagger: tok('number', 0.04, 'seconds between siblings') } },
+  { name: 'calm', title: 'Calm', description: 'soft blue-grey, slow and smooth movements', tokens: { plate: tok('color', '#E8EEF2'), ink: tok('color', '#23313B'), accent: tok('color', '#5B8DB8'), accent2: tok('color', '#8FB89A'), enter: tok('ease', [0.45, 0, 0.2, 1]), exit: tok('ease', [0.55, 0, 0.55, 1]), standard: tok('ease', [0.45, 0, 0.25, 1]), emphasized: tok('ease', [0.25, 0.3, 0.2, 1]), pace: tok('number', 1, 'seconds of an entrance'), stagger: tok('number', 0.1, 'seconds between siblings') } },
+  { name: 'neon', title: 'Neon', description: 'a night plate, cyan and pink accents, sharp curves', tokens: { plate: tok('color', '#07060F'), ink: tok('color', '#F2F0FF'), accent: tok('color', '#22D3EE'), accent2: tok('color', '#F0ABFC'), enter: tok('ease', [0.16, 1, 0.3, 1]), exit: tok('ease', [0.7, 0, 0.84, 0]), standard: tok('ease', [0.3, 0, 0.1, 1]), emphasized: tok('ease', [0.18, 0.9, 0.2, 1]), pace: tok('number', 0.5, 'seconds of an entrance'), stagger: tok('number', 0.05, 'seconds between siblings') } },
 ];
 
 const kit: ToolType<{ kit: string; background?: boolean }> = {

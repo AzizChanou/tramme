@@ -4,6 +4,7 @@
 // up (use_tool) or by the user from the / menu.
 
 import { Evaluator, motionReport, runChecks, type QualityIssue, type ToolContext, type ToolType, type TrammeDoc } from '@tramme/core';
+import { pixelsOf, flowLines } from './flow.ts';
 import { analyses, canvas } from './perception.ts';
 import { soundIssues } from './sound.ts';
 import { t } from './i18n/index.ts';
@@ -25,17 +26,24 @@ export function sheetOf(cells: { image: CanvasImageSource; label: string }[], w:
   return c.toDataURL('image/jpeg', 0.85);
 }
 
-/** a picture of several stills side by side, each labelled with its time */
-async function sheet(ctx: ToolContext, times: number[], cols: number, compId: string): Promise<string> {
-  const c = ctx.doc.compositions[compId], cells: { image: CanvasImageSource; label: string }[] = [];
+/** the stills of the given times, loaded (the sheet and the flow read the same images) */
+async function stills(ctx: ToolContext, times: number[], compId: string) {
+  const out: HTMLImageElement[] = [];
   for (const at of times) {
     if (ctx.signal.aborted) throw new Error('stopped');
     const image = new Image();
     image.src = await ctx.renderStill(at, compId);
     await image.decode();
-    cells.push({ image, label: `${at.toFixed(2)} s` });
+    out.push(image);
   }
-  return sheetOf(cells, CELL, Math.round((CELL * c.height) / c.width), cols);
+  return out;
+}
+
+/** a picture of several stills side by side, each labelled with its time */
+async function sheet(ctx: ToolContext, times: number[], cols: number, compId: string): Promise<string> {
+  const c = ctx.doc.compositions[compId];
+  const images = await stills(ctx, times, compId);
+  return sheetOf(images.map((image, i) => ({ image, label: `${times[i].toFixed(2)} s` })), CELL, Math.round((CELL * c.height) / c.width), cols);
 }
 
 /** the moments worth looking at: just after entrances, markers, problems, and enough to cover the whole */
@@ -83,7 +91,7 @@ const check: ToolType<{ frames?: number }> = {
 };
 
 const motion: ToolType<{ t: number; span?: number; steps?: number }> = {
-  name: 'motion', title: 'Look at a movement', description: 'a strip of frames over a short span, to judge a movement (timing, easing, overshoot)',
+  name: 'motion', title: 'Look at a movement', description: 'a strip of frames over a short span, to judge a movement (timing, easing, overshoot, and the flow of pixels between the frames)',
   input: {
     type: 'object',
     properties: {
@@ -93,12 +101,13 @@ const motion: ToolType<{ t: number; span?: number; steps?: number }> = {
     },
     required: ['t'],
   },
-  ai: { when: 'checking an entrance, a transition or a bounce: span 0.4 to 1 s, 6 to 8 frames. The figures say how far it travels, how fast at the peak, whether the speed is even (the linear tell), how it turns, how far it overshoots and when it settles: judge with them, not only the spacing' },
+  ai: { when: 'checking an entrance, a transition or a bounce: span 0.4 to 1 s, 6 to 8 frames. The figures say how far it travels, how fast at the peak, whether the speed is even (the linear tell), how it turns, how far it overshoots and when it settles: judge with them, not only the spacing. The Pixels lines read the frames themselves: a background that moves when it should hold, something crossing against the move' },
   async run({ t: from, span = 0.6, steps = 6 }, ctx) {
     const c = ctx.doc.compositions[ctx.compId];
     const to = Math.min(c.duration, from + span);
     const times = Array.from({ length: steps }, (_, i) => +Math.min(c.duration - 0.01, from + (span * i) / (steps - 1)).toFixed(3));
-    const url = await sheet(ctx, times, Math.min(steps, 6), ctx.compId);
+    const images = await stills(ctx, times, ctx.compId);
+    const url = sheetOf(images.map((image, i) => ({ image, label: `${times[i].toFixed(2)} s` })), CELL, Math.round((CELL * c.height) / c.width), Math.min(steps, 6));
     // the same evaluation the render uses, so the figures are the movement's
     const report = motionReport(new Evaluator(ctx.doc, ctx.registry), ctx.compId, from, to, { limit: 6 });
     const figs = report.figures.map(({ address, figures: f }) => {
@@ -108,8 +117,15 @@ const motion: ToolType<{ t: number; span?: number; steps?: number }> = {
       const end = f.settle === undefined ? ', still moving at the end of the span' : `, settled at ${(from + f.settle).toFixed(2)} s`;
       return `- ${address}: ${f.travel.toFixed(1)} u over ${f.span.toFixed(2)} s, peak ${f.peak.toFixed(1)} u/s at ${(from + f.peakAt).toFixed(2)} s, ${pace}, ${way}${over}${end}`;
     });
+    // the pixels between the two first frames: what no property can say (a background that should hold, a crossing)
+    let flow: string[] | null = null;
+    if (images.length >= 2) {
+      const w = 240, h = Math.max(2, Math.round((c.height * w) / c.width));
+      const a = pixelsOf(images[0], w, h), b = pixelsOf(images[1], w, h);
+      flow = a && b ? flowLines(a, b, times[1] - times[0], c.width) : null;
+    }
     return {
-      text: `Frames at ${times.join(', ')} s (left to right, top to bottom): check the spacing between frames, it shows the easing.${figs.length ? `\nMotion in the span, biggest travels first (u: the property's units):\n${figs.join('\n')}` : ''}`,
+      text: `Frames at ${times.join(', ')} s (left to right, top to bottom): check the spacing between frames, it shows the easing.${figs.length ? `\nMotion in the span, biggest travels first (u: the property's units):\n${figs.join('\n')}` : ''}${flow ? `\n${flow.join('\n')}` : ''}`,
       notice: t('review.motionStrip', { from: from.toFixed(2), to: to.toFixed(2) }),
       images: [{ url, caption: t('review.motionStrip', { from: from.toFixed(2), to: to.toFixed(2) }) }],
     };

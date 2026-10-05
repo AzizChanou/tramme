@@ -2,7 +2,7 @@
 
 How the assistant judges a movement from the document's numbers, not only from a strip of frames: how far a property travels, how fast at the peak, whether the speed is even (the linear tell), how often it turns, how far it overshoots and when it settles. Before this the `motion` tool showed the spacing of frames — enough to see that a movement feels wrong, not to say why, and the checks read positions at 4 samples a second, too coarse for an easing. Now the figures say it, and the checks use them.
 
-Status: steps 1 to 3 and 5 done. What is left is listed under each step. Tick the boxes as steps land, and keep this file as the reference instead of re-deciding the plan.
+Status: steps 1 to 6 done. What is left is listed under each step. Tick the boxes as steps land, and keep this file as the reference instead of re-deciding the plan.
 
 ## Why
 
@@ -39,7 +39,7 @@ Done when: asked to make an entrance livelier, the assistant runs `motion` befor
 
 ### Step 4. What the properties miss
 
-- [ ] Optical flow between the frames of the render: the movement of pixels catches what property figures cannot see — a crossing, a smear, a background moving when it should hold. It reads rendered stills (authoring time), so the render stays pure.
+- [x] Optical flow between two rendered stills: the `motion` tool reads the pixels of its two first frames (block matching on a downsampled luma grid, `apps/editor/src/flow.ts`) and answers with the whole-frame move at its speed in px/s and the blocks that move differently from the whole, with where they sit — a background that moves when it should hold, something crossing against the move. It reads rendered stills (authoring time), so the render stays pure.
 
 ### Step 5. The judgment loop
 
@@ -47,4 +47,4 @@ Done when: asked to make an entrance livelier, the assistant runs `motion` befor
 
 ### Step 6. Motion sense per node
 
-- [ ] Notes per node family on what its movement should be (a counter rolls, a receipt types line by line, a callout follows without lag): the assistant picks the curve and the duration from the node's `ai` notes instead of guessing.
+- [x] Notes per node family on what its movement should be (a counter rolls, a receipt types line by line, a callout follows without lag): the assistant picks the curve and the duration from the node's `ai` notes instead of guessing. Encoded in `packages/nodes/src/notes.ts`; the plan and the numbers live in `docs/taste-roadmap.md`.

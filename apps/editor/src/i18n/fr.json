@@ -863,7 +863,7 @@
     "a shape that covers the frame at a cut and uncovers the next scene: wipe, circle, bars or flash": "une forme qui couvre l'image à une coupe et découvre la scène suivante : volet, cercle, bandes ou flash",
     "a soft circle of light that draws the eye (overlay blending)": "un cercle de lumière doux qui attire l'œil (fusion incrustation)",
     "a sound or video layer id, or the asset of its analysis": "l'id d'un calque son ou vidéo, ou l'asset de son analyse",
-    "a strip of frames over a short span, to judge a movement (timing, easing, overshoot)": "une bande d'images sur un court instant, pour juger un mouvement (timing, courbe, dépassement)",
+    "a strip of frames over a short span, to judge a movement (timing, easing, overshoot, and the flow of pixels between the frames)": "une bande d'images sur un court instant, pour juger un mouvement (timing, courbe, dépassement, et le déplacement des pixels entre les images)",
     "a title and, below it, a smaller line, with a colored bar that draws itself": "un titre et, dessous, une ligne plus petite, avec une barre de couleur qui se dessine",
     "a title whose words enter one after the other (rise, pop, slide or blur), one word in the accent colour": "un titre dont les mots entrent l'un après l'autre (montée, pop, glissé ou flou), un mot dans la couleur d'accent",
     "a translucent rounded card with a soft shadow, to set text on": "une carte arrondie translucide avec une ombre douce, pour y poser du texte",
