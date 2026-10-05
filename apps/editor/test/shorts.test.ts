@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { builtinRegistry } from '@tramme/nodes';
-import { applyOps, validate, type ToolContext, type ToolOutput, type Transcript, type TrammeDoc } from '@tramme/core';
+import { applyOps, validate, type Subjects, type ToolContext, type ToolOutput, type Transcript, type TrammeDoc } from '@tramme/core';
 import { newProject } from '@tramme/project';
-import { candidatesOf, SHORTS_TOOLS } from '../src/shorts.ts';
+import { candidatesOf, focusTrack, SHORTS_TOOLS } from '../src/shorts.ts';
 
 const shorts = SHORTS_TOOLS[0];
 const run = (input: unknown, ctx: ToolContext) => shorts.run(input as never, ctx) as Promise<ToolOutput>;
@@ -47,7 +47,47 @@ function doc(): TrammeDoc {
 }
 
 const transcript = wordsOf([[2, 'This is the big idea and it lands here.'], [5, 'Here comes the proof of it, plainly.'], [8, 'And that is the whole point.'], [9.9, 'Good.']]);
-const ctxOf = (d: TrammeDoc, written: Map<string, string> = new Map()): ToolContext =>
+
+// someone at x 0.2 of the picture, then at x 0.8, held between the analysed frames
+const subjects: Subjects = {
+  version: 1, kind: 'subjects', width: 2, height: 2,
+  frames: [
+    { t: 0, boxes: [{ x: 0.1, y: 0.2, w: 0.2, h: 0.4, label: 'person', score: 0.9 }] },
+    { t: 1, boxes: [{ x: 0.15, y: 0.3, w: 0.1, h: 0.2, label: 'person', score: 0.95 }] },
+    { t: 2, boxes: [] },
+    { t: 3, boxes: [{ x: 0.7, y: 0.2, w: 0.2, h: 0.4, label: 'person', score: 0.8 }, { x: 0.1, y: 0, w: 0.1, h: 0.2, label: 'person', score: 0.9 }] },
+    { t: 3.5, boxes: [{ x: 0.72, y: 0.2, w: 0.2, h: 0.4, label: 'person', score: 0.8 }] },
+  ],
+};
+
+describe('the frame follows the subject', () => {
+  it('the biggest person drives the focus, held when nobody is found, small drifts ignored', () => {
+    const track = focusTrack(subjects, 0, 4);
+    expect(track.map((k) => k.t)).toEqual([0, 3]);
+    expect(track[0].v).toEqual([0.2, 0.4]);
+    expect(track[1].v[0]).toBeCloseTo(0.8);
+    expect(track[1].v[1]).toBeCloseTo(0.4);
+  });
+
+  it('the window of the passage is respected', () => {
+    expect(focusTrack(subjects, 2.5, 4).map((k) => k.t)).toEqual([3]);
+  });
+
+  it('the build animates the focus when a subjects analysis exists', async () => {
+    const d = doc();
+    d.assets['subjects-talk'] = { type: 'json', src: 'subjects-talk.json' };
+    const read = new Map([['subjects-talk.json', JSON.stringify(subjects)]]);
+    const out = await run({ asset: 'talk', plan: [{ from: 0, to: 4, title: 'Framed' }] }, ctxOf(d, new Map(), read));
+    const next = applyOps(d, out.ops!).doc;
+    expect(validate(next, builtinRegistry())).toEqual([]);
+    const video = Object.values(next.compositions['short-framed'].layers).find((l) => l.type === 'video');
+    const keys = (video?.props?.focus as { $k: { t: number; v: number[] }[] }).$k;
+    expect(keys.map((k) => k.t)).toEqual([0, 3]);
+    expect(keys[1].v[0]).toBeCloseTo(0.8);
+  });
+});
+
+const ctxOf = (d: TrammeDoc, written: Map<string, string> = new Map(), read: Map<string, string> = new Map()): ToolContext =>
   ({
     doc: d, compId: d.root, registry: builtinRegistry(), time: 0, selection: [],
     transcript: async (id: string) => {
@@ -58,7 +98,8 @@ const ctxOf = (d: TrammeDoc, written: Map<string, string> = new Map()): ToolCont
       written.set(p, typeof data === 'string' ? data : '');
       return p;
     },
-    assetUrl: () => '', readText: async () => null, signal: new AbortController().signal,
+    readText: async (p: string) => read.get(p) ?? null,
+    assetUrl: () => '', signal: new AbortController().signal,
   }) as unknown as ToolContext;
 
 describe('the shorts tool', () => {

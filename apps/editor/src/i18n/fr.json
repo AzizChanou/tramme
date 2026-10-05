@@ -1090,6 +1090,7 @@
     "Playback": "Lecture",
     "Plugin": "Plugin",
     "point of the source area kept at the center of the frame (0..1)": "point de la zone utile gardé au centre du cadre (0..1)",
+    "point of the picture kept at the center of the frame (0..1); animated, it follows the subject in a cropped frame": "point de l'image gardé au centre du cadre (0..1) ; animé, il suit le sujet dans un cadre rogné",
     "pop": "pop",
     "Position": "Position",
     "Pre-roll": "Pré-roulage",

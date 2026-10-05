@@ -27,7 +27,9 @@ Done when: asked to cut 3 shorts from a long talk, the assistant lists the candi
 
 ### Step 2. The frame follows the subject
 
-- [ ] A 16:9 video in a 9:16 frame crops half the picture, and the centre is not always where the person is: the video layer's `focus` animated across the short from the boxes of the subjects tool (a face kept in frame, the zoom settling on it), with the cutout matte as the fallback when the boxes jump.
+- [x] `focus` on the video layer (the image layer had it; the video node kept a centred cover): the point of the picture kept at the centre of the frame, animatable, the edges never shown.
+- [x] The build reads the subjects analysis of the video (`subjects-<asset>`) when there is one and animates the focus across the short: the biggest person of each analysed frame, held when nobody is found, drifts under 4 % of the picture ignored (a nervous pan is worse than a slow one).
+- [ ] The zoom settling on the subject when the picture allows it (a face small in the frame gains from a gentle push-in), and the cutout matte as the fallback when the boxes jump.
 
 ### Step 3. The hook
 

@@ -5,7 +5,7 @@
 // an ordinary composition: editable, checked, exported like any other
 // (docs/shorts-roadmap.md).
 
-import { applyOps, isTranscript, pointer, remapTranscript, transcriptIdOf, type Composition, type Layer, type Op, type ToolContext, type ToolType, type Transcript, type TrammeDoc } from '@tramme/core';
+import { applyOps, isSubjects, isTranscript, pointer, remapTranscript, transcriptIdOf, type Composition, type Layer, type Op, type Subjects, type ToolContext, type ToolType, type Transcript, type TrammeDoc } from '@tramme/core';
 import { TEMPLATES } from './templates.ts';
 import { clip, freshId, slug } from './model.ts';
 import { t } from './i18n/index.ts';
@@ -64,13 +64,42 @@ export function candidatesOf(t: Transcript, { min = 15, max = 45, air = 0.4 }: {
   return out;
 }
 
+// ── the frame follows the subject ────────────────────────────
+/** the subjects analysis of a video asset of the project (the subjects tool), when there is one */
+async function subjectsOf(ctx: ToolContext, assetId: string): Promise<Subjects | null> {
+  const a = ctx.doc.assets[`subjects-${assetId}`.slice(0, 64)];
+  if (!a || a.type !== 'json') return null;
+  try {
+    const s = JSON.parse((await ctx.readText(a.src)) ?? 'null');
+    return isSubjects(s) ? s : null;
+  } catch { return null; }
+}
+
+const clamp01 = (v: number, lo = 0.05, hi = 0.95) => Math.min(hi, Math.max(lo, v));
+
+/** the focus track of a passage: where the biggest person is (0..1 of the picture) at each analysed frame, held when nobody is found; a drift under 4 % of the picture is not worth a keyframe (a nervous pan is worse than a slow one) */
+export function focusTrack(subjects: Subjects, from: number, to: number): { t: number; v: [number, number] }[] {
+  const out: { t: number; v: [number, number] }[] = [];
+  let last: [number, number] | null = null;
+  for (const f of subjects.frames.filter((f) => f.t >= from && f.t <= to)) {
+    const biggest = f.boxes.filter((b) => b.label === 'person').reduce((a, b) => (!a || b.w * b.h > a.w * a.h ? b : a), null as Subjects['frames'][number]['boxes'][number] | null);
+    if (!biggest) continue;
+    const v: [number, number] = [clamp01(biggest.x + biggest.w / 2), clamp01(biggest.y + biggest.h / 2)];
+    if (last && Math.abs(v[0] - last[0]) < 0.04 && Math.abs(v[1] - last[1]) < 0.04) continue;
+    out.push({ t: +f.t.toFixed(3), v });
+    last = v;
+  }
+  return out;
+}
+
 // ── build ────────────────────────────────────────────────────
 interface PlanItem { from: number; to: number; title?: string }
-interface Made { comp: string; title: string; duration: number }
+interface Made { comp: string; title: string; duration: number; framed: boolean }
 
 /** one composition per passage: the video filling the frame, the transcript remapped and captioned, the title on top */
 async function build(ctx: ToolContext, assetId: string, plan: PlanItem[], format: Format): Promise<{ ops: Op[]; made: Made[] }> {
   const { t: src } = await transcriptOf(ctx, assetId);
+  const subjects = await subjectsOf(ctx, assetId);
   const [w, h] = FORMATS[format];
   const fps = ctx.doc.compositions[ctx.compId]?.fps ?? 30;
   const tid = transcriptIdOf(assetId);
@@ -86,7 +115,8 @@ async function build(ctx: ToolContext, assetId: string, plan: PlanItem[], format
     taken[cid] = 1;
     const name = title ?? `Short ${n}`;
     const vid = freshId({ footage: 1 }, 'footage');
-    const video: Layer = { type: 'video', name, in: 0, out: +dur.toFixed(3), transform: { position: [w / 2, h / 2] }, props: { video: assetId, start: +lo.toFixed(3), size: [w, h], fit: 'cover' } };
+    const track = subjects ? focusTrack(subjects, lo, hi) : [];
+    const video: Layer = { type: 'video', name, in: 0, out: +dur.toFixed(3), transform: { position: [w / 2, h / 2] }, props: { video: assetId, start: +lo.toFixed(3), size: [w, h], fit: 'cover', ...(track.length ? { focus: { $k: track.map(({ t, v }) => ({ t: +(t - lo).toFixed(3), v })) } } : {}) } };
     const comp: Composition = { name, width: w, height: h, fps, duration: +dur.toFixed(3), layers: { [vid]: video }, order: [vid] };
     ops.push({ op: 'add', path: pointer('compositions', cid), value: comp });
     // the transcript of the passage, composition time: the captions read it
@@ -105,7 +135,7 @@ async function build(ctx: ToolContext, assetId: string, plan: PlanItem[], format
       sd = applyOps(sd, head.ops).doc;
     }
     doc = sd;
-    made.push({ comp: cid, title: name, duration: dur });
+    made.push({ comp: cid, title: name, duration: dur, framed: !!subjects });
   }
   if (!made.length) throw new Error('no passage of the plan is usable (from and to in the file, 2 s at least)');
   return { ops, made };
@@ -130,7 +160,7 @@ const shorts: ToolType<{ asset: string; format?: Format; min?: number; max?: num
     required: ['asset'],
   },
   ai: {
-    when: 'a long video of someone speaking (an interview, a talk, a stream): first the candidates, then build the picked ones with a plan — one call, one plan, and the user sees the whole proposal',
+    when: 'a long video of someone speaking (an interview, a talk, a stream): first the candidates, then build the picked ones with a plan — one call, one plan, and the user sees the whole proposal. The frame follows the speaker when a subjects analysis of the video exists (use_tool "subjects" first when the format crops the picture)',
     avoid: 'building without reading the candidates; a passage that starts mid-idea (it is skipped, not rescued); titles that promise what the passage does not keep',
     example: { asset: 'talk', plan: [{ from: 132.5, to: 171, title: 'The one idea that changed everything' }] },
   },
@@ -150,7 +180,7 @@ const shorts: ToolType<{ asset: string; format?: Format; min?: number; max?: num
     const { ops, made } = await build(ctx, asset, plan, format);
     return {
       ops, label: made.length > 1 ? `Shorts ×${made.length}` : made[0].title,
-      text: [`${made.length} short(s) built as compositions:`, ...made.map((m) => `- ${m.comp}: "${m.title}", ${m.duration.toFixed(1)} s (${format})`), 'Each is an ordinary composition: check it (check, after switching to it), reframe it (focus follows the subject: subjects), export it like any other.'].join('\n'),
+      text: [`${made.length} short(s) built as compositions:`, ...made.map((m) => `- ${m.comp}: "${m.title}", ${m.duration.toFixed(1)} s (${format}${m.framed ? ', the frame follows the speaker' : ''})`), ...(made.some((m) => m.framed) ? [] : [`The frame keeps the centre of the picture: run subjects on "${asset}" first when the format crops the speaker out, and build again.`]), 'Each is an ordinary composition: check it (check, after switching to it), export it like any other.'].join('\n'),
       notice: t('shorts.built', { n: made.length }),
     };
   },
