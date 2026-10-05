@@ -57,6 +57,10 @@ export const EDITOR_PROMPTS: PromptType[] = [
     prompt: 'Review the composition: run the check tool (use_tool "check") and read its issues and contact sheet, look closer at the entrances and transitions that matter with the motion tool, and judge what the checks cannot: contrast, hierarchy, rhythm, elements over a face. Propose fixes for what you find, then run check again.',
   },
   {
+    name: 'polish', title: 'Polish the motion', description: 'brings the movement to standard: easings, durations, stagger, arcs, settles',
+    prompt: 'Polish the motion of this composition, following your guide for motion: run the check tool (use_tool "check") and look at the entrances that matter with the motion tool (use_tool "motion"), then fix what they flag and what the guide asks for: entrances that ease in over about 300 ms and land softly, exits that leave faster, group entrances staggered by uneven gaps, arcs on the big diagonal travels, moves that pass their mark and settle instead of stopping dead. Define the curves once as ease tokens and reference them, keep what already reads well, then check again.',
+  },
+  {
     name: 'sound-design', title: 'Sound design', description: 'gives the video its sound: effects on the moments that matter, a bed if it needs one, levels under the voice',
     prompt: 'Give this video its sound, following your guide for sound: look at the key moments (check), say in a few lines which sounds go where and why, then search the library (sfx with a query) and place them on the moments (on: entrances, cuts, markers, beats), write the ones the library lacks (synth), duck any music under a voice (duck), and check the mix (check) before summing up.',
   },

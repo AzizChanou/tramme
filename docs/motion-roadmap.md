@@ -2,7 +2,7 @@
 
 How the assistant judges a movement from the document's numbers, not only from a strip of frames: how far a property travels, how fast at the peak, whether the speed is even (the linear tell), how often it turns, how far it overshoots and when it settles. Before this the `motion` tool showed the spacing of frames — enough to see that a movement feels wrong, not to say why, and the checks read positions at 4 samples a second, too coarse for an easing. Now the figures say it, and the checks use them.
 
-Status: steps 1 to 3 done. What is left is listed under each step. Tick the boxes as steps land, and keep this file as the reference instead of re-deciding the plan.
+Status: steps 1 to 3 and 5 done. What is left is listed under each step. Tick the boxes as steps land, and keep this file as the reference instead of re-deciding the plan.
 
 ## Why
 
@@ -43,7 +43,7 @@ Done when: asked to make an entrance livelier, the assistant runs `motion` befor
 
 ### Step 5. The judgment loop
 
-- [ ] The guide for motion: when to run `motion` (every entrance it writes), what good numbers look like per kind of move (an entrance eases out and settles before its layer's first word; a bounce overshoots 8 to 15 %, once), and when to stop (the figures improved, the strip confirms).
+- [x] The guide for motion: when to run `motion` (every entrance it writes), what good numbers look like per kind of move (an entrance eases out and settles before its layer's first word; a bounce overshoots 8 to 15 %, once), and when to stop (the figures improved, the strip confirms). Encoded as the assistant's "Motion" section, with the checks that fire when it misses and the `/polish` workflow that runs the loop on a whole composition: `docs/taste-roadmap.md`.
 
 ### Step 6. Motion sense per node
 

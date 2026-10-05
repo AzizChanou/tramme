@@ -7,7 +7,7 @@
 
 import { Evaluator, type EvaluatedLayer } from './evaluate.ts';
 import { asKeyframed, modsOf, propKind } from './props.ts';
-import { animatedSlots, motionFigures, motionStretches, sampleAddress, spanOf } from './motion.ts';
+import { animatedSlots, motionFigures, motionStretches, pathDeviation, sampleAddress, spanOf } from './motion.ts';
 import { layerMatrix, matMul, type Mat2D } from './math.ts';
 import { pictureRect } from './track.ts';
 import type { Host, NodeType, Rect, Registry } from './registry.ts';
@@ -434,7 +434,95 @@ const twinMotion: CheckType = {
   },
 };
 
-export const BUILTIN_CHECKS: CheckType[] = [textSize, textTime, safeZone, overlap, crossing, overSubject, crowd, stillness, linearTravel, springSettle, twinMotion];
+const abruptEntrance: CheckType = {
+  name: 'abrupt-entrance', title: 'Abrupt entrance', description: 'an entrance at full speed, the tell of a missing ease out',
+  texts: ['"{name}" enters at full speed: ease it in (start gently, land softly), about 300 ms'],
+  run(ctx) {
+    const seen = new Map<string, QualityIssue>();
+    for (const { address, layerId, raw } of animatedSlots(ctx.doc, ctx.registry, ctx.compId)) {
+      // a spinner spins linearly on purpose, as in linear-travel
+      if (!layerId || seen.has(layerId) || address.endsWith('.transform.rotation')) continue;
+      const at = ctx.comp.layers[layerId]?.in ?? 0;
+      const [from, to] = spanOf(ctx.comp, layerId);
+      if (to - at < 0.25) continue;
+      // the first move after the layer appears is its entrance; a move that starts later is judged by linear-travel instead
+      const keys = propKind(raw) === 'keyframes' ? asKeyframed(raw).$k.map((k) => k.t) : [];
+      const s = sampleAddress(ctx.evaluator, address, ctx.compId, at, Math.min(to, at + 1.2), 24, keys);
+      if (!s) continue;
+      const st = motionStretches(s.times, s.values).find((x) => x.from <= at + 0.25 && x.to - x.from >= 0.25 && x.figures.evenness >= 0.92 && x.figures.turns === 0);
+      if (!st) continue;
+      const isPosition = address.endsWith('.transform.position'), isScale = address.endsWith('.transform.scale'), isOpacity = address.endsWith('.transform.opacity');
+      if (isPosition ? st.figures.travel < 0.06 * u(ctx.comp) : isScale ? st.figures.change < 0.08 : isOpacity ? st.figures.change < 0.6 : st.figures.travel < 0.03 * u(ctx.comp)) continue;
+      const nm = NM(ctx.comp, layerId);
+      seen.set(layerId, {
+        check: 'abrupt-entrance', severity: 'warning', t: s2(st.from), layers: [layerId],
+        message: `"${nm}" enters at full speed at ${s2(st.from)} s (${address}): ease it in (start gently, land softly), about 300 ms.`,
+        say: { text: '"{name}" enters at full speed: ease it in (start gently, land softly), about 300 ms', params: { name: nm } },
+      });
+    }
+    return [...seen.values()];
+  },
+};
+
+const straightTravel: CheckType = {
+  name: 'straight-travel', title: 'Straight travel', description: 'a big diagonal travel in a straight line, where an arc would read better',
+  texts: ['"{name}" travels in a straight line: bend the move (a mid keyframe off the line, or x then y)'],
+  run(ctx) {
+    const out: QualityIssue[] = [];
+    for (const { address, layerId, raw } of animatedSlots(ctx.doc, ctx.registry, ctx.compId)) {
+      if (!layerId || !address.endsWith('.transform.position')) continue;
+      const [from, to] = spanOf(ctx.comp, layerId);
+      if (to - from < 0.4) continue;
+      const keys = propKind(raw) === 'keyframes' ? asKeyframed(raw).$k.map((k) => k.t) : [];
+      const s = sampleAddress(ctx.evaluator, address, ctx.compId, from, to, 32, keys);
+      if (!s) continue;
+      const st = motionStretches(s.times, s.values).find((x) => x.to - x.from >= 0.4 && x.figures.turns === 0 && x.figures.travel >= 0.12 * u(ctx.comp));
+      if (!st) continue;
+      const path = s.times.map((t, i) => ({ t, p: Array.isArray(s.values[i]) ? (s.values[i] as number[]) : null })).filter((x) => x.p && x.t >= st.from - 1e-6 && x.t <= st.to + 1e-6);
+      const [a, b] = [path[0].p!, path[path.length - 1].p!];
+      const dx = Math.abs(b[0] - a[0]), dy = Math.abs(b[1] - a[1]);
+      // a slide along one axis is straight on purpose; a diagonal that stays straight is the missing arc
+      if (Math.min(dx, dy) < 0.2 * Math.max(dx, dy)) continue;
+      const dev = pathDeviation(path.map((x) => x.p!));
+      // already bent: nothing to say
+      if (dev === null || dev > 0.02) continue;
+      const nm = NM(ctx.comp, layerId);
+      out.push({
+        check: 'straight-travel', severity: 'info', t: s2(st.from), layers: [layerId],
+        message: `"${nm}" travels in a straight line from ${s2(st.from)} to ${s2(st.to)} s: bend the move (a mid keyframe off the line, or x then y).`,
+        say: { text: '"{name}" travels in a straight line: bend the move (a mid keyframe off the line, or x then y)', params: { name: nm } },
+      });
+    }
+    return out;
+  },
+};
+
+const uniformStagger: CheckType = {
+  name: 'uniform-stagger', title: 'Metronomic stagger', description: 'a group entering with even offsets, which reads as mechanical',
+  texts: ['{n} elements enter with even offsets of about {ms} ms: vary the gaps'],
+  run(ctx) {
+    const lists: string[][] = [];
+    for (const l of Object.values(ctx.comp.layers)) if (l.type === 'group' && (l.children?.length ?? 0) >= 3) lists.push(l.children!);
+    lists.push(ctx.comp.order.filter((id) => ctx.comp.layers[id]?.type !== 'group'));
+    const out: QualityIssue[] = [];
+    for (const list of lists) {
+      const ins = list.map((id) => ({ id, at: ctx.comp.layers[id]?.in ?? 0 })).filter((x) => x.at > 0).sort((a, b) => a.at - b.at);
+      if (ins.length < 3) continue;
+      const gaps: number[] = [];
+      for (let i = 1; i < ins.length; i++) gaps.push(+(ins[i].at - ins[i - 1].at).toFixed(4));
+      if (gaps.some((g) => g < 0.04 || g > 0.4) || Math.max(...gaps) - Math.min(...gaps) > 0.03) continue;
+      const ms = Math.round((gaps.reduce((a, b) => a + b, 0)) / gaps.length * 1000);
+      out.push({
+        check: 'uniform-stagger', severity: 'info', t: s2(ins[0].at), layers: ins.map((x) => x.id),
+        message: `${ins.length} elements enter with even offsets of about ${ms} ms from ${s2(ins[0].at)} s: vary the gaps (30 to 60 ms, uneven).`,
+        say: { text: '{n} elements enter with even offsets of about {ms} ms: vary the gaps', params: { n: ins.length, ms } },
+      });
+    }
+    return out;
+  },
+};
+
+export const BUILTIN_CHECKS: CheckType[] = [textSize, textTime, safeZone, overlap, crossing, overSubject, crowd, stillness, linearTravel, springSettle, twinMotion, abruptEntrance, straightTravel, uniformStagger];
 
 /** every check of the registry on one composition, the failures of a check reported as issues */
 export async function runChecks(doc: TrammeDoc, registry: Registry, compId = doc.root, { step = 0.25, only, data = () => undefined }: { step?: number; only?: string[]; data?: (assetId: string) => unknown } = {}): Promise<QualityIssue[]> {

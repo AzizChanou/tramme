@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { builtinRegistry } from '@tramme/nodes';
-import { Evaluator, animatedAddresses, motionFigures, motionReport, runChecks, sampleAddress, scalarFigures, type Layer, type TrammeDoc } from '../src/index.ts';
+import { Evaluator, animatedAddresses, motionFigures, motionReport, pathDeviation, runChecks, sampleAddress, scalarFigures, type Layer, type TrammeDoc } from '../src/index.ts';
 import { makeDoc, registry } from './fixtures.ts';
 
 describe('the figures of a movement', () => {
@@ -48,6 +48,13 @@ describe('the figures of a movement', () => {
     expect(f.change).toBeCloseTo(10);
     const g = motionFigures([0, 1], [[3, 0], [3, 9]])!;
     expect(g.change).toBeCloseTo(9);
+  });
+
+  it('a straight path strays nothing from its chord, a bent one shows at once', () => {
+    expect(pathDeviation([[0, 0], [1, 1], [2, 2], [3, 3]])).toBeCloseTo(0);
+    expect(pathDeviation([[0, 0], [1, 2], [2, 2], [3, 0]])).toBeCloseTo(2 / 3);
+    expect(pathDeviation([0, 1, 2])).toBeNull();
+    expect(pathDeviation([[0, 0], [1, 1]])).toBeNull();
   });
 });
 
@@ -133,5 +140,34 @@ describe('the movement checks', () => {
       b: dot('B', { $k: [{ t: 1, v: [100, 1100], ease: [0.2, 0.8, 0.2, 1] }, { t: 2.4, v: [500, 1100] }] }, { in: 1, out: 3 }),
     });
     expect((await checks(apart)).some((c) => c.startsWith('twin-motion'))).toBe(false);
+  });
+
+  it('an entrance at full speed is named once; an eased or later move is not', async () => {
+    const rough = doc({ dot: dot('Dot', { $k: [{ t: 1, v: [100, 900] }, { t: 1.6, v: [500, 900] }] }, { in: 1, out: 3 }) });
+    const found = await checks(rough);
+    expect(found).toContain('abrupt-entrance:dot');
+    expect(found.filter((c) => c.startsWith('abrupt-entrance'))).toHaveLength(1);
+    const soft = doc({ dot: dot('Dot', { $k: [{ t: 1, v: [100, 900], ease: [0.16, 1, 0.3, 1] }, { t: 1.6, v: [500, 900] }] }, { in: 1, out: 3 }) });
+    expect((await checks(soft)).some((c) => c.startsWith('abrupt-entrance'))).toBe(false);
+    // the move starts half a second after the layer appears: linear-travel's business, not the entrance's
+    const late = doc({ dot: dot('Dot', { $k: [{ t: 1.5, v: [100, 900] }, { t: 2.1, v: [500, 900] }] }, { in: 1, out: 3 }) });
+    expect((await checks(late)).some((c) => c.startsWith('abrupt-entrance'))).toBe(false);
+  });
+
+  it('a big diagonal travel in a straight line asks for an arc; a slide or an arc stays silent', async () => {
+    const straight = doc({ dot: dot('Dot', { $k: [{ t: 0.5, v: [150, 300] }, { t: 1.7, v: [900, 1600] }] }, { in: 0.5, out: 2.5 }) });
+    expect(await checks(straight)).toContain('straight-travel:dot');
+    const bent = doc({ dot: dot('Dot', { $k: [{ t: 0.5, v: [150, 300] }, { t: 1.1, v: [400, 1150] }, { t: 1.7, v: [900, 1600] }] }, { in: 0.5, out: 2.5 }) });
+    expect((await checks(bent)).some((c) => c.startsWith('straight-travel'))).toBe(false);
+    const slide = doc({ dot: dot('Dot', { $k: [{ t: 0.5, v: [540, 200] }, { t: 1.7, v: [540, 1600] }] }, { in: 0.5, out: 2.5 }) });
+    expect((await checks(slide)).some((c) => c.startsWith('straight-travel'))).toBe(false);
+  });
+
+  it('a group entering with even offsets is a metronome; uneven gaps are left alone', async () => {
+    const even = doc(Object.fromEntries(['a', 'b', 'c'].map((id, i) => [id, dot(id.toUpperCase(), [540, 960], { in: 1 + i * 0.1 })])));
+    const found = await checks(even);
+    expect(found).toContain('uniform-stagger:a+b+c');
+    const uneven = doc(Object.fromEntries(['a', 'b', 'c'].map((id, i) => [id, dot(id.toUpperCase(), [540, 960], { in: [1, 1.08, 1.25][i] })])));
+    expect((await checks(uneven)).some((c) => c.startsWith('uniform-stagger'))).toBe(false);
   });
 });

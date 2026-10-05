@@ -114,6 +114,21 @@ export function motionStretches(times: number[], values: (number | number[])[], 
   return out;
 }
 
+/** how far a 2D path strays from the straight line between its ends: the greatest distance from the chord, over the chord's length (0: a straight line, one bent keyframe shows at once); null when the series is not a 2D path */
+export function pathDeviation(values: (number | number[])[]): number | null {
+  const pts = values.filter((v): v is number[] => Array.isArray(v) && v.length >= 2);
+  if (pts.length < 3) return null;
+  const [ax, ay] = pts[0], [bx, by] = pts[pts.length - 1];
+  const dx = bx - ax, dy = by - ay, len = Math.hypot(dx, dy);
+  if (len <= 1e-9) return null;
+  let max = 0;
+  for (const p of pts.slice(1, -1)) {
+    const d = Math.abs((p[0] - ax) * dy - (p[1] - ay) * dx) / len;
+    if (d > max) max = d;
+  }
+  return max / len;
+}
+
 /** the figures of a series of numbers or [x, y]: the component that travels most */
 export function motionFigures(times: number[], values: (number | number[])[]): MotionFigures | null {
   const cols = Math.max(1, ...values.map((v) => (Array.isArray(v) ? v.length : 1)));

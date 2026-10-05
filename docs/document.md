@@ -58,7 +58,7 @@ Local matrix: `translate(position) · rotate(rotation) · scale(scale) · transl
 | expression | `{ "$expr": "value + Math.sin(t * 2) * 10" }` | pure JavaScript, evaluated at each time |
 | link | `{ "$link": "title.size" }` or `{ "$link": "@ink" }` | the value of another property or of a token |
 
-- Curves (`ease`): `"linear"` (default), `"hold"` (step), a CSS Bézier `[x1, y1, x2, y2]` (x between 0 and 1, y free to overshoot), or a curve token `"@swift"`.
+- Curves (`ease`): `"linear"` (default), `"hold"` (step), a CSS Bézier `[x1, y1, x2, y2]` (x between 0 and 1, y free to overshoot), or a curve token `"@swift"`. Four Béziers cover most moves; define them once as tokens and reference them: out `[0.16, 1, 0.3, 1]` for entrances, in `[0.7, 0, 0.84, 0]` for exits, standard `[0.4, 0, 0.2, 1]` for moves within the scene, emphasized `[0.2, 0, 0, 1]` for the expressive ones.
 - Keyframes are sorted by time. Outside the keyframe range, the value is that of the nearest keyframe.
 - An expression can sit on top of keyframes: `{ "$k": [...], "$expr": "value * 2" }` (`value` is the interpolated value).
 - Property address: `layerId.propName`, `layerId.transform.position`, `$comp.background`, `$comp.motionBlur.samples`, `$comp.effects.<effectId>.<prop>`.
