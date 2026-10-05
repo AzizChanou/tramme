@@ -109,6 +109,12 @@
     "kindMusic": "un fond musical",
     "kindVoice": "une voix off"
   },
+  "image": {
+    "made": "Image « {name} » créée par {provider}.",
+    "paidTitle": "Faire créer cette image ?",
+    "paidText": "Un fournisseur va la dessiner, ce qui coûte de l'argent : « {prompt} »",
+    "paidYes": "La dessiner"
+  },
   "attachments": {
     "nameImageSoundVideo": "{name} : image, son, vidéo ou JSON attendus",
     "attachmentName": "Pièce jointe : {name}",

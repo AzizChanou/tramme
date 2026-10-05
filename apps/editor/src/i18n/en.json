@@ -109,6 +109,12 @@
     "kindMusic": "a music bed",
     "kindVoice": "a voice-over"
   },
+  "image": {
+    "made": "Picture \"{name}\" made by {provider}.",
+    "paidTitle": "Have this picture made?",
+    "paidText": "A provider will draw it, which costs money: \"{prompt}\"",
+    "paidYes": "Draw it"
+  },
   "attachments": {
     "nameImageSoundVideo": "{name}: image, sound, video or JSON expected",
     "attachmentName": "Attachment: {name}",

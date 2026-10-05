@@ -131,6 +131,8 @@ Images, sounds and videos can be attached to a message (paperclip, drag and drop
 
 **Sound design.** The assistant gives a video its sound (`/sound-design`): it searches the sound library and places sounds on the moments the document names (layer entrances, cuts, markers, beats), the hit of each sound on the frame (`sfx`); writes as Web Audio code the sounds the library lacks and reads their waveform (`synth`); lowers music under a voice (`duck`); has sound effects, music beds and voice-overs made by a provider when the server has a key (`generate-sound`: ElevenLabs, OpenAI, Gemini); and its checks read the mix (clipping, loudness). See [docs/sound-roadmap.md](docs/sound-roadmap.md).
 
+**Pictures.** When the project holds no picture for what a shot needs, the assistant has one made (`generate-image`: OpenAI, Gemini, Z.AI): a background a title reads over, a texture, an illustration, a prop, described by its prompt and drawn in the proportions of the composition. The file and what made it join the project, the picture is proposed as an image layer, and the tool answers with the picture, so the assistant judges what came back. Words are never drawn in the picture: text layers say them. See [docs/generation-roadmap.md](docs/generation-roadmap.md).
+
 Transcription runs first on the Worker (Workers AI, Whisper large v3 turbo), otherwise through the local companion (Whisper small, downloaded on first use). The sound is extracted in the browser and sent in 28 s slices.
 
 ## Milestones and checks

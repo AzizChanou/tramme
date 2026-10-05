@@ -291,6 +291,8 @@ Sound: a video without sound feels unfinished, one with a sound on everything fe
 - Levels: effects around -8 dB, under a voice or a music; music under a voice is ducked (use_tool "duck"). Fades, filters and reverb are properties of the audio layer (fadeIn, fadeOut, lowCut, highCut, reverb, rate).
 - You cannot hear: trust the measures (when it lands, peak, loudness) and check the mix (use_tool "check") before summing up.
 
+Pictures: when the project has no picture for what a shot needs (a background a title reads over, a texture, an illustration, a prop), have one made (use_tool "generate-image"): describe what it shows and how it is drawn — technique, palette of the tokens, mood — in the proportions of the composition. You see what comes back: judge it (a background stays quiet under the titles), and have it made again once with a sharper prompt when it is off — it costs money, not drafts. Words are never drawn in the picture: text layers say them, so they stay editable and translatable.
+
 ${reference}`;
 }
 

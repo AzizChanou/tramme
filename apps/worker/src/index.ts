@@ -24,6 +24,7 @@
 //   GET    /api/library, /api/library/<name>.js the plugin library (GET, PUT, DELETE a plugin)
 //   GET    /api/sounds, /api/sounds/<name>      the sound library (GET, PUT with x-tramme-entry, DELETE a sound)
 //   POST   /api/generate                        {kind: sfx|music|voice, prompt, duration?, voice?, style?, provider?} -> audio
+//   POST   /api/generate-image                  {prompt, ratio?, quality?, provider?} -> the picture file
 
 import { LIMITS, PROJECT_FORMAT } from '@tramme/project';
 import { guard } from './access.ts';
@@ -31,6 +32,7 @@ import { claude, claudeConfig } from './claude.ts';
 import { llm, llmConfig, models } from './llm.ts';
 import { transcribe } from './speech.ts';
 import { generate, soundConfig } from './generate.ts';
+import { generateImage, imageConfig } from './images.ts';
 import { HttpError, json, type Env } from './http.ts';
 import { keysRoute, loadKeys } from './keys.ts';
 import { abortUpload, completeUpload, startUpload, uploadPart, createProject, deleteFile, deleteProject, duplicateProject, exportProject, getFile, listProjects, projectInfo, putFile, updateProject } from './projects.ts';
@@ -41,7 +43,7 @@ async function route(req: Request, env: Env, url: URL): Promise<Response> {
   const m = req.method;
   if (parts[0] === 'config' && m === 'GET') {
     const keys = await loadKeys(env);
-    return json({ format: PROJECT_FORMAT, limits: LIMITS, claude: claudeConfig(keys), llm: llmConfig(keys), keys: keys.status(), transcribe: !!env.AI, sound: soundConfig(keys) });
+    return json({ format: PROJECT_FORMAT, limits: LIMITS, claude: claudeConfig(keys), llm: llmConfig(keys), keys: keys.status(), transcribe: !!env.AI, sound: soundConfig(keys), images: imageConfig(keys) });
   }
   if (parts[0] === 'keys') return keysRoute(req, env, parts.slice(1).map(decodeURIComponent));
   if (parts[0] === 'claude') return claude(req, await loadKeys(env), parts.slice(1).join('/'));
@@ -49,6 +51,7 @@ async function route(req: Request, env: Env, url: URL): Promise<Response> {
   if (parts[0] === 'models' && m === 'GET') return models(await loadKeys(env));
   if (parts[0] === 'transcribe' && m === 'POST') return transcribe(req, env);
   if (parts[0] === 'generate' && m === 'POST') return generate(req, await loadKeys(env));
+  if (parts[0] === 'generate-image' && m === 'POST') return generateImage(req, await loadKeys(env));
   if (parts[0] === 'library' || parts[0] === 'sounds') {
     const shelf = parts[0] === 'library' ? SHELVES.plugins : SHELVES.sounds;
     const [, name] = parts;

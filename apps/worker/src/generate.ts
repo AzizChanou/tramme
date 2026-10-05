@@ -17,8 +17,8 @@ interface Made { audio: ArrayBuffer; type: string; model: string; voice?: string
 
 const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v));
 
-/** what a provider says when it refuses, in its own shape */
-async function failure(provider: Provider, res: Response): Promise<never> {
+/** what a provider says when it refuses, in its own shape (shared with the pictures, images.ts) */
+export async function providerFailure(provider: string, res: Response): Promise<never> {
   let message = `HTTP ${res.status}`;
   try {
     const j = await res.json() as { detail?: { message?: string } | string | { msg?: string }[]; error?: { message?: string } | string };
@@ -52,7 +52,7 @@ const PROVIDERS: Record<Provider, { kinds: SoundKind[]; make(key: string, ask: A
         body = { text: ask.prompt, model_id: model };
       }
       const res = await fetch(url, { method: 'POST', headers, body: JSON.stringify(body) });
-      if (!res.ok) await failure('elevenlabs', res);
+      if (!res.ok) await providerFailure('elevenlabs', res);
       return { audio: await res.arrayBuffer(), type: 'audio/mpeg', model, voice };
     },
   },
@@ -64,7 +64,7 @@ const PROVIDERS: Record<Provider, { kinds: SoundKind[]; make(key: string, ask: A
         method: 'POST', headers: { authorization: `Bearer ${key}`, 'content-type': 'application/json' },
         body: JSON.stringify({ model, voice, input: ask.prompt.slice(0, 4096), response_format: 'mp3', ...(ask.style ? { instructions: ask.style } : {}) }),
       });
-      if (!res.ok) await failure('openai', res);
+      if (!res.ok) await providerFailure('openai', res);
       return { audio: await res.arrayBuffer(), type: 'audio/mpeg', model, voice };
     },
   },
@@ -81,7 +81,7 @@ const PROVIDERS: Record<Provider, { kinds: SoundKind[]; make(key: string, ask: A
           generation_config: { speech_config: [{ voice }] },
         }),
       });
-      if (!res.ok) await failure('gemini', res);
+      if (!res.ok) await providerFailure('gemini', res);
       const j = await res.json() as { steps?: { content?: { data?: string; mime_type?: string }[] }[] };
       const part = (j.steps ?? []).flatMap((s) => s.content ?? []).find((c) => typeof c.data === 'string');
       if (!part?.data) throw new HttpError(502, 'gemini: no audio in the answer');

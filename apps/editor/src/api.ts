@@ -55,10 +55,14 @@ export interface ServerConfig {
   keys?: KeyStatus;
   /** providers that make sounds, by kind (the first is used when none is named) */
   sound?: Record<'sfx' | 'music' | 'voice', string[]>;
+  /** providers that make pictures */
+  images?: string[];
 }
 
 /** a sound made by a provider: the file and what made it */
 export interface MadeSound { blob: Blob; provider: string; model: string; voice?: string }
+/** a picture made by a provider: the file and what made it */
+export interface MadeImage { blob: Blob; provider: string; model: string }
 
 export interface ProjectFile { path: string; size: number; etag: string; modified: string }
 
@@ -124,6 +128,16 @@ export const api = {
       throw new ApiError(r.status, message);
     }
     return { blob: await r.blob(), provider: r.headers.get('x-tramme-provider') ?? '', model: r.headers.get('x-tramme-model') ?? '', voice: r.headers.get('x-tramme-voice') ?? undefined };
+  },
+  /** a picture made by a provider through the server */
+  async generateImage(ask: { prompt: string; ratio?: string; quality?: 'low' | 'medium' | 'high'; provider?: string }, signal?: AbortSignal): Promise<MadeImage> {
+    const r = await fetch('/api/generate-image', { ...jsonInit('POST', ask), signal });
+    if (!r.ok) {
+      let message = `HTTP ${r.status}`;
+      try { message = (await r.json()).error ?? message; } catch { /* not JSON */ }
+      throw new ApiError(r.status, message);
+    }
+    return { blob: await r.blob(), provider: r.headers.get('x-tramme-provider') ?? '', model: r.headers.get('x-tramme-model') ?? '' };
   },
   remove: (id: string) => call<{ deleted: string }>(P(id), { method: 'DELETE' }),
   duplicate: (id: string, name?: string) => call<Manifest>(`${P(id)}/duplicate`, jsonInit('POST', { name })),

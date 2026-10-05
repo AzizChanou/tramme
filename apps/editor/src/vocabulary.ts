@@ -7,6 +7,7 @@ import type { PromptType, ToolContext, ToolType } from '@tramme/core';
 import { builtinRegistry } from '@tramme/nodes';
 import { CUTOUT_TOOLS } from './cutout.ts';
 import { EVENT_TOOLS } from './events.ts';
+import { IMAGE_TOOLS } from './images.ts';
 import { LIBRARY_TOOLS } from './library.ts';
 import { PERCEPTION_TOOLS } from './perception.ts';
 import { EDITOR_PRESETS } from './presets.ts';
@@ -62,5 +63,5 @@ export const EDITOR_PROMPTS: PromptType[] = [
 
 /** the base vocabulary of the editor, before a document's plugins */
 export function editorRegistry() {
-  return builtinRegistry().registerTool(...EDITOR_TOOLS, ...RECIPE_TOOLS, ...EVENT_TOOLS, ...PERCEPTION_TOOLS, ...TRACKING_TOOLS, ...CUTOUT_TOOLS, ...REVIEW_TOOLS, ...SOUND_TOOLS, ...LIBRARY_TOOLS).registerPrompt(...EDITOR_PROMPTS).registerKit(...BUILTIN_KITS).registerPreset(...EDITOR_PRESETS);
+  return builtinRegistry().registerTool(...EDITOR_TOOLS, ...RECIPE_TOOLS, ...EVENT_TOOLS, ...PERCEPTION_TOOLS, ...TRACKING_TOOLS, ...CUTOUT_TOOLS, ...REVIEW_TOOLS, ...SOUND_TOOLS, ...IMAGE_TOOLS, ...LIBRARY_TOOLS).registerPrompt(...EDITOR_PROMPTS).registerKit(...BUILTIN_KITS).registerPreset(...EDITOR_PRESETS);
 }
