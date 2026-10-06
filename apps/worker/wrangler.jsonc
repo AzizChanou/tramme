@@ -2,7 +2,7 @@
   "$schema": "../../node_modules/wrangler/config-schema.json",
   // The private deployment (npm run deploy): one user behind Cloudflare Access, projects and keys in R2.
   // The public one is the "personal" environment below (npm run deploy:personal). See docs/deploy.md.
-  "name": "tramme",
+  "name": "tramme-private",
   "main": "src/index.ts",
   "compatibility_date": "2026-09-25",
   // the editor (npm run build) served as a single-page app; /api goes to the Worker
@@ -30,7 +30,7 @@
     // Projects stay in each visitor's browser, keys in the key vault: another origin of the same
     // site (a subdomain), which the editor and its plugins cannot read. No R2, no Access, no Workers AI.
     "personal": {
-      "name": "tramme-personal",
+      "name": "tramme",
       "assets": {
         "directory": "../editor/dist",
         "binding": "ASSETS",
@@ -38,18 +38,17 @@
         // every request: the Worker tells the editor from the vault by their address
         "run_worker_first": true
       },
-      // your two addresses, both on your own domain (same site: the vault keeps its storage), e.g.
-      // "APP_ORIGIN": "https://tramme.example.com", "VAULT_ORIGIN": "https://cles.tramme.example.com"
+      // the two addresses, both on the same domain (same site: the vault keeps its storage)
       "vars": {
         "MODE": "personal",
-        "APP_ORIGIN": "",
-        "VAULT_ORIGIN": ""
+        "APP_ORIGIN": "https://app.tramme.dev",
+        "VAULT_ORIGIN": "https://cles.app.tramme.dev"
       },
       // the same two hosts as custom domains of this Worker
-      // "routes": [
-      //   { "pattern": "tramme.example.com", "custom_domain": true },
-      //   { "pattern": "cles.tramme.example.com", "custom_domain": true }
-      // ],
+      "routes": [
+        { "pattern": "app.tramme.dev", "custom_domain": true },
+        { "pattern": "cles.app.tramme.dev", "custom_domain": true }
+      ],
       // requests a visitor may send through the relay (Z.AI, custom providers), per minute
       "ratelimits": [{ "name": "RELAY_LIMIT", "namespace_id": "1001", "simple": { "limit": 120, "period": 60 } }],
       // the relay passes keys in its requests: no invocation logs (they record the requests)

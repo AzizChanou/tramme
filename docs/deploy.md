@@ -28,7 +28,7 @@ Until Cloudflare Access is configured, the API answers 503 ("access not configur
 
 In the Cloudflare dashboard, Zero Trust:
 
-1. **Access, Applications, Add an application, Self-hosted.** Domain: the Worker's (a custom domain, or `tramme.<account>.workers.dev`). For `workers.dev`, the Worker's page also offers to enable Access directly (Settings, Domains & Routes).
+1. **Access, Applications, Add an application, Self-hosted.** Domain: the Worker's (a custom domain, or `tramme-private.<account>.workers.dev`). For `workers.dev`, the Worker's page also offers to enable Access directly (Settings, Domains & Routes).
 2. **Policy**: Allow, Include, Emails: your address. Sign in with a code sent by email (One-time PIN) or with the identity provider of your choice.
 3. Note the application's **Application Audience (AUD) Tag**, and the **team domain** (Settings, Custom Pages: `<team>.cloudflareaccess.com`).
 
@@ -120,7 +120,7 @@ Anyone opens the address and works at once: no account, nothing kept on the serv
    npm run deploy:personal   # builds the editor, then wrangler deploy --env personal
    ```
 
-   The personal Worker is a Worker of its own (`tramme-personal`): a private deployment can live beside it.
+   The personal Worker is `tramme`, the private one `tramme-private`: both can live side by side. Deploying from the Git repository (Workers Builds, on the `tramme` Worker): build command `npm run build`, deploy command `npx wrangler deploy -c apps/worker/wrangler.jsonc --env personal`.
 
 Any other address of this Worker (its `workers.dev` one, previews) sends to `APP_ORIGIN`. Until both addresses are set, it answers 503.
 
