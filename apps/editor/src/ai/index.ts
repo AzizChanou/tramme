@@ -1,9 +1,10 @@
 // The assistant's ways to a model, and the conversation kept with the
 // project. Claude: the local companion (Claude Code login on this machine)
-// first, the server's key as fallback. Other providers (OpenAI, Gemini,
-// OpenRouter, Z.AI, custom ones) through the server, with the keys connected
-// in the settings; local models (Ollama, LM Studio) straight from the
-// browser. The conversation is shared by all of them.
+// first, the user's key as fallback. Other providers (OpenAI, Gemini,
+// OpenRouter, Z.AI, custom ones) with the keys connected in the settings: the
+// server adds them, or in personal mode the key vault (see mode.ts); local
+// models (Ollama, LM Studio) straight from the browser. The conversation is
+// shared by all of them.
 
 import { computed, signal } from '@preact/signals';
 import { COMPANION_PORT, DEFAULT_MODEL, EFFORTS, effortFor, effortLevels, LOCAL_URL, MODELS, PROVIDER_LABEL, providerOf, REMOTE, setTranslator, slotOf, systemPrompt, userPrompt, type Effort, type TurnContext } from '@tramme/assistant';
@@ -20,6 +21,7 @@ import { clip } from '../model.ts';
 import type { Command } from './commands.ts';
 import { describe, imageBlocks, type Attachment } from '../attachments.ts';
 import { locale, t } from '../i18n/index.ts';
+import { personal } from '../mode.ts';
 
 export interface AiSettings {
   model: string;
@@ -129,10 +131,13 @@ export function statusLabels(st: Status = aiStatus.value): { companion: string; 
   };
 }
 
+/** the path of a key the user connected: the server, or in personal mode the key itself (no server keeps it) */
+export const serverName = () => (personal ? t('personal.yourKey') : t('common.server'));
+
 /** the name of the path, for the assistant's header */
 export function routeLabel(route: Route, model: string): string {
   if (route === 'companion') return t('common.companion');
-  if (route === 'server') return t('common.server');
+  if (route === 'server') return serverName();
   if (route === 'local') return t('ai.local');
   return providerLabel(model);
 }
@@ -389,7 +394,7 @@ function earlier(): string[] {
 
 // ── the providers' keys, connected from the settings ─────────
 /** the server's answer again (keys, models), after a provider was connected or removed */
-async function providersChanged() {
+export async function providersChanged() {
   aiStatus.value = { ...aiStatus.peek(), server: null };
   aiModels.value = { ...aiModels.peek(), remote: {} };
   await refreshStatus(true);

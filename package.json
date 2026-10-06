@@ -13,7 +13,9 @@
   "scripts": {
     "build": "node apps/editor/build.ts",
     "dev": "node apps/editor/build.ts --dev",
+    "dev:personal": "node apps/editor/build.ts --dev --personal",
     "deploy": "node apps/editor/build.ts && wrangler deploy -c apps/worker/wrangler.jsonc",
+    "deploy:personal": "node apps/editor/build.ts && wrangler deploy -c apps/worker/wrangler.jsonc --env personal",
     "test": "vitest run",
     "typecheck": "tsc --noEmit -p . && tsc --noEmit -p apps/worker",
     "tramme": "node packages/cli/src/main.ts",
@@ -29,6 +31,7 @@
     "@types/pngjs": "^6.0.5",
     "@types/ws": "^8.18.2",
     "esbuild": "^0.28.2",
+    "fake-indexeddb": "^6.2.5",
     "fflate": "^0.8.3",
     "lottie-web": "^5.13.0",
     "typescript": "^7.0.2",

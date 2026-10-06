@@ -1,6 +1,8 @@
 // Editor entry. Two pages: / lists the projects (home), /p/<id> edits one.
 // Opening a project loads its manifest, document and conversation from
-// storage, starts the preview and mounts the editor.
+// storage, starts the preview and mounts the editor. In personal mode the
+// storage is this browser's, served by the service worker (mode.ts): it is
+// started first.
 
 import { render } from 'preact';
 import { DOCUMENT } from '@tramme/project';
@@ -15,6 +17,7 @@ import './styles.css';
 import { offerTours } from './tours/index.ts';
 import { startFromVideo } from './start.ts';
 import { t } from './i18n/index.ts';
+import { boot } from './mode.ts';
 
 const root = document.getElementById('app')!;
 
@@ -57,12 +60,14 @@ async function openProject(id: string) {
 }
 
 const m = location.pathname.match(/^\/p\/([a-z0-9][a-z0-9-]{2,63})\/?$/);
-if (m) {
-  openProject(m[1]).catch((e) => {
-    S.loadError.value = (e as Error).message;
-    fail(t('app.couldNotOpenThe'), (e as Error).message);
-  });
-} else {
-  if (location.pathname !== '/') history.replaceState(null, '', '/');
-  render(<Home />, root);
-}
+boot().then(() => {
+  if (m) {
+    openProject(m[1]).catch((e) => {
+      S.loadError.value = (e as Error).message;
+      fail(t('app.couldNotOpenThe'), (e as Error).message);
+    });
+  } else {
+    if (location.pathname !== '/') history.replaceState(null, '', '/');
+    render(<Home />, root);
+  }
+}, (e) => fail(t('personal.cannotStart'), (e as Error).message));

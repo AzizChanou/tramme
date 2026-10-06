@@ -843,5 +843,17 @@
   "library": {
     "kept": "Plugin kept in the library: {name}. Other projects can use it.",
     "used": "Plugin {name} added to this project."
+  },
+  "personal": {
+    "cannotStart": "tramme cannot start here",
+    "noServiceWorker": "This browser cannot keep projects here (service workers are off, often in private browsing). Open tramme in a normal window of a recent browser.",
+    "vaultUnreachable": "The key vault does not answer: reload the page.",
+    "yourKey": "Your key",
+    "viaRelay": "through the tramme relay, which keeps nothing (this provider refuses calls from a browser)",
+    "keysIntro": "Your keys stay in this browser, in a vault the editor and the projects' plugins cannot read. Your browser calls the provider directly; tramme never sees a key, and the provider bills you.",
+    "forgetKeys": "Forget all my keys",
+    "forgetKeysConfirm": "Every key and custom provider is removed from this browser. Continue?",
+    "vaultAlone": "This page keeps your tramme keys. Open tramme to use them.",
+    "storedHere": "Your projects are kept in this browser, on this device only: tramme keeps nothing. Export them (.tramme) to back them up or open them elsewhere."
   }
 }

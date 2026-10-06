@@ -1,5 +1,5 @@
-// The server path: the Messages API through the Worker (/api/claude), which
-// adds the key. The conversation loop runs here: Claude asks for tools, the
+// The server path: the Messages API through /api/claude, where the key is
+// added (by the Worker, or in personal mode by the key vault: api.reach). The conversation loop runs here: Claude asks for tools, the
 // editor runs them, sends the results, until Claude answers. The same loop
 // drives the models in the OpenAI chat format (other providers through the
 // Worker, local models directly): see compat.ts.
@@ -12,7 +12,7 @@
 import { z } from 'zod';
 import { ADAPTIVE, DEFAULT_EFFORT, modelName, providerOf, TOOLS, type Effort, type ToolResult } from '@tramme/assistant';
 import { ChatReader, chatTools, toChat } from './compat.ts';
-import type { AiEvent } from '../api.ts';
+import { reach, type AiEvent } from '../api.ts';
 import type { ToolRunner } from './tools.ts';
 import { runCall, uid } from './calls.ts';
 import { t } from '../i18n/index.ts';
@@ -134,7 +134,7 @@ function afterFallback(blocks: Block[]): Block[] {
 /** one model's answer: its content blocks, why it stopped, the tool calls whose input could not be read */
 interface Answer { content: Block[]; stop: string; invalid: Set<string>; declined?: string }
 
-/** where a model of the chat format answers: /api/llm/<provider> (the Worker adds the key) or a local server */
+/** where a model of the chat format answers: /api/llm/<provider> (the key added on the way) or a local server */
 export interface ChatTarget { url: string }
 
 export interface TurnOptions {
@@ -210,7 +210,8 @@ export class ServerSession {
       const { headers, body, parts } = build();
       let res: Response;
       try {
-        res = await fetch(url, { method: 'POST', headers: { 'content-type': 'application/json', ...headers }, body: JSON.stringify(body), signal });
+        // a provider route gets the user's key on its way; a local model is called as it is
+        res = await (url.startsWith('/api/') ? reach : fetch)(url, { method: 'POST', headers: { 'content-type': 'application/json', ...headers }, body: JSON.stringify(body), signal });
       } catch (e) {
         if ((e as Error).name === 'AbortError') throw e;
         // no answer (network, server starting): tried again like a busy server

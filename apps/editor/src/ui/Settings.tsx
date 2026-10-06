@@ -1,16 +1,17 @@
 // Settings of this machine: how much the preview may cost, how the
 // assistant reaches Claude, the providers connected (their keys kept by the
-// server). Opened from the top bar, the home screen or Ctrl+,.
+// server, or in personal mode by the key vault, whose page shows here).
+// Opened from the top bar, the home screen or Ctrl+,.
 // A menu of sections on the left (the editor's, the assistant's), the one
 // chosen on the right; a search shows the settings matching it, whatever
 // their section.
 
-import { createContext, type ComponentChildren, type FunctionComponent } from 'preact';
+import type { FunctionComponent } from 'preact';
 import { useContext, useEffect, useRef, useState } from 'preact/hooks';
 import type { SoundEntry } from '@tramme/core';
-import { api, type KeyedProvider, type KeyStatus } from '../api.ts';
+import { api } from '../api.ts';
 import { EffortPicker, ModelPicker } from './ModelPicker.tsx';
-import { aiSettings, aiStatus, connectProvider, disconnectProvider, ensureStatus, refreshStatus, removeCustomProvider, saveCustomProvider, setAiSettings, statusLabels } from '../ai/index.ts';
+import { aiSettings, aiStatus, connectProvider, disconnectProvider, ensureStatus, providersChanged, refreshStatus, removeCustomProvider, saveCustomProvider, serverName, setAiSettings, statusLabels } from '../ai/index.ts';
 import { allowNotifications, notificationState } from '../notify.ts';
 import { previewInfo } from '../preview.ts';
 import { DEFAULT_PREFERENCES, DISPLAYS, prefs, resetPrefs, setLanguage, setPrefs, settingsOpen, settingsSection, THEMES, type Preferences, type SettingsSection, type ThemeInfo } from '../settings.ts';
@@ -18,7 +19,11 @@ import { S, toast } from '../state.ts';
 import { Modal, NumberField, Select, Seg, Toggle } from './controls.tsx';
 import { Icon } from './icons.tsx';
 import { resetSeen, setAutoTours, toursState } from '../tours/index.ts';
-import { LOCALES, m, t } from '../i18n/index.ts';
+import { LOCALES, locale, m, t } from '../i18n/index.ts';
+import { vaultOrigin } from '../mode.ts';
+import { fromVault } from '../vault/link.ts';
+import { Providers as ProviderList, type ProviderActions } from './Providers.tsx';
+import { Confirm, norm, Row, Search, Section } from './SettingsRows.tsx';
 
 const MOTION: Record<Preferences['motion'], string> = {
   auto: m('settings.adaptsToTheMachine'),
@@ -35,34 +40,6 @@ const BLUR: Record<Preferences['blur'], string> = {
   limited: m('settings.atMost4Sub'),
   off: m('settings.noMotionBlurIn'),
 };
-
-// ── the search: a row shows when its label or hint holds the words, a section entirely when its title does ──
-const norm = (s: string) => s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
-const Search = createContext<{ query: string; whole: boolean }>({ query: '', whole: true });
-
-function Section({ title, children }: { title: string; children: ComponentChildren }) {
-  const { query } = useContext(Search);
-  return (
-    <Search.Provider value={{ query, whole: !query || norm(title).includes(query) }}>
-      <section class="set-section"><h3>{title}</h3>{children}</section>
-    </Search.Provider>
-  );
-}
-
-/** a setting: its label (and a badge) and hint, its control; `below`, what goes under it (a list), found by the search with it */
-function Row({ label, badge, hint, children, below, stack }: { label: string; badge?: string; hint?: string; children: ComponentChildren; below?: ComponentChildren; stack?: boolean }) {
-  const { query, whole } = useContext(Search);
-  if (!whole && !norm(`${label} ${hint ?? ''}`).includes(query)) return null;
-  return (
-    <>
-      <div class={`set-row${stack ? ' stack' : ''}`}>
-        <div class="set-label"><span>{label}{badge && <span class="set-badge">{badge}</span>}</span>{hint && <span class="faint">{hint}</span>}</div>
-        <div class="set-control">{children}</div>
-      </div>
-      {below}
-    </>
-  );
-}
 
 const size = (k: number) => {
   const c = S.doc.peek()?.compositions[S.compId.peek()];
@@ -268,134 +245,39 @@ function Model() {
   );
 }
 
-// ── the providers: a key sent once to the server, which keeps it ──
-interface ProviderInfo { id: KeyedProvider; name: string; hint: string; keys: string }
-const PROVIDERS: ProviderInfo[] = [
-  { id: 'anthropic', name: 'Anthropic', hint: m('settings.providerAnthropic'), keys: 'https://console.anthropic.com/settings/keys' },
-  { id: 'openai', name: 'OpenAI', hint: m('settings.providerOpenai'), keys: 'https://platform.openai.com/api-keys' },
-  { id: 'gemini', name: 'Google Gemini', hint: m('settings.providerGemini'), keys: 'https://aistudio.google.com/apikey' },
-  { id: 'openrouter', name: 'OpenRouter', hint: m('settings.providerOpenrouter'), keys: 'https://openrouter.ai/keys' },
-  { id: 'zai', name: 'Z.AI (GLM)', hint: m('settings.providerZai'), keys: 'https://z.ai/manage-apikey/apikey-list' },
-  { id: 'elevenlabs', name: 'ElevenLabs', hint: m('settings.providerElevenlabs'), keys: 'https://elevenlabs.io/app/settings/api-keys' },
-];
-type CustomProvider = KeyStatus['custom'][number];
+// ── the providers: a key sent once to the server, which keeps it; in personal mode, typed into the vault's page ──
+const SERVER_KEYS: ProviderActions = {
+  connect: connectProvider, disconnect: disconnectProvider, saveCustom: saveCustomProvider, removeCustom: removeCustomProvider,
+  notify: (text, kind) => toast(text, kind),
+};
 
-/** a custom provider's id, from its name, unlike the ones taken; it stays when the name changes (the models chosen keep it) */
-function customId(label: string, taken: string[]): string {
-  const base = norm(label).replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 24) || 'custom';
-  let id = base;
-  for (let n = 2; taken.includes(id); n++) id = `${base}-${n}`;
-  return id;
-}
-
-interface FormField { name: string; label: string; secret?: boolean; optional?: boolean; initial?: string; placeholder?: string }
-
-/** what is typed under a provider's row: sent on Save, the server's refusal shown in place */
-function ProviderForm({ fields, link, onSave, onClose }: { fields: FormField[]; link?: string; onSave: (v: Record<string, string>) => Promise<void>; onClose: () => void }) {
-  const [values, setValues] = useState<Record<string, string>>(() => Object.fromEntries(fields.map((f) => [f.name, f.initial ?? ''])));
-  const [error, setError] = useState('');
-  const [busy, setBusy] = useState(false);
-  const ready = fields.every((f) => f.optional || values[f.name].trim());
-  const submit = async (e: Event) => {
-    e.preventDefault();
-    if (!ready || busy) return;
-    setBusy(true);
-    setError('');
-    try {
-      await onSave(Object.fromEntries(Object.entries(values).map(([k, v]) => [k, v.trim()])));
-      onClose();
-    } catch (err) { setError((err as Error).message); setBusy(false); }
-  };
-  return (
-    <form class="set-confirm set-form" onSubmit={submit}>
-      {fields.map((f, i) => (
-        <label key={f.name} class="set-form-field">
-          <span>{f.label}</span>
-          <div class="field"><input type={f.secret ? 'password' : 'text'} autoComplete="off" spellcheck={false} autoFocus={i === 0} value={values[f.name]} placeholder={f.placeholder}
-            onInput={(e) => setValues({ ...values, [f.name]: (e.target as HTMLInputElement).value })} /></div>
-        </label>
-      ))}
-      {error && <span class="set-form-error">{error}</span>}
-      <div class="set-confirm-actions">
-        {link && <a class="btn ghost sm set-form-link" href={link} target="_blank" rel="noopener noreferrer">{t('settings.getAKey')}</a>}
-        <button type="button" class="btn sm" onClick={onClose}>{t('common.cancel')}</button>
-        <button type="submit" class="btn sm primary" disabled={!ready || busy}>{busy && <Icon name="spinner" />}{t('settings.save')}</button>
-      </div>
-    </form>
-  );
-}
-
-/** a provider of the list: connected (`action` changes it, `remove` disconnects it), or offered with Connect; its form or question under it */
-function ProviderRow({ name, badge, hint, action, remove, form }: { name: string; badge?: string; hint?: string; action?: string; remove?: () => Promise<void>; form: (close: () => void) => ComponentChildren }) {
-  const [open, setOpen] = useState<'form' | 'remove' | null>(null);
-  const close = () => setOpen(null);
-  const toggleForm = () => setOpen(open === 'form' ? null : 'form');
-  const below = open === 'form' ? form(close) : open === 'remove' && remove && (
-    <div class="set-confirm" role="alertdialog" aria-label={t('settings.disconnect')}>
-      <span>{t('settings.disconnectConfirm', { name })}</span>
-      <div class="set-confirm-actions">
-        <button class="btn sm" onClick={close}>{t('common.cancel')}</button>
-        <button class="btn sm danger-solid" onClick={() => remove().then(close, (e) => toast((e as Error).message, 'error'))}>{t('settings.disconnect')}</button>
-      </div>
-    </div>
-  );
-  return (
-    <Row label={name} badge={badge} hint={hint} below={below}>
-      {action
-        ? <div class="set-actions">
-            <button class="btn ghost sm" onClick={toggleForm}>{action}</button>
-            {remove && <button class="btn ghost sm" onClick={() => setOpen('remove')}>{t('settings.disconnect')}</button>}
-          </div>
-        : <button class="btn sm" onClick={toggleForm}><Icon name="plus" />{t('settings.connect')}</button>}
-    </Row>
-  );
+/** the key vault's own page: the keys are typed there, out of the editor's reach; it tells what changed */
+function VaultKeys() {
+  const frame = useRef<HTMLIFrameElement>(null);
+  const [height, setHeight] = useState(320);
+  const { query, whole } = useContext(Search);
+  useEffect(() => {
+    const heard = (e: MessageEvent) => {
+      const msg = fromVault(e, frame.current?.contentWindow);
+      if (msg?.type === 'tramme-vault-height') setHeight(Math.min(4000, Math.max(80, msg.height)));
+      else if (msg?.type === 'tramme-vault-changed') providersChanged();
+      else if (msg?.type === 'tramme-vault-toast') toast(String(msg.text).slice(0, 300), msg.kind === 'error' ? 'error' : 'info');
+    };
+    addEventListener('message', heard);
+    return () => removeEventListener('message', heard);
+  }, []);
+  // the search cannot look into the vault's page: shown when the search names it
+  if (!whole && ![t('settings.providers'), t('settings.apiKey')].some((w) => norm(w).includes(query))) return null;
+  const theme = document.documentElement.dataset.theme ?? 'studio';
+  // the settings' own breakpoint (styles.css): the frame cannot see the window's width
+  const layout = matchMedia('(max-width: 760px)').matches ? 'compact' : 'wide';
+  return <iframe ref={frame} class="vault-frame" title={t('settings.providers')} src={`${vaultOrigin}/settings?lang=${locale}&theme=${theme}&layout=${layout}`} style={{ height }} />;
 }
 
 function Providers() {
-  useEffect(() => { ensureStatus(); }, []);
-  const keys = aiStatus.value.keys;
-  const source = (p: KeyedProvider) => keys?.providers[p] ?? null;
-  const connected = PROVIDERS.filter((p) => source(p.id)), offered = PROVIDERS.filter((p) => !source(p.id));
-  const custom = keys?.custom ?? [];
-  const keyForm = (p: ProviderInfo) => (close: () => void) => (
-    <ProviderForm link={p.keys} onClose={close} fields={[{ name: 'key', label: t('settings.apiKey'), secret: true, placeholder: t('settings.pasteTheKey') }]}
-      onSave={async (v) => { await connectProvider(p.id, v.key); toast(t('settings.providerConnected', { name: p.name })); }} />
-  );
-  const customForm = (c?: CustomProvider) => (close: () => void) => (
-    <ProviderForm onClose={close} fields={[
-      { name: 'label', label: t('settings.providerName'), initial: c?.label, placeholder: 'DeepSeek' },
-      { name: 'base', label: t('settings.baseUrl'), initial: c?.base, placeholder: 'https://api.deepseek.com/v1' },
-      { name: 'key', label: t('settings.apiKey'), secret: true, optional: true, placeholder: c?.key ? t('settings.keepTheKey') : t('settings.keyOptional') },
-    ]} onSave={async (v) => {
-      await saveCustomProvider(c?.id ?? customId(v.label, custom.map((x) => x.id)), { label: v.label, base: v.base, key: v.key || undefined });
-      if (!c) toast(t('settings.providerConnected', { name: v.label }));
-    }} />
-  );
-  return (
-    <>
-      <Section title={t('settings.connectedProviders')}>
-        <p class="faint">{t('settings.providersIntro')}</p>
-        {keys === null
-          ? <span class="faint">{t('common.searching')}</span>
-          : !connected.length && !custom.length && <span class="faint">{t('settings.noProviderConnected')}</span>}
-        {connected.map((p) => {
-          const own = source(p.id) === 'settings';
-          return (
-            <ProviderRow key={p.id} name={p.name} badge={own ? t('settings.badgeApiKey') : t('settings.badgeServerSecret')} hint={own ? undefined : t('settings.serverSecretHint')}
-              action={t('settings.changeKey')} form={keyForm(p)} remove={own ? async () => { await disconnectProvider(p.id); toast(t('settings.providerDisconnected', { name: p.name })); } : undefined} />
-          );
-        })}
-        {custom.map((c) => (
-          <ProviderRow key={c.id} name={c.label} badge={t('settings.badgeCustom')} hint={c.base} action={t('settings.editProvider')} form={customForm(c)}
-            remove={async () => { await removeCustomProvider(c.id); toast(t('settings.providerDisconnected', { name: c.label })); }} />
-        ))}
-      </Section>
-      <Section title={t('settings.addAProvider')}>
-        {offered.map((p) => <ProviderRow key={p.id} name={p.name} hint={t(p.hint)} form={keyForm(p)} />)}
-        <ProviderRow name={t('settings.customProvider')} badge={t('settings.badgeCustom')} hint={t('settings.providerCustom')} form={customForm()} />
-      </Section>
-    </>
-  );
+  useEffect(() => { if (!vaultOrigin) ensureStatus(); }, []);
+  if (vaultOrigin) return <VaultKeys />;
+  return <ProviderList keys={aiStatus.value.keys} actions={SERVER_KEYS} intro={t('settings.providersIntro')} />;
 }
 
 function Behavior() {
@@ -417,13 +299,8 @@ function Behavior() {
         <Toggle on={a.autoApply || confirming} onChange={(on) => (on ? setConfirming(true) : (setConfirming(false), setAiSettings({ autoApply: false })))} />
       </Row>
       {confirming && (
-        <div class="set-confirm" role="alertdialog" aria-label={t('settings.autoApply')}>
-          <span>{t('settings.autoApplyConfirm')}</span>
-          <div class="set-confirm-actions">
-            <button class="btn sm" onClick={() => setConfirming(false)}>{t('common.cancel')}</button>
-            <button class="btn sm primary" onClick={() => { setAiSettings({ autoApply: true }); setConfirming(false); }}>{t('common.enable')}</button>
-          </div>
-        </div>
+        <Confirm label={t('settings.autoApply')} question={t('settings.autoApplyConfirm')} action={t('common.enable')}
+          onCancel={() => setConfirming(false)} onConfirm={() => { setAiSettings({ autoApply: true }); setConfirming(false); }} />
       )}
     </Section>
   );
@@ -437,7 +314,7 @@ function Connection() {
   return (
     <Section title={t('settings.connection')}>
       <Row label={t('common.accessToClaude')} hint={t('settings.automaticTheLocalCompanion')}>
-        <Seg value={a.prefer} options={[['auto', t('common.automatic')], ['companion', t('common.companion')], ['server', t('common.server')]]} onChange={(v) => setAiSettings({ prefer: v as typeof a.prefer })} />
+        <Seg value={a.prefer} options={[['auto', t('common.automatic')], ['companion', t('common.companion')], ['server', serverName()]]} onChange={(v) => setAiSettings({ prefer: v as typeof a.prefer })} />
       </Row>
       <Row label={t('settings.companionToken')} hint={t('settings.localCompanionCompanionServer', labels)}>
         <div style={{ display: 'flex', gap: 6 }}>

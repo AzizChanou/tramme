@@ -891,6 +891,13 @@ a.btn { text-decoration: none; }
 .set-results:not(:has(.set-row))::after { content: attr(data-empty); color: var(--text-3); font-size: 12px; }
 .set-results .set-section:not(:has(.set-row)) { display: none; }
 .set-section { display: flex; flex-direction: column; gap: 12px; }
+/* the key vault's page (personal mode), framed in the providers pane: as tall as its content, on the pane's background */
+.vault-frame { display: block; width: 100%; border: 0; background: transparent; }
+html.vault, html.vault body { height: auto; overflow: visible; background: transparent; }
+/* the frame is narrower than the window: the rows follow the editor's layout (compact on a phone), told in the frame's address */
+html.vault:not(.compact) .set-row:not(.stack) { grid-template-columns: minmax(0, 1fr) auto; }
+html.vault:not(.compact) .set-row:not(.stack) .set-control { justify-content: flex-end; overflow-x: visible; }
+.vault-page { display: flex; flex-direction: column; gap: 22px; padding: 1px 2px 2px; user-select: text; }
 .set-section h3 { margin: 0; font-size: 12.5px; font-weight: 600; }
 .set-section > p { margin: -4px 0 0; font-size: 11.5px; line-height: 1.5; }
 .set-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 6px 16px; align-items: center; }

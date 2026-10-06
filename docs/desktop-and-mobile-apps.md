@@ -11,6 +11,20 @@ The editor is a static single-page app, so Tauri can wrap it with little effort.
 
 Recommended order: **desktop first (Windows, then macOS), in local mode.** Mobile comes later, and only if offline use or local files matter: the installable web app (PWA) already covers phones.
 
+## Already in place: the personal mode
+
+The web's personal mode ([deploy.md](deploy.md), section 8) built most of what the app needs, behind interfaces a desktop app can implement differently:
+
+| Need | Web, personal mode | Tauri |
+|---|---|---|
+| The `/api` storage routes, answered on the device | `storageRoute` of `packages/api` over IndexedDB, in a service worker | the same contract over folders, in the Rust protocol handler (below) |
+| A check that a storage behaves as the editor expects | `packages/api/test/contract.ts`, run on memory and IndexedDB | run against the Rust handler too |
+| Keys the editor never reads | the key vault, a page of another origin (`apps/editor/src/vault`) | a Rust command holding the keys in the OS keychain |
+| Provider calls without a server | `providerRoute` with a `Reach` (keys and a fetch), direct from the browser | the same routes, the fetch done by Rust (no CORS: Z.AI and custom providers too) |
+| The editor's side | `api.reach`: the vault in personal mode, the server otherwise | a third case of `api.reach` |
+
+So the app's step 3 (assistant) is mostly a matter of answering `api.reach` from Rust.
+
 ## What the editor depends on today
 
 | Dependency | Where | In a Tauri app |

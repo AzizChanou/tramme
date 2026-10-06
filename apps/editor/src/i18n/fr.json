@@ -1446,5 +1446,17 @@
     "the video layer the object is filmed in": "le calque vidéo où l'objet est filmé",
     "time between two looks (0.1 s by default; shorter for fast motion, but slower)": "temps entre deux regards (0,1 s par défaut ; plus court pour un mouvement rapide, mais plus lent)",
     "where the object is in that video over time (the track tool)": "où se trouve l'objet dans cette vidéo au fil du temps (l'outil track)"
+  },
+  "personal": {
+    "cannotStart": "tramme ne peut pas démarrer ici",
+    "noServiceWorker": "Ce navigateur ne peut pas garder de projets ici (service workers désactivés, souvent en navigation privée). Ouvrez tramme dans une fenêtre normale d'un navigateur récent.",
+    "vaultUnreachable": "Le coffre des clés ne répond pas : rechargez la page.",
+    "yourKey": "Votre clé",
+    "viaRelay": "via le relais tramme, qui ne garde rien (ce fournisseur refuse les appels depuis un navigateur)",
+    "keysIntro": "Vos clés restent dans ce navigateur, dans un coffre que l'éditeur et les plugins des projets ne peuvent pas lire. Votre navigateur appelle directement le fournisseur : tramme ne voit jamais une clé, et c'est le fournisseur qui vous facture.",
+    "forgetKeys": "Oublier toutes mes clés",
+    "forgetKeysConfirm": "Toutes les clés et les fournisseurs personnalisés sont retirés de ce navigateur. Continuer ?",
+    "vaultAlone": "Cette page garde vos clés tramme. Ouvrez tramme pour vous en servir.",
+    "storedHere": "Vos projets sont gardés dans ce navigateur, sur cet appareil seulement : tramme ne garde rien. Exportez-les (.tramme) pour les sauvegarder ou les ouvrir ailleurs."
   }
 }

@@ -9,7 +9,7 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'preact/ho
 import type { AiEvent, ChatItem } from '../api.ts';
 import { providerOf } from '@tramme/assistant';
 import { ModelPicker } from './ModelPicker.tsx';
-import { aiRoute, aiSettings, aiStatus, ask, routeLabel, chat, chatId, chats, decided, deleteChat, newChat, openChat, providerLabel, refreshStatus, remoteProviders, runTool, saveChat, setAiSettings, statusLabels, stop as stopAi, type ChatMeta } from '../ai/index.ts';
+import { aiRoute, aiSettings, aiStatus, ask, routeLabel, chat, chatId, chats, decided, deleteChat, newChat, openChat, providerLabel, refreshStatus, remoteProviders, runTool, saveChat, serverName, setAiSettings, statusLabels, stop as stopAi, type ChatMeta } from '../ai/index.ts';
 import { openSettings } from '../settings.ts';
 import { fieldsOf, inputLine, inputOf, listCommands, matchCommands, parseCommand, ready, type Command, type Field } from '../ai/commands.ts';
 import { uid } from '../ai/calls.ts';
@@ -348,7 +348,7 @@ function Settings({ anchor, onClose }: { anchor: HTMLElement; onClose: () => voi
   return (
     <Popover anchor={anchor} onClose={onClose} class="ai-settings" align="right">
       <div style={{ fontWeight: 600 }}>{t('common.accessToClaude')}</div>
-      <Seg value={set.prefer} options={[['auto', t('common.automatic')], ['companion', t('common.companion')], ['server', t('common.server')]]} onChange={(v) => setAiSettings({ prefer: v as typeof set.prefer })} />
+      <Seg value={set.prefer} options={[['auto', t('common.automatic')], ['companion', t('common.companion')], ['server', serverName()]]} onChange={(v) => setAiSettings({ prefer: v as typeof set.prefer })} />
       <div class="faint" style={{ lineHeight: 1.45 }}>{t('assistant.automaticTheLocalCompanion')}</div>
       <div class="ai-line"><span class={`dot ${st.companion === 'ok' ? 'ok' : st.companion === 'checking' ? '' : 'off'}`} /><b>{t('assistant.localCompanion')}</b><span class="faint">{labels.companion}</span></div>
       {st.companion !== 'ok' && <div class="faint" style={{ lineHeight: 1.45 }}>{t('assistant.inTheTrammeFolder')} <code class="cmd" onClick={() => navigator.clipboard?.writeText(command).then(() => toast(t('common.commandCopied')))} title={t('common.copy')}>{command}</code></div>}
@@ -358,7 +358,7 @@ function Settings({ anchor, onClose }: { anchor: HTMLElement; onClose: () => voi
         <summary class="faint">{t('assistant.companionAddress')}</summary>
         <div class="field" style={{ marginTop: 6 }}><input value={url} onInput={(e) => setUrl((e.target as HTMLInputElement).value.trim())} onChange={() => setAiSettings({ companionUrl: url })} /></div>
       </details>
-      <div class="ai-line"><span class={`dot ${st.server ? 'ok' : 'off'}`} /><b>{t('common.server')}</b><span class="faint">{labels.server}</span></div>
+      <div class="ai-line"><span class={`dot ${st.server ? 'ok' : 'off'}`} /><b>{serverName()}</b><span class="faint">{labels.server}</span></div>
       <div style={{ fontWeight: 600, marginTop: 4 }}>{t('assistant.otherModels')}</div>
       {remoteProviders.value.map((p) => <div key={p.slot} class="ai-line"><span class={`dot ${st.remote[p.slot] ? 'ok' : 'off'}`} /><b>{p.label}</b><span class="faint">{st.remote[p.slot] ? t('common.keySet') : t('common.noKey')}</span></div>)}
       <button class="btn sm" onClick={() => { onClose(); openSettings('providers'); }}><Icon name="link" />{t('assistant.manageProviders')}</button>

@@ -18,6 +18,7 @@ import { LogoMark } from './Logo.tsx';
 import { Toasts } from './App.tsx';
 import { SettingsDialog } from './Settings.tsx';
 import { HelpButton } from './Help.tsx';
+import { personal } from '../mode.ts';
 import { offerTours } from '../tours/index.ts';
 import { settingsOpen } from '../settings.ts';
 import { t } from '../i18n/index.ts';
@@ -252,6 +253,8 @@ export function Home() {
       <main class="home-main">
         <section data-tour="home-projects">
           <div class="home-h"><h2>{t('home.projects')}</h2>{projects && projects.length > 0 && <span class="faint">{projects.length}</span>}</div>
+          {/* personal mode: nothing is kept on the server, the user should know where the projects are */}
+          {personal && <div class="home-note"><Icon name="info" /><span>{t('personal.storedHere')}</span></div>}
           {loadError && <div class="home-note err"><Icon name="alert" /><span>{t('home.projectsCannotBeRead', { error: loadError })}</span></div>}
           {!projects && !loadError && <div class="cards">{[0, 1, 2].map((i) => <div key={i} class="card ghost-card"><div class="card-thumb" /><div class="card-meta"><i /><i /></div></div>)}</div>}
           {projects && projects.length === 0 && (

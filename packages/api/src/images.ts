@@ -1,6 +1,6 @@
 // Pictures made by a provider at authoring time: OpenAI (gpt-image-1),
 // Gemini (its image model), Z.AI (CogView). The keys (settings or secrets,
-// see keys.ts) stay in the Worker; the editor saves the file in the project
+// see keys.ts) never reach the editor, which saves the file in the project
 // with what made it (see docs/generation-roadmap.md).
 //
 //   POST /api/generate-image {prompt, ratio?, quality?, provider?}   the picture file
@@ -10,6 +10,7 @@
 import { HttpError, readJson } from './http.ts';
 import { providerFailure } from './generate.ts';
 import type { Keys } from './keys.ts';
+import type { Reach } from './providers.ts';
 
 export type ImageProvider = 'openai' | 'gemini' | 'zai';
 
@@ -28,9 +29,9 @@ const b64 = (s: string): ArrayBuffer => {
 
 const OPENAI_MODEL = 'gpt-image-1', GEMINI_MODEL = 'gemini-3.8-flash-image', ZAI_MODEL = 'cogview-4';
 
-export const IMAGE_PROVIDERS: Record<ImageProvider, { make(key: string, ask: Ask): Promise<Made> }> = {
+export const IMAGE_PROVIDERS: Record<ImageProvider, { make(key: string, ask: Ask, fetch: Reach['fetch']): Promise<Made> }> = {
   openai: {
-    async make(key, ask) {
+    async make(key, ask, fetch) {
       const res = await fetch('https://api.openai.com/v1/images/generations', {
         method: 'POST', headers: { authorization: `Bearer ${key}`, 'content-type': 'application/json' },
         body: JSON.stringify({ model: OPENAI_MODEL, prompt: ask.prompt, size: WIDE.includes(ask.ratio) ? '1536x1024' : TALL.includes(ask.ratio) ? '1024x1536' : '1024x1024', ...(ask.quality ? { quality: ask.quality } : {}) }),
@@ -43,7 +44,7 @@ export const IMAGE_PROVIDERS: Record<ImageProvider, { make(key: string, ask: Ask
     },
   },
   gemini: {
-    async make(key, ask) {
+    async make(key, ask, fetch) {
       const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`, {
         method: 'POST', headers: { 'x-goog-api-key': key, 'content-type': 'application/json' },
         body: JSON.stringify({
@@ -59,7 +60,7 @@ export const IMAGE_PROVIDERS: Record<ImageProvider, { make(key: string, ask: Ask
     },
   },
   zai: {
-    async make(key, ask) {
+    async make(key, ask, fetch) {
       const res = await fetch('https://api.z.ai/api/paas/v4/images/generations', {
         method: 'POST', headers: { authorization: `Bearer ${key}`, 'content-type': 'application/json' },
         body: JSON.stringify({ model: ZAI_MODEL, prompt: ask.prompt, size: WIDE.includes(ask.ratio) ? '1280x720' : TALL.includes(ask.ratio) ? '720x1280' : '1024x1024' }),
@@ -82,7 +83,7 @@ export function imageConfig(keys: Keys): ImageProvider[] {
   return (Object.keys(IMAGE_PROVIDERS) as ImageProvider[]).filter((p) => keys.get(p));
 }
 
-export async function generateImage(req: Request, keys: Keys) {
+export async function generateImage(req: Request, { keys, fetch }: Reach) {
   const b = await readJson<Partial<Ask> & { provider?: string }>(req);
   const prompt = typeof b.prompt === 'string' ? b.prompt.trim() : '';
   if (!prompt) throw new HttpError(400, 'say what to draw (prompt)');
@@ -91,12 +92,11 @@ export async function generateImage(req: Request, keys: Keys) {
   const quality = ['low', 'medium', 'high'].includes(String(b.quality)) ? String(b.quality) as Ask['quality'] : undefined;
   const provider = (b.provider ?? imageConfig(keys)[0]) as ImageProvider | undefined;
   if (!provider || !IMAGE_PROVIDERS[provider]) {
-    const secrets = (Object.keys(IMAGE_PROVIDERS) as ImageProvider[]).map((p) => keys.secret(p));
-    throw new HttpError(503, `no provider for pictures: connect one in Settings, Providers (or npx wrangler secret put ${secrets.join(' or ')})`);
+    throw new HttpError(503, `no provider for pictures: ${keys.how(Object.keys(IMAGE_PROVIDERS) as ImageProvider[], 'one')}`);
   }
   const key = keys.get(provider);
-  if (!key) throw new HttpError(503, `no ${provider} key: connect it in Settings, Providers (or npx wrangler secret put ${keys.secret(provider)})`);
-  const made = await IMAGE_PROVIDERS[provider].make(key, { prompt, ratio, quality });
+  if (!key) throw new HttpError(503, `no ${provider} key: ${keys.how([provider])}`);
+  const made = await IMAGE_PROVIDERS[provider].make(key, { prompt, ratio, quality }, fetch);
   return new Response(made.image, {
     headers: { 'content-type': made.type, 'cache-control': 'no-store', 'x-tramme-provider': provider, 'x-tramme-model': made.model },
   });

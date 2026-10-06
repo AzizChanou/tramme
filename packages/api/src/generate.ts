@@ -1,6 +1,6 @@
 // Sounds made by a provider at authoring time: sound effects and music
 // (ElevenLabs), a voice-over (ElevenLabs, OpenAI, Gemini). The keys (settings
-// or secrets, see keys.ts) stay in the Worker; the editor saves the file in the
+// or secrets, see keys.ts) never reach the editor, which saves the file in the
 // project with what made it.
 //
 //   POST /api/generate {kind, prompt, duration?, voice?, style?, provider?}   the audio file
@@ -8,6 +8,7 @@
 
 import { HttpError, readJson } from './http.ts';
 import type { Keys } from './keys.ts';
+import type { Reach } from './providers.ts';
 
 export type SoundKind = 'sfx' | 'music' | 'voice';
 type Provider = 'elevenlabs' | 'openai' | 'gemini';
@@ -31,10 +32,10 @@ export async function providerFailure(provider: string, res: Response): Promise<
 const ELEVEN = 'https://api.elevenlabs.io/v1';
 const MP3 = 'output_format=mp3_44100_128';
 
-const PROVIDERS: Record<Provider, { kinds: SoundKind[]; make(key: string, ask: Ask): Promise<Made> }> = {
+const PROVIDERS: Record<Provider, { kinds: SoundKind[]; make(key: string, ask: Ask, fetch: Reach['fetch']): Promise<Made> }> = {
   elevenlabs: {
     kinds: ['sfx', 'music', 'voice'],
-    async make(key, ask) {
+    async make(key, ask, fetch) {
       const headers = { 'xi-api-key': key, 'content-type': 'application/json' };
       let url: string, body: Record<string, unknown>, model: string, voice: string | undefined;
       if (ask.kind === 'sfx') {
@@ -58,7 +59,7 @@ const PROVIDERS: Record<Provider, { kinds: SoundKind[]; make(key: string, ask: A
   },
   openai: {
     kinds: ['voice'],
-    async make(key, ask) {
+    async make(key, ask, fetch) {
       const model = 'gpt-4o-mini-tts', voice = ask.voice || 'alloy';
       const res = await fetch('https://api.openai.com/v1/audio/speech', {
         method: 'POST', headers: { authorization: `Bearer ${key}`, 'content-type': 'application/json' },
@@ -70,7 +71,7 @@ const PROVIDERS: Record<Provider, { kinds: SoundKind[]; make(key: string, ask: A
   },
   gemini: {
     kinds: ['voice'],
-    async make(key, ask) {
+    async make(key, ask, fetch) {
       const model = 'gemini-3.8-flash-tts', voice = ask.voice || 'Kore';
       const res = await fetch('https://generativelanguage.googleapis.com/v1beta/interactions', {
         method: 'POST', headers: { 'x-goog-api-key': key, 'content-type': 'application/json' },
@@ -98,7 +99,7 @@ export function soundConfig(keys: Keys): Record<SoundKind, Provider[]> {
   return { sfx: has.filter((p) => PROVIDERS[p].kinds.includes('sfx')), music: has.filter((p) => PROVIDERS[p].kinds.includes('music')), voice: has.filter((p) => PROVIDERS[p].kinds.includes('voice')) };
 }
 
-export async function generate(req: Request, keys: Keys) {
+export async function generate(req: Request, { keys, fetch }: Reach) {
   const b = await readJson<Partial<Ask> & { provider?: string }>(req);
   if (b.kind !== 'sfx' && b.kind !== 'music' && b.kind !== 'voice') throw new HttpError(400, 'kind: sfx, music or voice');
   const prompt = typeof b.prompt === 'string' ? b.prompt.trim() : '';
@@ -107,14 +108,14 @@ export async function generate(req: Request, keys: Keys) {
   const able = soundConfig(keys)[b.kind];
   const provider = (b.provider ?? able[0]) as Provider | undefined;
   if (!provider || !PROVIDERS[provider]) {
-    const secrets = (Object.keys(PROVIDERS) as Provider[]).filter((p) => PROVIDERS[p].kinds.includes(b.kind!)).map((p) => keys.secret(p));
-    throw new HttpError(503, `no provider for ${b.kind}: connect one in Settings, Providers (or npx wrangler secret put ${secrets.join(' or ')})`);
+    const makers = (Object.keys(PROVIDERS) as Provider[]).filter((p) => PROVIDERS[p].kinds.includes(b.kind!));
+    throw new HttpError(503, `no provider for ${b.kind}: ${keys.how(makers, 'one')}`);
   }
   if (!PROVIDERS[provider].kinds.includes(b.kind)) throw new HttpError(400, `${provider} does not make ${b.kind}`);
   const key = keys.get(provider);
-  if (!key) throw new HttpError(503, `no ${provider} key: connect it in Settings, Providers (or npx wrangler secret put ${keys.secret(provider)})`);
+  if (!key) throw new HttpError(503, `no ${provider} key: ${keys.how([provider])}`);
   const ask: Ask = { kind: b.kind, prompt, duration: typeof b.duration === 'number' ? b.duration : undefined, voice: typeof b.voice === 'string' ? b.voice : undefined, style: typeof b.style === 'string' ? b.style.slice(0, 500) : undefined };
-  const made = await PROVIDERS[provider].make(key, ask);
+  const made = await PROVIDERS[provider].make(key, ask, fetch);
   return new Response(made.audio, {
     headers: { 'content-type': made.type, 'cache-control': 'no-store', 'x-tramme-provider': provider, 'x-tramme-model': made.model, ...(made.voice ? { 'x-tramme-voice': made.voice } : {}) },
   });

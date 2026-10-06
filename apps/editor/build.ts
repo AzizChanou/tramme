@@ -1,9 +1,11 @@
 // Production build of the editor into apps/editor/dist, served by the Worker
-// as static assets: the bundle (hashed names), index.html, the examples as
-// .tramme archives.
+// as static assets: the bundles (hashed names), index.html, the key vault's
+// page (vault.html, personal mode), the service worker (sw.js, personal mode),
+// the examples as .tramme archives.
 //
-//   node apps/editor/build.ts          build once (minified)
-//   node apps/editor/build.ts --dev    rebuild on change, run `wrangler dev` (R2 simulated, no Access) and the assistant's companion
+//   node apps/editor/build.ts                     build once (minified)
+//   node apps/editor/build.ts --dev               rebuild on change, run `wrangler dev` (R2 simulated, no Access) and the assistant's companion
+//   node apps/editor/build.ts --dev --personal    the same in personal mode: projects in the browser, the vault on 127.0.0.1
 
 import { spawn } from 'node:child_process';
 import fs from 'node:fs';
@@ -17,36 +19,47 @@ const ROOT = path.resolve(HERE, '../..');
 // TRAMME_DIST: build elsewhere (benchmarks, without touching a running `npm run dev`)
 const DIST = process.env.TRAMME_DIST ? path.resolve(process.env.TRAMME_DIST) : path.join(HERE, 'dist');
 const dev = process.argv.includes('--dev');
+const personal = process.argv.includes('--personal');
 
 const ICON = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><rect width="24" height="24" rx="6" fill="#0E1215"/><g transform="translate(2.4 2.3) scale(.8)" fill="#2EC4B6"><rect x="2.5" y="2.6" width="19" height="5" rx="1.8"/><rect x="8.8" y="8.7" width="6.4" height="3.9" rx="1.2"/><rect x="9.9" y="13.7" width="6.4" height="3.9" rx="1.2" opacity=".66"/><rect x="11" y="18.7" width="6.4" height="3.9" rx="1.2" opacity=".36"/></g></svg>`;
 
-const page = (js: string, css: string | undefined) => `<!doctype html>
+/** a page of the build: its bundle and stylesheet, and what its head adds */
+const page = (js: string, css: string | undefined, head: string) => `<!doctype html>
 <html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="color-scheme" content="dark"><meta name="theme-color" content="#0b0f12">
+<meta name="color-scheme" content="dark">${head}
 <title>tramme</title>
 <link rel="icon" href="data:image/svg+xml,${encodeURIComponent(ICON)}">
-<link rel="manifest" href="/manifest.webmanifest"><meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-title" content="tramme">
 ${css ? `<link rel="stylesheet" href="/${css}">` : ''}</head>
 <body><div id="app"></div><script type="module" src="/${js}"></script></body></html>
 `;
+
+/** the editor: installable on a phone's home screen */
+const EDITOR_HEAD = `<meta name="theme-color" content="#0b0f12">
+<link rel="manifest" href="/manifest.webmanifest"><meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-title" content="tramme">`;
+/** the key vault: the editor's address, the only one it answers, set by the Worker */
+const VAULT_HEAD = '<meta name="tramme-app" content="%APP_ORIGIN%">';
 
 // built files have hashed names: they never change and stay cached. In dev the
 // names are stable: always checked again (and versioned in the page, see below)
 const HEADERS = `/assets/*
   Cache-Control: ${dev ? 'no-cache' : 'public, max-age=31536000, immutable'}
+/sw.js
+  Cache-Control: no-cache
 /*
   X-Content-Type-Options: nosniff
   Referrer-Policy: same-origin
 `;
 
-/** index.html pointing at the bundle esbuild just wrote */
+/** index.html and vault.html pointing at the bundles esbuild just wrote */
 function writePage(meta: esbuild.Metafile) {
   const outs = Object.keys(meta.outputs).map((p) => path.relative(DIST, path.resolve(ROOT, p)).split(path.sep).join('/'));
-  const js = outs.find((p) => /^assets\/main(-[^/]+)?\.js$/.test(p))!;
-  const css = outs.find((p) => /^assets\/main(-[^/]+)?\.css$/.test(p));
   // in dev, a new address at each rebuild, so no browser keeps an older bundle
   const v = dev ? `?v=${Date.now().toString(36)}` : '';
-  fs.writeFileSync(path.join(DIST, 'index.html'), page(`${js}${v}`, css && `${css}${v}`));
+  for (const [entry, file, head] of [['main', 'index.html', EDITOR_HEAD], ['vault', 'vault.html', VAULT_HEAD]]) {
+    const js = outs.find((p) => new RegExp(`^assets/${entry}(-[^/]+)?\\.js$`).test(p))!;
+    const css = outs.find((p) => new RegExp(`^assets/${entry}(-[^/]+)?\\.css$`).test(p));
+    fs.writeFileSync(path.join(DIST, file), page(`${js}${v}`, css && `${css}${v}`, head));
+  }
   // drop the bundles of previous builds
   const keep = new Set(outs.flatMap((p) => [p, `${p}.LEGAL.txt`]));
   for (const f of fs.readdirSync(path.join(DIST, 'assets'))) if (!keep.has(`assets/${f}`)) fs.rmSync(path.join(DIST, 'assets', f));
@@ -92,7 +105,7 @@ function writeExamples() {
 }
 
 const options: esbuild.BuildOptions = {
-  entryPoints: { main: path.join(HERE, 'src/main.tsx') },
+  entryPoints: { main: path.join(HERE, 'src/main.tsx'), vault: path.join(HERE, 'src/vault/main.tsx') },
   outdir: path.join(DIST, 'assets'),
   // in dev, stable names: files are rewritten in place under the running `wrangler dev`
   entryNames: dev ? '[name]' : '[name]-[hash]', assetNames: '[name]-[hash]',
@@ -101,6 +114,13 @@ const options: esbuild.BuildOptions = {
   jsx: 'automatic', jsxImportSource: 'preact',
   loader: { '.ttf': 'file', '.woff2': 'file', '.md': 'text' },
   legalComments: 'linked',
+};
+
+/** the service worker of the personal mode: one classic script at the root, so it serves every page */
+const workerOptions: esbuild.BuildOptions = {
+  entryPoints: [path.join(HERE, 'src/sw.ts')], outfile: path.join(DIST, 'sw.js'),
+  bundle: true, format: 'iife', platform: 'browser', target: 'chrome120',
+  minify: !dev && !process.env.TRAMME_NOMINIFY, sourcemap: 'linked', logLevel: 'warning', legalComments: 'none',
 };
 
 // empty the folder rather than removing it (a running `wrangler dev` watches it)
@@ -120,7 +140,7 @@ fs.cpSync(path.join(ROOT, 'sounds'), path.join(DIST, 'sounds'), { recursive: tru
 
 if (!dev) {
   const t0 = performance.now();
-  const r = await esbuild.build(options);
+  const [r] = await Promise.all([esbuild.build(options), esbuild.build(workerOptions)]);
   writePage(r.metafile!);
   const size = Object.values(r.metafile!.outputs).reduce((n, o) => n + o.bytes, 0);
   console.log(`editor built in ${path.relative(process.cwd(), DIST)} in ${((performance.now() - t0) / 1000).toFixed(1)} s (${(size / 1e6).toFixed(1)} MB with source maps, ${examples} example(s))`);
@@ -129,12 +149,17 @@ if (!dev) {
     ...options,
     plugins: [{ name: 'page', setup: (b) => b.onEnd((r) => { if (r.metafile && !r.errors.length) { writePage(r.metafile); console.log(`[build] ${new Date().toLocaleTimeString('en-GB')} editor up to date`); } }) }],
   });
-  await ctx.rebuild();
-  await ctx.watch();
+  const sw = await esbuild.context(workerOptions);
+  await Promise.all([ctx.rebuild(), sw.rebuild()]);
+  await Promise.all([ctx.watch(), sw.watch()]);
   const port = process.env.PORT ?? '8787';
   // TRAMME_STATE: projects stored elsewhere (trials beside a running `npm run dev`)
   const state = process.env.TRAMME_STATE ?? '.wrangler/state';
-  const wrangler = spawn('npx', ['wrangler', 'dev', '-c', 'apps/worker/wrangler.jsonc', '--port', port, '--var', 'DEV_OPEN:1', '--persist-to', state], { cwd: ROOT, stdio: 'inherit', shell: process.platform === 'win32' });
+  // personal mode: the editor on localhost, the key vault on 127.0.0.1 (another origin, as cles.<domain> in production)
+  const mode = personal
+    ? ['--env', 'personal', '--var', `APP_ORIGIN:http://localhost:${port}`, '--var', `VAULT_ORIGIN:http://127.0.0.1:${port}`]
+    : ['--var', 'DEV_OPEN:1'];
+  const wrangler = spawn('npx', ['wrangler', 'dev', '-c', 'apps/worker/wrangler.jsonc', '--port', port, ...mode, '--persist-to', state], { cwd: ROOT, stdio: 'inherit', shell: process.platform === 'win32' });
   // the assistant's local companion, paired by itself with this editor (TRAMME_NO_COMPANION=1: without it)
   let companion: ReturnType<typeof spawn> | null = null, elsewhere = false;
   if (!process.env.TRAMME_NO_COMPANION) {
@@ -152,6 +177,8 @@ if (!dev) {
     companion.stderr!.on('data', tell);
     companion.on('exit', (code) => { if (code && !elsewhere) console.log(`[companion] stopped (code ${code}); the assistant will go through the server if it has a key`); companion = null; });
   }
-  wrangler.on('exit', async (code) => { companion?.kill(); await ctx.dispose(); process.exit(code ?? 0); });
-  console.log(`[build] editor on http://localhost:${port}/ (projects in ${state})`);
+  wrangler.on('exit', async (code) => { companion?.kill(); await Promise.all([ctx.dispose(), sw.dispose()]); process.exit(code ?? 0); });
+  console.log(personal
+    ? `[build] editor on http://localhost:${port}/ in personal mode (projects in the browser, the key vault on http://127.0.0.1:${port})`
+    : `[build] editor on http://localhost:${port}/ (projects in ${state})`);
 }

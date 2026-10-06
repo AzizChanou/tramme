@@ -1,63 +1,15 @@
 import { describe, expect, it } from 'vitest';
 import { unzipSync } from 'fflate';
 import { DOCUMENT, MANIFEST, newProject, type Manifest } from '@tramme/project';
+import { memoryRecords, recordBucket } from '@tramme/api';
 import worker from '../src/index.ts';
 import type { Env } from '../src/http.ts';
 
-/** just enough of an R2 bucket, in memory */
-function memoryBucket() {
-  const store = new Map<string, { data: Uint8Array; etag: string; type?: string; uploaded: Date; custom?: Record<string, string> }>();
-  let n = 0;
-  const uploadsMap = new Map<string, { key: string; parts: Map<number, Uint8Array>; type?: string }>();
-  const meta = (key: string) => {
-    const o = store.get(key)!;
-    return { key, size: o.data.byteLength, etag: o.etag, httpEtag: `"${o.etag}"`, uploaded: o.uploaded, httpMetadata: { contentType: o.type }, customMetadata: o.custom };
-  };
-  const body = (key: string) => {
-    const o = store.get(key)!;
-    return { ...meta(key), body: new Blob([o.data]).stream(), arrayBuffer: async () => o.data.slice().buffer, json: async () => JSON.parse(new TextDecoder().decode(o.data)) };
-  };
-  return {
-    store,
-    async head(key: string) { return store.has(key) ? meta(key) : null; },
-    async get(key: string) { return store.has(key) ? body(key) : null; },
-    async put(key: string, value: ArrayBuffer | string, opts?: { httpMetadata?: { contentType?: string }; onlyIf?: Headers; customMetadata?: Record<string, string> }) {
-      const want = opts?.onlyIf?.get('if-match');
-      if (want && (!store.has(key) || `"${store.get(key)!.etag}"` !== want)) return null;
-      const data = typeof value === 'string' ? new TextEncoder().encode(value) : new Uint8Array(value);
-      store.set(key, { data, etag: `e${++n}`, type: opts?.httpMetadata?.contentType, uploaded: new Date(), custom: opts?.customMetadata });
-      return meta(key);
-    },
-    async delete(keys: string | string[]) { for (const k of [keys].flat()) store.delete(k); },
-    // multipart: parts kept apart, put together on complete
-    async createMultipartUpload(key: string, opts?: { httpMetadata?: { contentType?: string } }) { const uploadId = `u${++n}`; uploadsMap.set(uploadId, { key, parts: new Map(), type: opts?.httpMetadata?.contentType }); return { uploadId, key }; },
-    resumeMultipartUpload(key: string, uploadId: string) {
-      const u = uploadsMap.get(uploadId)!;
-      return {
-        async uploadPart(partNumber: number, data: ArrayBuffer) { u.parts.set(partNumber, new Uint8Array(data)); return { partNumber, etag: `p${partNumber}` }; },
-        async complete(parts: { partNumber: number }[]) {
-          const chunks = parts.map((p) => u.parts.get(p.partNumber)!), size = chunks.reduce((a, c) => a + c.length, 0);
-          const data = new Uint8Array(size); let o = 0; for (const c of chunks) { data.set(c, o); o += c.length; }
-          store.set(key, { data, etag: `e${++n}`, type: u.type, uploaded: new Date() }); uploadsMap.delete(uploadId);
-          return meta(key);
-        },
-        async abort() { uploadsMap.delete(uploadId); },
-      };
-    },
-    async list(opts: { prefix: string; delimiter?: string }) {
-      const keys = [...store.keys()].filter((k) => k.startsWith(opts.prefix)).sort();
-      if (!opts.delimiter) return { objects: keys.map(meta), delimitedPrefixes: [], truncated: false };
-      const prefixes = new Set(keys.map((k) => k.slice(opts.prefix.length)).filter((r) => r.includes('/')).map((r) => opts.prefix + r.split('/')[0] + '/'));
-      return { objects: [], delimitedPrefixes: [...prefixes], truncated: false };
-    },
-  };
-}
-
 function setup(vars: Partial<Env> = {}) {
-  const bucket = memoryBucket();
+  const records = memoryRecords(), bucket = recordBucket(records);
   const env = { FILES: bucket, ASSETS: { fetch: async () => new Response('page') }, DEV_OPEN: '1', ...vars } as unknown as Env;
   const call = (path: string, init: RequestInit = {}) => worker.fetch(new Request(`http://localhost:8787${path}`, init) as never, env);
-  return { bucket, env, call };
+  return { bucket, records, env, call };
 }
 
 const post = (body: unknown): RequestInit => ({ method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
@@ -130,14 +82,14 @@ describe('worker: projects in R2', () => {
 
   for (const name of ['trame', 'emotion']) {
     it(`a project stored under a former name (${name}) is converted on its first read`, async () => {
-      const { bucket, call } = setup();
+      const { bucket, records, call } = setup();
       const { manifest, doc } = newProject({ name: 'Old', width: 640, height: 360, fps: 24, duration: 2, id: 'old-abc123' });
       await bucket.put(`projects/old-abc123/${name}.json`, JSON.stringify({ ...manifest, format: `${name}-project/1` }));
       await bucket.put(`projects/old-abc123/document.${name}.json`, JSON.stringify({ ...doc, schema: `${name}/1` }));
       await bucket.put(`projects/old-abc123/.${name}/chats/index.json`, '[]');
       const list = (await (await call('/api/projects')).json()) as Manifest[];
       expect(list.map((m) => [m.id, m.format])).toEqual([['old-abc123', 'tramme-project/1']]);
-      expect([...bucket.store.keys()].sort()).toEqual(['projects/old-abc123/.tramme/chats/index.json', 'projects/old-abc123/document.tramme.json', 'projects/old-abc123/tramme.json']);
+      expect((await records.list('')).map((r) => r.key)).toEqual(['projects/old-abc123/.tramme/chats/index.json', 'projects/old-abc123/document.tramme.json', 'projects/old-abc123/tramme.json']);
       const d = await (await call('/api/projects/old-abc123/files/document.tramme.json')).json() as { schema: string };
       expect(d.schema).toBe('tramme/1');
     });
@@ -250,7 +202,7 @@ describe('keys connected from the settings', () => {
   const config = async (call: ReturnType<typeof setup>['call']) => (await (await call('/api/config')).json()) as { claude: { server: boolean }; llm: Record<string, boolean>; keys: { providers: Record<string, string | null>; custom: unknown[] } };
 
   it('keeps a key, says where it comes from, never sends it back, and goes back to the secret once removed', async () => {
-    const { call, bucket } = setup({ OPENAI_API_KEY: 'sk-secret' });
+    const { call, records } = setup({ OPENAI_API_KEY: 'sk-secret' });
     expect((await config(call)).keys.providers).toMatchObject({ anthropic: null, openai: 'server' });
 
     expect((await call('/api/keys/anthropic', put({ key: '  sk-ant-typed  ' }))).status).toBe(200);
@@ -259,7 +211,7 @@ describe('keys connected from the settings', () => {
     expect(c.claude.server).toBe(true);
     expect(c.keys.providers).toMatchObject({ anthropic: 'settings', openai: 'settings', gemini: null });
     expect(JSON.stringify(c)).not.toContain('sk-');
-    expect(new TextDecoder().decode(bucket.store.get('config/keys.json')!.data)).toContain('sk-ant-typed');
+    expect(await (await records.get('config/keys.json'))!.data.text()).toContain('sk-ant-typed');
 
     const seen: { url: string; headers: Headers }[] = [];
     const real = globalThis.fetch;

@@ -1,9 +1,11 @@
-// Projects in R2: every file of project <id> lives at projects/<id>/<path>.
-// The manifest is kept by the server (dates, size of the main composition);
-// the editor writes the document and the other files.
+// Projects in a bucket (R2 on the Worker, IndexedDB in the browser): every
+// file of project <id> lives at projects/<id>/<path>. The manifest is kept by
+// the server (dates, size of the main composition); the editor writes the
+// document and the other files.
 
 import { Zip, ZipDeflate, ZipPassThrough } from 'fflate';
 import { isMedia, upgradeFile, currentPath, LEGACIES, DOCUMENT, isChatPath, LIMITS, MANIFEST, ManifestSchema, mimeOf, newId, newProject, parseDocument, pathIssue, type Manifest } from '@tramme/project';
+import type { Bucket, StoredBody, StoredObject } from './bucket.ts';
 import { HttpError, json, readJson } from './http.ts';
 
 const ID = /^[a-z0-9][a-z0-9-]{2,63}$/;
@@ -13,8 +15,8 @@ function checkId(id: string) {
   if (!ID.test(id)) throw new HttpError(400, 'invalid project id');
 }
 
-async function allKeys(bucket: R2Bucket, prefix: string): Promise<R2Object[]> {
-  const out: R2Object[] = [];
+async function allKeys(bucket: Bucket, prefix: string): Promise<StoredObject[]> {
+  const out: StoredObject[] = [];
   let cursor: string | undefined;
   do {
     const page = await bucket.list({ prefix, cursor });
@@ -29,7 +31,7 @@ async function allKeys(bucket: R2Bucket, prefix: string): Promise<R2Object[]> {
  * .trame/; or emotion): its files take today's names, its manifest and document today's versions.
  * Done once, the first time it is read. False when there is nothing to convert.
  */
-async function migrateStored(bucket: R2Bucket, id: string): Promise<boolean> {
+async function migrateStored(bucket: Bucket, id: string): Promise<boolean> {
   let found = false;
   for (const l of LEGACIES) if (await bucket.head(key(id, l.manifest))) { found = true; break; }
   if (!found) return false;
@@ -45,7 +47,7 @@ async function migrateStored(bucket: R2Bucket, id: string): Promise<boolean> {
   return true;
 }
 
-export async function readManifest(bucket: R2Bucket, id: string): Promise<Manifest> {
+export async function readManifest(bucket: Bucket, id: string): Promise<Manifest> {
   checkId(id);
   let obj = await bucket.get(key(id, MANIFEST));
   if (!obj && (await migrateStored(bucket, id))) obj = await bucket.get(key(id, MANIFEST));
@@ -55,12 +57,12 @@ export async function readManifest(bucket: R2Bucket, id: string): Promise<Manife
   return r.data;
 }
 
-async function writeManifest(bucket: R2Bucket, m: Manifest) {
+async function writeManifest(bucket: Bucket, m: Manifest) {
   await bucket.put(key(m.id, MANIFEST), JSON.stringify(m, null, 2) + '\n', { httpMetadata: { contentType: mimeOf(MANIFEST) } });
   return m;
 }
 
-async function freeId(bucket: R2Bucket, name: string): Promise<string> {
+async function freeId(bucket: Bucket, name: string): Promise<string> {
   for (;;) {
     const id = newId(name);
     if (!(await bucket.head(key(id, MANIFEST)))) return id;
@@ -69,7 +71,7 @@ async function freeId(bucket: R2Bucket, name: string): Promise<string> {
 
 // ── projects ─────────────────────────────────────────────────
 
-export async function listProjects(bucket: R2Bucket) {
+export async function listProjects(bucket: Bucket) {
   const ids: string[] = [];
   let cursor: string | undefined;
   do {
@@ -87,7 +89,7 @@ interface CreateBody { name?: string; width?: number; height?: number; fps?: num
  * A new project. With `empty`, only the manifest is written: the editor then
  * sends the files of an imported archive, the document last.
  */
-export async function createProject(bucket: R2Bucket, req: Request) {
+export async function createProject(bucket: Bucket, req: Request) {
   const b = await readJson<CreateBody>(req);
   const name = (b.name ?? '').trim();
   if (!name || name.length > 200) throw new HttpError(400, 'project name required (200 characters at most)');
@@ -101,13 +103,13 @@ export async function createProject(bucket: R2Bucket, req: Request) {
   return json(manifest, 201);
 }
 
-export async function projectInfo(bucket: R2Bucket, id: string) {
+export async function projectInfo(bucket: Bucket, id: string) {
   const manifest = await readManifest(bucket, id);
   const files = (await allKeys(bucket, key(id))).map((o) => ({ path: o.key.slice(key(id).length), size: o.size, etag: o.httpEtag, modified: o.uploaded.toISOString() }));
   return json({ manifest, files });
 }
 
-export async function updateProject(bucket: R2Bucket, id: string, req: Request) {
+export async function updateProject(bucket: Bucket, id: string, req: Request) {
   const m = await readManifest(bucket, id);
   const b = await readJson<{ name?: string; thumbnail?: string | null }>(req);
   if (b.name !== undefined) {
@@ -124,14 +126,14 @@ export async function updateProject(bucket: R2Bucket, id: string, req: Request) 
   return json(await writeManifest(bucket, m));
 }
 
-export async function deleteProject(bucket: R2Bucket, id: string) {
+export async function deleteProject(bucket: Bucket, id: string) {
   await readManifest(bucket, id);
   const keys = (await allKeys(bucket, key(id))).map((o) => o.key);
   for (let i = 0; i < keys.length; i += 1000) await bucket.delete(keys.slice(i, i + 1000));
   return json({ deleted: id, files: keys.length });
 }
 
-export async function duplicateProject(bucket: R2Bucket, id: string, req: Request) {
+export async function duplicateProject(bucket: Bucket, id: string, req: Request) {
   const src = await readManifest(bucket, id);
   const b = await readJson<{ name?: string }>(req).catch(() => ({}) as { name?: string });
   const name = (b.name ?? `${src.name} (copy)`).trim().slice(0, 200);
@@ -147,7 +149,7 @@ export async function duplicateProject(bucket: R2Bucket, id: string, req: Reques
 }
 
 /** the project as a .tramme archive, zipped while it streams out */
-export async function exportProject(bucket: R2Bucket, id: string) {
+export async function exportProject(bucket: Bucket, id: string) {
   const m = await readManifest(bucket, id);
   const objects = (await allKeys(bucket, key(id))).filter((o) => !o.key.slice(key(id).length).startsWith('renders/'));
   const { readable, writable } = new TransformStream<Uint8Array, Uint8Array>();
@@ -193,7 +195,7 @@ function checkPath(path: string) {
   if (bad) throw new HttpError(400, `${path} : ${bad}`);
 }
 
-export async function getFile(bucket: R2Bucket, id: string, path: string, req: Request) {
+export async function getFile(bucket: Bucket, id: string, path: string, req: Request) {
   checkId(id);
   checkPath(path);
   const obj = await bucket.get(key(id, path), { range: req.headers, onlyIf: req.headers });
@@ -208,7 +210,7 @@ export async function getFile(bucket: R2Bucket, id: string, path: string, req: R
     'content-security-policy': "default-src 'none'; img-src 'self' data:; style-src 'unsafe-inline'; font-src 'self' data:; sandbox",
   });
   if (!('body' in obj)) return new Response(null, { status: req.headers.has('if-none-match') ? 304 : 412, headers });
-  const body = obj as R2ObjectBody;
+  const body = obj as StoredBody;
   if (req.headers.has('range') && body.range) {
     const r = body.range as { offset?: number; length?: number; suffix?: number };
     const start = r.suffix !== undefined ? body.size - r.suffix : r.offset ?? 0;
@@ -221,7 +223,7 @@ export async function getFile(bucket: R2Bucket, id: string, path: string, req: R
   return new Response(body.body, { headers });
 }
 
-export async function putFile(bucket: R2Bucket, id: string, path: string, req: Request) {
+export async function putFile(bucket: Bucket, id: string, path: string, req: Request) {
   const m = await readManifest(bucket, id);
   checkPath(path);
   if (path === MANIFEST) throw new HttpError(403, 'the manifest is kept by the server');
@@ -255,7 +257,7 @@ export async function putFile(bucket: R2Bucket, id: string, path: string, req: R
   return json({ path, size: obj.size, etag: obj.httpEtag, modified: m.modified }, 200, { etag: obj.httpEtag });
 }
 
-export async function deleteFile(bucket: R2Bucket, id: string, path: string) {
+export async function deleteFile(bucket: Bucket, id: string, path: string) {
   const m = await readManifest(bucket, id);
   checkPath(path);
   if (path === MANIFEST || path === DOCUMENT) throw new HttpError(403, 'the manifest and the document cannot be deleted');
@@ -271,7 +273,7 @@ export async function deleteFile(bucket: R2Bucket, id: string, path: string) {
 // sends parts of LIMITS.part (several at once), then completes it.
 
 /** starts an upload: { uploadId, partSize } */
-export async function startUpload(bucket: R2Bucket, id: string, req: Request) {
+export async function startUpload(bucket: Bucket, id: string, req: Request) {
   await readManifest(bucket, id);
   const b = await readJson<{ path?: string; size?: number }>(req);
   const path = String(b.path ?? '');
@@ -283,7 +285,7 @@ export async function startUpload(bucket: R2Bucket, id: string, req: Request) {
 }
 
 /** one part (numbered from 1) */
-export async function uploadPart(bucket: R2Bucket, id: string, uploadId: string, req: Request, url: URL) {
+export async function uploadPart(bucket: Bucket, id: string, uploadId: string, req: Request, url: URL) {
   checkId(id);
   const path = url.searchParams.get('path') ?? '';
   checkPath(path);
@@ -296,7 +298,7 @@ export async function uploadPart(bucket: R2Bucket, id: string, uploadId: string,
 }
 
 /** the parts put together: the file exists from now on */
-export async function completeUpload(bucket: R2Bucket, id: string, uploadId: string, req: Request) {
+export async function completeUpload(bucket: Bucket, id: string, uploadId: string, req: Request) {
   const m = await readManifest(bucket, id);
   const b = await readJson<{ path?: string; parts?: { partNumber: number; etag: string }[] }>(req);
   const path = String(b.path ?? '');
@@ -307,7 +309,7 @@ export async function completeUpload(bucket: R2Bucket, id: string, uploadId: str
   return json({ path, size: obj.size, etag: obj.httpEtag, modified: m.modified });
 }
 
-export async function abortUpload(bucket: R2Bucket, id: string, uploadId: string, url: URL) {
+export async function abortUpload(bucket: Bucket, id: string, uploadId: string, url: URL) {
   checkId(id);
   const path = url.searchParams.get('path') ?? '';
   checkPath(path);

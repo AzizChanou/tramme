@@ -1,11 +1,12 @@
 // The libraries kept outside any project, shared by them: plugins and sounds.
 // An item is copied into a project when used (the project stays
 // self-contained: its archive carries it), and a project's item can be kept
-// in its library. Files live in R2 at library/<shelf>/<name>; a sound keeps
+// in its library. Files live in the bucket at library/<shelf>/<name>; a sound keeps
 // its description (kind, tags, length, the moment it lands on) in the
 // object's metadata.
 
 import { LIMITS } from '@tramme/project';
+import type { Bucket } from './bucket.ts';
 import { HttpError, json } from './http.ts';
 
 interface Shelf {
@@ -33,7 +34,7 @@ function nameOf(shelf: Shelf, raw: string): string {
   return name;
 }
 
-export async function listShelf(bucket: R2Bucket, shelf: Shelf) {
+export async function listShelf(bucket: Bucket, shelf: Shelf) {
   const out: { name: string; size: number; modified: string; entry?: unknown }[] = [];
   let cursor: string | undefined;
   do {
@@ -48,13 +49,13 @@ export async function listShelf(bucket: R2Bucket, shelf: Shelf) {
   return json(out.sort((a, b) => a.name.localeCompare(b.name)));
 }
 
-export async function getFromShelf(bucket: R2Bucket, shelf: Shelf, raw: string) {
+export async function getFromShelf(bucket: Bucket, shelf: Shelf, raw: string) {
   const obj = await bucket.get(shelf.prefix + nameOf(shelf, raw));
   if (!obj) throw new HttpError(404, `no ${shelf.what} "${decodeURIComponent(raw)}" in the library`);
   return new Response(obj.body, { headers: { 'content-type': shelf.type(raw), 'cache-control': 'no-store' } });
 }
 
-export async function putOnShelf(bucket: R2Bucket, shelf: Shelf, raw: string, req: Request) {
+export async function putOnShelf(bucket: Bucket, shelf: Shelf, raw: string, req: Request) {
   const name = nameOf(shelf, raw);
   const data = await req.arrayBuffer();
   if (data.byteLength > LIMITS.file) throw new HttpError(413, `${shelf.what} too large (${data.byteLength} bytes)`);
@@ -67,7 +68,7 @@ export async function putOnShelf(bucket: R2Bucket, shelf: Shelf, raw: string, re
   return json({ name, size: data.byteLength });
 }
 
-export async function deleteFromShelf(bucket: R2Bucket, shelf: Shelf, raw: string) {
+export async function deleteFromShelf(bucket: Bucket, shelf: Shelf, raw: string) {
   await bucket.delete(shelf.prefix + nameOf(shelf, raw));
   return json({ deleted: decodeURIComponent(raw) });
 }

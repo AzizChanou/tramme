@@ -1,8 +1,13 @@
 // Calls to the server (the Worker in production, `wrangler dev` locally):
 // projects and their files in storage, and the server side of the assistant.
+// In personal mode (mode.ts) the same calls are answered in the browser: the
+// storage by the service worker, the providers by the key vault.
 
 import type { TrammeDoc, Op } from '@tramme/core';
 import { isMedia, LIMITS, type Manifest } from '@tramme/project';
+import type { KeyedProvider, KeyStatus } from '@tramme/api';
+import { vaultOrigin } from './mode.ts';
+import { vaultFetch } from './vault/link.ts';
 
 export interface ChatItem {
   id: string;
@@ -39,14 +44,11 @@ export type AiEvent =
   | { type: 'done' }
   | { type: 'error'; message: string };
 
-/** a provider whose key the server keeps */
-export type KeyedProvider = 'anthropic' | 'openai' | 'gemini' | 'openrouter' | 'zai' | 'elevenlabs';
-/** where a provider's key comes from: the settings, a Worker secret, or nowhere */
-export type KeySource = 'settings' | 'server' | null;
-/** the providers connected (never their keys): built in, and custom ones of the chat format */
-export interface KeyStatus { providers: Record<KeyedProvider, KeySource>; custom: { id: string; label: string; base: string; key: boolean }[] }
+export type { KeyedProvider, KeyStatus };
 
 export interface ServerConfig {
+  /** personal: projects and keys stay in the browser (mode.ts) */
+  mode?: 'private' | 'personal';
   format: string;
   limits: { file: number; archive: number; files: number };
   claude: { server: boolean };
@@ -72,8 +74,11 @@ export class ApiError extends Error {
   constructor(status: number, message: string, issues?: { path: string; message: string }[]) { super(message); this.status = status; this.issues = issues; }
 }
 
-async function call<T>(path: string, init?: RequestInit): Promise<T> {
-  const r = await fetch(path, init);
+/** a route that reaches a provider with the user's key: the server adds it, or in personal mode the key vault */
+export const reach = (path: string, init?: RequestInit): Promise<Response> => (vaultOrigin ? vaultFetch(path, init) : fetch(path, init));
+
+async function call<T>(path: string, init?: RequestInit, go: typeof reach = fetch): Promise<T> {
+  const r = await go(path, init);
   if (!r.ok) {
     let body: { error?: string; issues?: { path: string; message: string }[] } = {};
     try { body = await r.json(); } catch { /* not JSON */ }
@@ -87,11 +92,16 @@ const P = (id: string) => `/api/projects/${encodeURIComponent(id)}`;
 const filePath = (path: string) => path.split('/').map(encodeURIComponent).join('/');
 
 export const api = {
-  config: () => call<ServerConfig>('/api/config'),
-  /** models of the providers with a key on the server */
-  models: () => call<Record<string, { id: string; label: string; effort?: true }[] | { error: string }>>('/api/models'),
+  /** what the server offers; in personal mode, what is connected comes from the key vault */
+  async config(): Promise<ServerConfig> {
+    if (!vaultOrigin) return call<ServerConfig>('/api/config');
+    const [server, vault] = await Promise.all([call<ServerConfig>('/api/config'), call<Partial<ServerConfig>>('/api/config', undefined, reach)]);
+    return { ...server, ...vault };
+  },
+  /** models of the providers with a key */
+  models: () => call<Record<string, { id: string; label: string; effort?: true }[] | { error: string }>>('/api/models', undefined, reach),
 
-  // ── the providers' keys: sent once, kept by the server, never read back ──
+  // ── the providers' keys (private mode): sent once, kept by the server, never read back ──
   setKey: (provider: KeyedProvider, key: string) => call<{ provider: string }>(`/api/keys/${provider}`, jsonInit('PUT', { key })),
   removeKey: (provider: KeyedProvider) => call<{ deleted: string }>(`/api/keys/${provider}`, { method: 'DELETE' }),
   /** a custom provider of the chat format; no key: the one it has is kept */
@@ -119,9 +129,9 @@ export const api = {
   /** a sound kept with its description (kind, tags, length, the moment it lands on) */
   soundDelete: (name: string) => call<{ deleted: string }>(api.soundUrl(name), { method: 'DELETE' }),
   soundPut: (name: string, data: Blob, entry: unknown) => call<{ name: string; size: number }>(api.soundUrl(name), { method: 'PUT', headers: { 'content-type': data.type || 'application/octet-stream', 'x-tramme-entry': JSON.stringify(entry) }, body: data }),
-  /** a sound effect, a music bed or a voice-over made by a provider through the server */
+  /** a sound effect, a music bed or a voice-over made by a provider with the user's key */
   async generate(ask: { kind: 'sfx' | 'music' | 'voice'; prompt: string; duration?: number; voice?: string; style?: string; provider?: string }, signal?: AbortSignal): Promise<MadeSound> {
-    const r = await fetch('/api/generate', { ...jsonInit('POST', ask), signal });
+    const r = await reach('/api/generate', { ...jsonInit('POST', ask), signal });
     if (!r.ok) {
       let message = `HTTP ${r.status}`;
       try { message = (await r.json()).error ?? message; } catch { /* not JSON */ }
@@ -129,9 +139,9 @@ export const api = {
     }
     return { blob: await r.blob(), provider: r.headers.get('x-tramme-provider') ?? '', model: r.headers.get('x-tramme-model') ?? '', voice: r.headers.get('x-tramme-voice') ?? undefined };
   },
-  /** a picture made by a provider through the server */
+  /** a picture made by a provider with the user's key */
   async generateImage(ask: { prompt: string; ratio?: string; quality?: 'low' | 'medium' | 'high'; provider?: string }, signal?: AbortSignal): Promise<MadeImage> {
-    const r = await fetch('/api/generate-image', { ...jsonInit('POST', ask), signal });
+    const r = await reach('/api/generate-image', { ...jsonInit('POST', ask), signal });
     if (!r.ok) {
       let message = `HTTP ${r.status}`;
       try { message = (await r.json()).error ?? message; } catch { /* not JSON */ }

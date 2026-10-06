@@ -1,8 +1,11 @@
 # Deploying tramme on Cloudflare
 
-A single Worker serves everything: the editor (static files from `apps/editor/dist`), the projects API (`/api/projects`, R2 storage) and the assistant relay (`/api/claude`). Cloudflare Access protects the application; on top of that, the Worker checks the Access token on every API call, which also covers the addresses Access does not sit in front of.
+The same Worker deploys in one of two modes:
 
-Configuration: [apps/worker/wrangler.jsonc](../apps/worker/wrangler.jsonc).
+- **Private** (sections 1 to 7): one user behind Cloudflare Access. The Worker serves the editor (static files from `apps/editor/dist`), the projects API (`/api/projects`, R2 storage) and the assistant relay (`/api/claude`), and keeps the providers' keys. On top of Access, the Worker checks the Access token on every API call, which also covers the addresses Access does not sit in front of.
+- **Personal** (section 8): a public deployment anyone uses without an account. The server keeps nothing: each visitor's projects stay in their browser, their keys in a key vault the editor cannot read, and their browser calls the providers itself.
+
+Configuration: [apps/worker/wrangler.jsonc](../apps/worker/wrangler.jsonc) (the private mode at the top level, the personal mode in `env.personal`).
 
 ## 1. Account and storage
 
@@ -86,10 +89,64 @@ The Worker transcribes the speech of sounds and videos with Workers AI (`@cf/ope
 
 Locally, Workers AI still runs at Cloudflare (`wrangler dev` requires you to be logged in) and usage is billed.
 
+## 8. Personal mode: a public deployment
+
+Anyone opens the address and works at once: no account, nothing kept on the server, and no key ever stored by you.
+
+### How it works
+
+- **Projects in the browser.** A service worker (`apps/editor/src/sw.ts`) answers the editor's storage routes (`/api/projects`, `/api/library`, `/api/sounds`) from IndexedDB, with the same code the Worker runs on R2 (`packages/api`). The editor does not know the difference. A project is exported as a `.tramme` archive to back it up or move it to another device.
+- **Keys in a vault.** The keys live in a page of another origin of your site (`cles.<your domain>`), framed by the editor. The browser keeps the two origins apart: the editor and the projects' plugins cannot read the vault's storage. The keys are typed into the vault's own page (shown in Settings, Providers), never into the editor.
+- **Calls from the browser.** The editor asks the vault for a route (`/api/claude`, `/api/llm`, `/api/models`, `/api/generate`…); the vault adds the key and calls the provider itself, straight from the visitor's browser. Anthropic, OpenAI, Gemini, OpenRouter and ElevenLabs take calls from a page; the others (Z.AI, custom providers) go through the Worker's relay (`/relay` on the vault's address), which passes the request on and keeps nothing. The settings say which providers use the relay.
+- **What the Worker does.** It serves the editor and the vault's page (with a Content-Security-Policy: framed by the editor only, reaching only the providers above and the relay), and the relay. No R2, no Access, no Workers AI: transcription goes through each visitor's local companion.
+- **Costs.** The static files, and the relay's requests (Workers' free tier, then a few cents per million). Each visitor's provider bills them for their own use.
+
+### Setting it up
+
+1. **A domain of yours on Cloudflare.** The editor and the vault must be two addresses of the same site, for example `tramme.example.com` and `cles.tramme.example.com`. Two `workers.dev` addresses would not do: `workers.dev` is shared by every Cloudflare customer, so browsers treat the vault as a third party and may clear its storage (Safari first).
+2. In [apps/worker/wrangler.jsonc](../apps/worker/wrangler.jsonc), under `env.personal`, set the two addresses and uncomment the routes:
+
+   ```jsonc
+   "vars": { "MODE": "personal", "APP_ORIGIN": "https://tramme.example.com", "VAULT_ORIGIN": "https://cles.tramme.example.com" },
+   "routes": [
+     { "pattern": "tramme.example.com", "custom_domain": true },
+     { "pattern": "cles.tramme.example.com", "custom_domain": true }
+   ],
+   ```
+
+3. Deploy:
+
+   ```sh
+   npm run deploy:personal   # builds the editor, then wrangler deploy --env personal
+   ```
+
+   The personal Worker is a Worker of its own (`tramme-personal`): a private deployment can live beside it.
+
+Any other address of this Worker (its `workers.dev` one, previews) sends to `APP_ORIGIN`. Until both addresses are set, it answers 503.
+
+### What is kept, and where
+
+| | Where | Who can read it |
+|---|---|---|
+| Projects, libraries | IndexedDB of the editor's address, in the visitor's browser | the visitor, the editor, the projects' plugins |
+| Keys, custom providers | IndexedDB of the vault's address, in the visitor's browser | the vault only |
+| A request through the relay | nowhere: passed on to the provider | the Worker, while it passes |
+
+The relay's requests carry the key: the Worker's invocation logs are off in this mode (`observability.logs.invocation_logs: false`), and the relay logs nothing. A visitor may send 120 requests a minute through it (`ratelimits`, `RELAY_LIMIT`).
+
+What a malicious plugin of a shared project could still do: spend the visitor's credit by asking the vault for requests, as the editor does. It cannot read a key, nor change one.
+
+### Limits of the personal mode
+
+- Projects belong to one browser on one device: clearing the site's data, or private browsing, loses them. The home screen says so; the browser is asked to keep them (`navigator.storage.persist()`).
+- No service worker (some private windows): the editor says it cannot start.
+- No transcription from the server: through the local companion only.
+
 ## Local development
 
 ```sh
 npm run dev           # http://localhost:8787/
+npm run dev:personal  # the personal mode: the editor on http://localhost:8787/, the vault on http://127.0.0.1:8787/
 ```
 
 The assistant's companion starts along, paired with this editor (`TRAMME_NO_COMPANION=1` to go without it). The Worker runs in `wrangler dev`: R2 simulated in `.wrangler/state`, Access check lifted (the `DEV_OPEN` variable, honored only on `localhost`). Model keys, locally, are connected in **Settings, Providers** as on the deployed app (kept in the simulated R2), or go in `apps/worker/.dev.vars` (ignored by git; template to copy: `apps/worker/.dev.vars.example`). Fill in only the providers you use, then restart `npm run dev`:
@@ -104,6 +161,8 @@ ELEVENLABS_API_KEY=
 ```
 
 ## Limits
+
+Of the private mode (for the personal mode, see section 8):
 
 - Files of 95 MB at most (the request size Workers accepts); heavier sounds and videos are uploaded in parts (R2 multipart, 32 MiB per part, 4 GiB per file); 2000 files per project.
 - A single user: no accounts or sharing; Access decides who gets in.

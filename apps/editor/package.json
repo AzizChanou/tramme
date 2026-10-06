@@ -4,5 +4,8 @@
   "license": "Apache-2.0",
   "private": true,
   "type": "module",
-  "exports": { ".": "./src/main.tsx" }
+  "exports": { ".": "./src/main.tsx" },
+  "dependencies": {
+    "@tramme/api": "*"
+  }
 }

@@ -10,6 +10,9 @@ Until 1.0.0, the document format and the APIs may still change between minor ver
 
 ### Added
 
+- Personal mode, a public deployment without accounts (`npm run deploy:personal`, docs/deploy.md section 8): projects stay in each visitor's browser (IndexedDB, served by a service worker with the same routes as the Worker), keys in a key vault of another origin that the editor and the plugins cannot read, and the browser calls the providers itself (a relay that keeps nothing for those that refuse calls from a page). The server keeps nothing.
+- `@tramme/api`: the storage and provider routes shared by the Worker, the service worker and the key vault, with a storage contract every bucket passes (R2, IndexedDB, memory).
+
 - Plugin tools: a project plugin can export `tools` that the assistant runs with `use_tool` (analyses, layouts, generators). A tool answers with text and images and may propose changes, which join the assistant's proposal.
 - Notes for the assistant (`ai: { when, avoid, example }`) on nodes, effects, modifiers and tools; `list_nodes` and `tramme nodes` now list modifiers and tools too.
 - Chat commands: typing `/` lists the tools and workflows (`/captions`, `/title`, `/keyword`, `/lower-third`, `/dress`, `/review`, and those of the project's plugins). A tool with its form filled runs at once, without a model; words after the command hand it to the assistant.

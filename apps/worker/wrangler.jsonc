@@ -1,5 +1,7 @@
 {
   "$schema": "../../node_modules/wrangler/config-schema.json",
+  // The private deployment (npm run deploy): one user behind Cloudflare Access, projects and keys in R2.
+  // The public one is the "personal" environment below (npm run deploy:personal). See docs/deploy.md.
   "name": "tramme",
   "main": "src/index.ts",
   "compatibility_date": "2026-09-25",
@@ -22,5 +24,36 @@
   },
   // speech to text for the assistant (Whisper); used from `wrangler dev` too, through your Cloudflare account
   "ai": { "binding": "AI" },
-  "observability": { "enabled": true }
+  "observability": { "enabled": true },
+  "env": {
+    // Personal mode: anyone uses the app without an account, and nothing is kept on the server.
+    // Projects stay in each visitor's browser, keys in the key vault: another origin of the same
+    // site (a subdomain), which the editor and its plugins cannot read. No R2, no Access, no Workers AI.
+    "personal": {
+      "name": "tramme-personal",
+      "assets": {
+        "directory": "../editor/dist",
+        "binding": "ASSETS",
+        "not_found_handling": "single-page-application",
+        // every request: the Worker tells the editor from the vault by their address
+        "run_worker_first": true
+      },
+      // your two addresses, both on your own domain (same site: the vault keeps its storage), e.g.
+      // "APP_ORIGIN": "https://tramme.example.com", "VAULT_ORIGIN": "https://cles.tramme.example.com"
+      "vars": {
+        "MODE": "personal",
+        "APP_ORIGIN": "",
+        "VAULT_ORIGIN": ""
+      },
+      // the same two hosts as custom domains of this Worker
+      // "routes": [
+      //   { "pattern": "tramme.example.com", "custom_domain": true },
+      //   { "pattern": "cles.tramme.example.com", "custom_domain": true }
+      // ],
+      // requests a visitor may send through the relay (Z.AI, custom providers), per minute
+      "ratelimits": [{ "name": "RELAY_LIMIT", "namespace_id": "1001", "simple": { "limit": 120, "period": 60 } }],
+      // the relay passes keys in its requests: no invocation logs (they record the requests)
+      "observability": { "enabled": true, "logs": { "invocation_logs": false } }
+    }
+  }
 }

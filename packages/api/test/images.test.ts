@@ -1,6 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { IMAGE_PROVIDERS, imageConfig, generateImage } from '../src/images.ts';
-import { HttpError } from '../src/http.ts';
 import type { Keys } from '../src/keys.ts';
 
 const PNG = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 13, 10, 26, 10]);
@@ -10,10 +9,13 @@ const jsonRes = (body: unknown) => new Response(JSON.stringify(body), { headers:
 /** a Keys with a key for every provider (or none when told so) */
 const keys = (have = true): Keys => ({
   get: () => (have ? 'k-test' : undefined),
-  secret: (p) => `${p.toUpperCase()}_API_KEY`,
+  how: () => 'connect it in Settings, Providers',
   custom: () => undefined,
   status: () => ({ providers: {} as never, custom: [] }),
 });
+
+/** the way out to the providers: the global fetch, stubbed by each test */
+const out = (input: string, init?: RequestInit) => fetch(input, init);
 
 /** what was asked of the (stubbed) provider, and what it answered */
 function stubFetch(...answers: Response[]) {
@@ -33,50 +35,50 @@ afterEach(() => vi.unstubAllGlobals());
 describe('the picture providers', () => {
   it('openai: the proportions mapped to its three sizes, the picture read from the answer', async () => {
     const calls = stubFetch(jsonRes({ data: [{ b64_json: b64(PNG) }] }));
-    const made = await IMAGE_PROVIDERS.openai.make('k', { prompt: 'a lighthouse', ratio: '16:9', quality: 'high' });
+    const made = await IMAGE_PROVIDERS.openai.make('k', { prompt: 'a lighthouse', ratio: '16:9', quality: 'high' }, out);
     expect(calls[0].url).toBe('https://api.openai.com/v1/images/generations');
     expect(asked(calls[0])).toMatchObject({ model: 'gpt-image-1', prompt: 'a lighthouse', size: '1536x1024', quality: 'high' });
     expect(made).toMatchObject({ type: 'image/png', model: 'gpt-image-1' });
     expect(new Uint8Array(made.image)).toEqual(PNG);
     for (const [ratio, size] of [['9:16', '1024x1536'], ['1:1', '1024x1024'], ['21:9', '1536x1024']] as const) {
       const more = stubFetch(jsonRes({ data: [{ b64_json: b64(PNG) }] }));
-      await IMAGE_PROVIDERS.openai.make('k', { prompt: 'x', ratio });
+      await IMAGE_PROVIDERS.openai.make('k', { prompt: 'x', ratio }, out);
       expect(asked(more[0]).size).toBe(size);
     }
   });
 
   it('gemini: the proportions as asked, the picture read from the answer, none named when it holds back', async () => {
     const calls = stubFetch(jsonRes({ candidates: [{ content: { parts: [{ inlineData: { data: b64(PNG), mimeType: 'image/png' } }] } }] }));
-    const made = await IMAGE_PROVIDERS.gemini.make('k', { prompt: 'a lighthouse', ratio: '9:16' });
+    const made = await IMAGE_PROVIDERS.gemini.make('k', { prompt: 'a lighthouse', ratio: '9:16' }, out);
     expect(calls[0].url).toContain('/models/gemini-3.8-flash-image:generateContent');
     expect(asked(calls[0]).generationConfig).toMatchObject({ responseModalities: ['IMAGE'], imageConfig: { aspectRatio: '9:16' } });
     expect(made).toMatchObject({ type: 'image/png', model: 'gemini-3.8-flash-image' });
     expect(new Uint8Array(made.image)).toEqual(PNG);
     stubFetch(jsonRes({ candidates: [{ content: { parts: [{ text: 'I cannot' }] } }] }));
-    await expect(IMAGE_PROVIDERS.gemini.make('k', { prompt: 'x', ratio: '1:1' })).rejects.toMatchObject({ status: 502, message: /gemini: no picture/ });
+    await expect(IMAGE_PROVIDERS.gemini.make('k', { prompt: 'x', ratio: '1:1' }, out)).rejects.toMatchObject({ status: 502, message: /gemini: no picture/ });
   });
 
   it('zai: reads the picture it names, png when it says nothing better', async () => {
     const calls = stubFetch(jsonRes({ data: [{ url: 'https://cdn.example/img' }] }), new Response(PNG, { headers: { 'content-type': 'image/png' } }));
-    const made = await IMAGE_PROVIDERS.zai.make('k', { prompt: 'a lighthouse', ratio: '16:9' });
+    const made = await IMAGE_PROVIDERS.zai.make('k', { prompt: 'a lighthouse', ratio: '16:9' }, out);
     expect(calls[0].url).toBe('https://api.z.ai/api/paas/v4/images/generations');
     expect(asked(calls[0])).toMatchObject({ model: 'cogview-4', size: '1280x720' });
     expect(calls[1].url).toBe('https://cdn.example/img');
     expect(made).toMatchObject({ type: 'image/png', model: 'cogview-4' });
     expect(new Uint8Array(made.image)).toEqual(PNG);
     stubFetch(jsonRes({ data: [{ url: 'https://cdn.example/img' }] }), new Response(PNG, { headers: { 'content-type': 'application/octet-stream' } }));
-    const again = await IMAGE_PROVIDERS.zai.make('k', { prompt: 'x', ratio: '1:1' });
+    const again = await IMAGE_PROVIDERS.zai.make('k', { prompt: 'x', ratio: '1:1' }, out);
     expect(again.type).toBe('image/png');
   });
 
   it('a refusal is read and named', async () => {
     stubFetch(new Response(JSON.stringify({ error: { message: 'billing hard limit reached' } }), { status: 401, headers: { 'content-type': 'application/json' } }));
-    await expect(IMAGE_PROVIDERS.openai.make('k', { prompt: 'x', ratio: '1:1' })).rejects.toMatchObject({ status: 502, message: 'openai: billing hard limit reached' });
+    await expect(IMAGE_PROVIDERS.openai.make('k', { prompt: 'x', ratio: '1:1' }, out)).rejects.toMatchObject({ status: 502, message: 'openai: billing hard limit reached' });
   });
 });
 
 describe('generate-image', () => {
-  const ask = (body: unknown, have = true) => generateImage(new Request('http://localhost:8787/api/generate-image', { method: 'POST', body: JSON.stringify(body) }), keys(have));
+  const ask = (body: unknown, have = true) => generateImage(new Request('http://localhost:8787/api/generate-image', { method: 'POST', body: JSON.stringify(body) }), { keys: keys(have), fetch: out });
 
   it('refuses an empty or overlong prompt, and a server without a key', async () => {
     await expect(ask({})).rejects.toMatchObject({ status: 400, message: /say what to draw/ });
@@ -103,6 +105,6 @@ describe('generate-image', () => {
   });
 
   it('the providers connected, in the order the first is taken from', () => {
-    expect(imageConfig({ get: (p) => (p === 'zai' ? 'k' : undefined), secret: (p) => p, custom: () => undefined, status: () => ({ providers: {} as never, custom: [] }) })).toEqual(['zai']);
+    expect(imageConfig({ get: (p) => (p === 'zai' ? 'k' : undefined), how: () => '', custom: () => undefined, status: () => ({ providers: {} as never, custom: [] }) })).toEqual(['zai']);
   });
 });

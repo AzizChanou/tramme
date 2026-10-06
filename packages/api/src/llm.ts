@@ -1,8 +1,8 @@
 // Models of other providers than Anthropic, for the assistant: OpenAI, Gemini,
 // OpenRouter, Z.AI (GLM) and the custom providers the user adds all speak the
-// OpenAI chat format. The browser sends its request here, the Worker adds the
-// key (settings or secret, see keys.ts) and passes the stream back. The keys
-// never leave the Worker. Local models are reached by the browser directly and
+// OpenAI chat format. The editor sends its request here, the key is added
+// (settings or secret, see keys.ts) and the stream passed back; the key never
+// reaches the editor. Local models are reached by the editor directly and
 // never come here.
 //
 //   POST /api/llm/:provider/chat/completions   the request, streamed back (provider: openai… or custom:<id>)
@@ -10,6 +10,7 @@
 
 import { HttpError, json } from './http.ts';
 import type { Keys } from './keys.ts';
+import type { Reach } from './providers.ts';
 
 type Remote = 'openai' | 'gemini' | 'openrouter' | 'zai';
 
@@ -37,14 +38,14 @@ function upstream(keys: Keys, slot: string): { base: string; headers: Record<str
   }
   if (!isRemote(slot)) throw new HttpError(404, `unknown provider: ${slot}`);
   const key = keys.get(slot);
-  if (!key) throw new HttpError(503, `no ${slot} key: connect it in Settings, Providers (or npx wrangler secret put ${keys.secret(slot)})`);
+  if (!key) throw new HttpError(503, `no ${slot} key: ${keys.how([slot])}`);
   return { base: PROVIDERS[slot].base, headers: { authorization: `Bearer ${key}`, ...PROVIDERS[slot].headers } };
 }
 
-export async function llm(req: Request, keys: Keys, provider: string, rest: string) {
+export async function llm(req: Request, { keys, fetch }: Reach, provider: string, rest: string) {
   if (req.method !== 'POST' || rest !== 'chat/completions') throw new HttpError(404, 'unknown route');
   const { base, headers } = upstream(keys, provider);
-  const up = await fetch(`${base}/chat/completions`, { method: 'POST', headers: { ...headers, 'content-type': 'application/json' }, body: req.body, signal: req.signal });
+  const up = await fetch(`${base}/chat/completions`, { method: 'POST', headers: { ...headers, 'content-type': 'application/json' }, body: await req.arrayBuffer(), signal: req.signal });
   const down = new Headers({ 'cache-control': 'no-store' });
   for (const h of PASS_DOWN) { const v = up.headers.get(h); if (v) down.set(h, v); }
   return new Response(up.body, { status: up.status, headers: down });
@@ -77,10 +78,10 @@ function keep(provider: string, list: any[]): ModelInfo[] {
     .map((m) => ({ id: String(m.id), label: String(m.name ?? m.id), ...(m.supported_parameters.includes('reasoning') ? { effort: true as const } : {}) }));
 }
 
-/** asked again at most every 10 minutes (per Worker instance), or as soon as the providers change */
+/** asked again at most every 10 minutes (per instance), or as soon as the providers change */
 let cache: { at: number; providers: string; data: Record<string, ModelInfo[] | { error: string }> } | null = null;
 
-export async function models(keys: Keys) {
+export async function models({ keys, fetch }: Reach) {
   const configured = Object.entries(llmConfig(keys)).filter(([, on]) => on).map(([p]) => p);
   // the providers and their keys: another key may give other models
   const providers = JSON.stringify(configured.map((p) => upstream(keys, p)));

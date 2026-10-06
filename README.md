@@ -35,7 +35,7 @@ then paste the token it prints in the editor (Assistant, settings). See [The ass
 
 ## Deploying
 
-On Cloudflare: the Worker serves the editor and the API, projects live in R2, Cloudflare Access protects the whole. Step by step in [docs/deploy.md](docs/deploy.md). In short:
+On Cloudflare, in one of two modes. **Private**: the Worker serves the editor and the API, projects live in R2, Cloudflare Access protects the whole. **Personal** (`npm run deploy:personal`): a public deployment anyone uses without an account; projects stay in each visitor's browser, keys in a key vault the editor cannot read, and the browser calls the providers itself. Step by step in [docs/deploy.md](docs/deploy.md). The private mode, in short:
 
 ```sh
 npx wrangler r2 bucket create tramme-projects
@@ -69,7 +69,7 @@ tramme schema                                         regenerates the JSON schem
 ```
 apps/
   editor/    the editor (Preact): projects home, viewport, timeline, curves, inspector, assistant, exports
-  worker/    the Cloudflare Worker: serves the editor, projects in R2, assistant relay, Cloudflare Access check
+  worker/    the Cloudflare Worker: serves the editor; private mode: projects in R2, assistant relay, Cloudflare Access check; personal mode: the key vault's page and its relay
 packages/
   core/      document, properties, keyframes, expressions, modifiers, evaluation, operations, validation
   nodes/     built-in nodes: shapes, path, image, text, counter, event tag and receipt, callout, group, composition, particles, shader, code, sound; effects
@@ -77,6 +77,7 @@ packages/
   interop/   Lottie and SVG export, Lottie import (browser and Node)
   project/   the tramme-project/1 project format: manifest, allowed paths, checks, .tramme archive
   assistant/ what the assistant can do: models, prompt, tools (shared by the editor and the companion)
+  api/       the /api routes wherever they run: storage over any bucket (R2, IndexedDB), providers reached with the user's keys
   cli/       command line: offline renders (headless Chrome + ffmpeg), exports, project format, companion
 examples/
   hello/       minimal demo (keyframes, expression, spring)
