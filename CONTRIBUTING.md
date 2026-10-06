@@ -59,4 +59,4 @@ The document format is described in [docs/document.md](docs/document.md), the pr
 
 ## License
 
-By contributing, you agree that your contributions are licensed under the project's [MIT license](LICENSE).
+By contributing, you agree that your contributions are licensed under the project's [Apache License 2.0](LICENSE).

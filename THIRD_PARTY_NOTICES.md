@@ -1,6 +1,6 @@
 # Third-party notices
 
-Tramme is released under the [MIT license](LICENSE). It relies on the open source packages below, which keep their own licenses. None of them is copied into this repository: npm installs them from the registry.
+Tramme is released under the [Apache 2.0 license](LICENSE). It relies on the open source packages below, which keep their own licenses. None of them is copied into this repository: npm installs them from the registry.
 
 ## Bundled into the editor
 
@@ -38,7 +38,7 @@ esbuild (MIT), TypeScript (Apache-2.0), Vitest (MIT), Wrangler (MIT OR Apache-2.
 
 ## Fonts and media
 
-The editor uses the system's fonts and bundles none. The example projects in `examples/` (drawings, thumbnails) are part of Tramme and under the same MIT license.
+The editor uses the system's fonts and bundles none. The example projects in `examples/` (drawings, thumbnails) are part of Tramme and under the same Apache 2.0 license.
 
 The sound library in `sounds/` (copied into the editor's build) holds recordings by [Kenney](https://www.kenney.nl) from the packs Impact Sounds, Interface Sounds, Digital Audio, UI Audio, Music Jingles and Sci-fi Sounds, released under [Creative Commons Zero (CC0 1.0)](http://creativecommons.org/publicdomain/zero/1.0/): public domain, free for any use, crediting welcome but not required (`sounds/LICENSE.txt`). The sounds written as code (`apps/editor/src/sound-presets.ts`) are part of Tramme.
 

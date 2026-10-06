@@ -164,4 +164,4 @@ Contributions are welcome: see [CONTRIBUTING.md](CONTRIBUTING.md) and the [code 
 
 ## License
 
-[MIT](LICENSE) © 2026 Aziz Chanou. Dependencies keep their own licenses: see [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
+[Apache 2.0](LICENSE) © 2026 Aziz Chanou. Dependencies keep their own licenses: see [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).

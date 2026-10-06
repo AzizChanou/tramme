@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "description": "Motion design engine and editor: JSON document, deterministic rendering, web editor",
-  "license": "MIT",
+  "license": "Apache-2.0",
   "author": "Aziz Chanou",
   "workspaces": [
     "packages/*",
