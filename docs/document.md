@@ -94,6 +94,7 @@ An animated property (keyframes, expression or link) can get a stack of modifier
 | `noise` | `amp`, `scale`, `seed` | fractal noise fixed in time (value texture) |
 | `smooth` | `window` (s) | smooths the curve with a moving average |
 | `react` | `source` (sound or video layer id, or asset), `signal` (`beat`, `bar`, `hit`, `rms`, `low`, `mid`, `high`), `amount`, `decay` (s) | adds `amount` times the music's signal: a pulse on each beat, bar or hit, or the loudness of a band |
+| `near` | `source` (a layer, the pointer), `radius` (px), `amount` (in the property's unit), `axis` (`both`, `x`, `y`), `mode` (`lift`, `push`), `freq` (Hz), `damping` (0 to 1) | answers a moving layer: the value moves by `amount` as the pointer comes within `radius` (a smooth falloff), and springs back when it leaves. The layer and its pointer must sit in the same space (siblings, or a group at the origin); the layer's own rest position is the value the pointer moves |
 
 ### Following the music
 

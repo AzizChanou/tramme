@@ -282,8 +282,8 @@ function Providers() {
 
 function Behavior() {
   const a = aiSettings.value;
-  // the automatic application waits for the user's confirmation below its row
-  const [confirming, setConfirming] = useState(false);
+  // a mode that changes the document without asking waits for the user's confirmation below its row
+  const [confirming, setConfirming] = useState<'turn' | 'all' | null>(null);
   const [permission, setPermission] = useState(notificationState);
   const notifyOn = (on: boolean) => {
     setAiSettings({ notify: on });
@@ -296,11 +296,13 @@ function Behavior() {
         <Toggle on={a.notify} onChange={notifyOn} />
       </Row>
       <Row label={t('settings.autoApply')} hint={t('settings.autoApplyHint')}>
-        <Toggle on={a.autoApply || confirming} onChange={(on) => (on ? setConfirming(true) : (setConfirming(false), setAiSettings({ autoApply: false })))} />
+        <Seg value={confirming ?? a.apply}
+          options={[['off', t('settings.autoApplyOff')], ['turn', t('settings.autoApplyTurn')], ['all', t('settings.autoApplyAll')]]}
+          onChange={(v) => (v === 'off' ? (setConfirming(null), setAiSettings({ apply: 'off' })) : setConfirming(v as 'turn' | 'all'))} />
       </Row>
       {confirming && (
         <Confirm label={t('settings.autoApply')} question={t('settings.autoApplyConfirm')} action={t('common.enable')}
-          onCancel={() => setConfirming(false)} onConfirm={() => { setAiSettings({ autoApply: true }); setConfirming(false); }} />
+          onCancel={() => setConfirming(null)} onConfirm={() => { setAiSettings({ apply: confirming }); setConfirming(null); }} />
       )}
     </Section>
   );

@@ -205,8 +205,10 @@ function ModStack({ ctx, path, raw, label }: { ctx: Ctx; path: string; raw: Prop
                 <span class="faint">{tr(d.label) || k}</span>
                 {d.type === 'enum'
                   ? <Seg value={String(params[k])} options={d.options!.map((o) => [o, t(MOD_LABEL[o] ?? ENUM_LABEL[o] ?? o)])} onChange={(v) => setParam(i, k, v, `${title} : ${tr(d.label) || k}`)} />
-                  : <NumberField value={Number(params[k])} step={d.step ?? 0.1} min={d.min} max={d.max}
-                    onDraft={(v) => setParam(i, k, v, '', true)} onCommit={(v) => setParam(i, k, v, `${title} : ${tr(d.label) || k}`)} onCancel={cancelDraft} />}
+                  : d.type === 'layer'
+                    ? <LayerParam ctx={ctx} path={`${path}/$mod/${i}/${k}`} value={params[k] == null ? '' : String(params[k])} onCommit={(v) => setParam(i, k, v, `${title} : ${tr(d.label) || k}`)} />
+                    : <NumberField value={Number(params[k])} step={d.step ?? 0.1} min={d.min} max={d.max}
+                      onDraft={(v) => setParam(i, k, v, '', true)} onCommit={(v) => setParam(i, k, v, `${title} : ${tr(d.label) || k}`)} onCancel={cancelDraft} />}
               </div>
             ))}
           </div>
@@ -222,6 +224,20 @@ const short = (v: unknown) => {
   const s = JSON.stringify(v);
   return s && s.length > 60 ? s.slice(0, 58) + '…' : s;
 };
+
+/** a modifier parameter that names a layer of the composition (a pointer, a target) */
+function LayerParam({ ctx, path, value, onCommit }: { ctx: Ctx; path: string; value: string; onCommit: (v: string | null) => void }) {
+  const id = `mod-layers-${path.replace(/\W/g, '-')}`;
+  return (
+    <div class="field">
+      <input list={id} class="mono" spellcheck={false} value={value} placeholder={t('inspector.layerId')}
+        onChange={(e) => onCommit((e.target as HTMLInputElement).value.trim() || null)} />
+      <datalist id={id}>
+        {Object.entries(ctx.doc.compositions[ctx.compId].layers).map(([lid, l]) => <option key={lid} value={lid} label={l.name || lid} />)}
+      </datalist>
+    </div>
+  );
+}
 
 /** addresses a link may point to: tokens of the type, and properties of the same type */
 function LinkField({ ctx, def, value, onCommit }: { ctx: Ctx; def: PropDef; value: string; onCommit: (a: string) => void }) {
@@ -306,6 +322,7 @@ const ENUM_LABEL: Record<string, string> = {
   left: m('inspector.left'), center: m('inspector.center'), right: m('inspector.right'), cover: m('inspector.cover'), contain: m('inspector.contain'), fill: m('inspector.stretch'), none: m('inspector.none'),
   butt: m('inspector.butt'), round: m('inspector.round'), square: m('common.square'), miter: m('inspector.miter'), bevel: m('inspector.bevel'), alphabetic: m('inspector.alphabetic'), top: m('inspector.top'), middle: m('inspector.middle'), bottom: m('inspector.bottom'),
   normal: m('inspector.normal'), multiply: m('inspector.multiply'), screen: m('inspector.screen'), overlay: m('inspector.overlay'), darken: m('inspector.darken'), lighten: m('inspector.lighten'), add: m('inspector.additive'),
+  both: m('inspector.both'), lift: m('inspector.lift'), push: m('inspector.push'),
 };
 
 const rawColor = (v: unknown) => (typeof v === 'string' ? v : '#000000');

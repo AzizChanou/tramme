@@ -125,6 +125,16 @@
     "attachmentName": "Attachment: {name}",
     "couldNotTranscribeName": "Could not transcribe {name}: {error}"
   },
+  "figures": {
+    "pointer": "Pointer",
+    "pointerText": "Pointer layer travelling from {at} to {end} s. Point the shapes at it with the near modifier (source: \"{name}\").",
+    "terrain": "Terrain",
+    "terrainText": "Terrain of {n} × {n} pillars answering the pointer, from {at} to {end} s. The pointer layer is \"{name}\": move it, the pillars follow.",
+    "keys": "Keys",
+    "keysText": "{n} keys sinking under the pointer, from {at} to {end} s. The pointer layer is \"{name}\": move it, the keys follow.",
+    "riffle": "Riffle",
+    "riffleText": "{n} cards lifting and leaning as the pointer passes, from {at} to {end} s. The pointer layer is \"{name}\": move it, the cards follow."
+  },
   "formats": {
     "mp4H264": "MP4 · H.264",
     "videoAndSoundFor": "video and sound, for social media and the web",
@@ -466,6 +476,10 @@
     "last": "Last",
     "removeModifierName": "Remove {modifier} ({name})",
     "layerPropertyOrToken": "layer.property or @token",
+    "layerId": "layer id",
+    "both": "Both",
+    "lift": "Lift",
+    "push": "Push",
     "none": "None",
     "left": "Left",
     "center": "Center",
@@ -665,7 +679,7 @@
     "notifyHint": "A notification from the system when the editor is in the background (the browser asks once), a message in the editor after a long task.",
     "notifyBlocked": "The browser blocks the notifications: a message in the editor after a long task only.",
     "autoApply": "Apply the changes automatically",
-    "autoApplyHint": "The assistant's proposals are applied as soon as it is done, without the preview step. Each one stays in the conversation and in the history (Ctrl+Z).",
+    "autoApplyHint": "Off: each proposal waits for your answer. When done: applied when the assistant finishes its turn. As they come: applied as soon as it makes them, the document moves while it works. Each one stays in the conversation and in the history (Ctrl+Z).",
     "autoApplyConfirm": "The assistant will change the document without asking you first. Its changes are still checked before they are applied, shown in the conversation and undone with Ctrl+Z. Apply them automatically?",
     "effortLow": "Low",
     "effortMedium": "Medium",
@@ -711,7 +725,10 @@
     "theme": "Theme",
     "themeHint": "One palette for the whole interface. System follows the computer’s light or dark setting.",
     "display": "Display",
-    "displayHint": "How the interface is laid out; the panels stay reachable from the edges of the screen."
+    "displayHint": "How the interface is laid out; the panels stay reachable from the edges of the screen.",
+    "autoApplyOff": "Off",
+    "autoApplyTurn": "When done",
+    "autoApplyAll": "As they come"
   },
   "timeline": {
     "startHome": "Start (Home)",

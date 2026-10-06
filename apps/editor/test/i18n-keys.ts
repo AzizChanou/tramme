@@ -13,6 +13,7 @@ import { fileURLToPath } from 'node:url';
 import { BUILTIN_CHECKS, CAMERA_SCHEMA, MOTION_BLUR_SCHEMA, TRANSFORM_SCHEMA, type PropSchema } from '@tramme/core';
 import { builtinRegistry } from '@tramme/nodes';
 import { EDITOR_PROMPTS, EDITOR_TOOLS } from '../src/vocabulary.ts';
+import { FIGURE_TOOLS } from '../src/figures.ts';
 import { REVIEW_TOOLS } from '../src/review.ts';
 import { BUILTIN_KITS, RECIPE_TOOLS } from '../src/recipes.ts';
 import { EVENT_TOOLS } from '../src/events.ts';
@@ -61,7 +62,7 @@ export function registryKeys(): Set<string> {
   schema(MOTION_BLUR_SCHEMA);
   schema(CAMERA_SCHEMA);
   // the editor's tools and workflows, shown in the chat's / menu
-  const tools = [...EDITOR_TOOLS, ...RECIPE_TOOLS, ...EVENT_TOOLS, ...PERCEPTION_TOOLS, ...TRACKING_TOOLS, ...CUTOUT_TOOLS, ...REVIEW_TOOLS, ...SOUND_TOOLS, ...LIBRARY_TOOLS];
+  const tools = [...EDITOR_TOOLS, ...RECIPE_TOOLS, ...FIGURE_TOOLS, ...EVENT_TOOLS, ...PERCEPTION_TOOLS, ...TRACKING_TOOLS, ...CUTOUT_TOOLS, ...REVIEW_TOOLS, ...SOUND_TOOLS, ...LIBRARY_TOOLS];
   for (const x of [...tools, ...EDITOR_PROMPTS, ...BUILTIN_CHECKS, ...BUILTIN_KITS, ...EDITOR_PRESETS]) { add(x.title); add(x.description); }
   for (const c of BUILTIN_CHECKS) for (const text of c.texts ?? []) add(text);
   for (const text of Object.values(SOUND_TEXTS)) add(text);

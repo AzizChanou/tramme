@@ -35,13 +35,13 @@ export interface AiSettings {
   efforts: Record<string, Effort>;
   /** tell the user when a turn is over (a notification when the editor is in the background) */
   notify: boolean;
-  /** the proposals are applied as soon as the turn is over, without the preview step (confirmed once in the settings) */
-  autoApply: boolean;
+  /** when the proposals are applied without the preview step (confirmed once in the settings): 'turn' at the end of the turn, 'all' as each one is made */
+  apply: 'off' | 'turn' | 'all';
 }
 
 const KEY = 'tramme.assistant';
 function loadSettings(): AiSettings {
-  const d: AiSettings = { model: DEFAULT_MODEL, prefer: 'auto', companionUrl: `http://127.0.0.1:${COMPANION_PORT}`, token: '', localUrl: LOCAL_URL, efforts: {}, notify: true, autoApply: false };
+  const d: AiSettings = { model: DEFAULT_MODEL, prefer: 'auto', companionUrl: `http://127.0.0.1:${COMPANION_PORT}`, token: '', localUrl: LOCAL_URL, efforts: {}, notify: true, apply: 'off' };
   try {
     // the settings kept under the tool's former name (model, companion token) are taken over
     const s = { ...d, ...JSON.parse(localStorage.getItem(KEY) ?? localStorage.getItem('emotion.assistant') ?? '{}') } as AiSettings;
@@ -49,7 +49,10 @@ function loadSettings(): AiSettings {
     const efforts = s.efforts && typeof s.efforts === 'object' ? s.efforts : {};
     s.efforts = Object.fromEntries(Object.entries(efforts).filter(([, e]) => EFFORTS.includes(e)));
     s.notify = s.notify !== false;
-    s.autoApply = s.autoApply === true;
+    // the former boolean becomes 'turn' (applied at the end of the turn, as before)
+    const old = s as AiSettings & { autoApply?: boolean };
+    s.apply = s.apply === 'turn' || s.apply === 'all' ? s.apply : old.autoApply === true ? 'turn' : 'off';
+    delete (s as Partial<AiSettings> & { autoApply?: boolean }).autoApply;
     return s;
   } catch { return d; }
 }

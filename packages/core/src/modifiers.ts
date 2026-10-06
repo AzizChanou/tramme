@@ -8,7 +8,7 @@ import { hash, noise3 } from './math.ts';
 import type { PropSchema } from './registry.ts';
 import type { AudioReader } from './analysis.ts';
 import type { AiNotes } from './tools.ts';
-import type { Keyframe } from './types.ts';
+import type { Keyframe, Vec2 } from './types.ts';
 
 export interface Modifier { type: string; [param: string]: unknown }
 
@@ -28,6 +28,13 @@ export interface ModifierContext {
   seed: number;
   /** the music or sound at this instant (see the expressions' audio()) */
   audio?(source: string): AudioReader;
+  /**
+   * The position (transform.position) of a layer at another time: the layer
+   * owning this property when the id is empty — its rest position, without its
+   * modifiers, so it can never feed itself — or any other layer with
+   * everything that drives it. Null when the layer has no usable position.
+   */
+  position?(id: string, t?: number): Vec2 | null;
 }
 
 export interface ModifierType {
@@ -170,6 +177,56 @@ export const react: ModifierType = {
   },
 };
 
+/**
+ * Answers a moving layer — the pointer: the value moves by `amount` as the
+ * pointer comes within `radius`, then springs back when it leaves (the
+ * hairline figures: pillars that rise, keys that sink, cards that lift). The
+ * layer and its pointer must sit in the same space (siblings).
+ */
+export const near: ModifierType = {
+  type: 'near', title: 'Near the pointer', description: "answers a moving layer (the pointer): the value moves by an amount as it comes within a radius, on a spring",
+  params: {
+    source: { type: 'layer', default: null, nullable: true, label: 'Answers', description: 'the layer whose position is the pointer' },
+    radius: { type: 'number', default: 260, min: 1, step: 10, unit: 'px', label: 'Radius', description: 'how far the pointer is still answered' },
+    amount: { type: 'number', default: 1, step: 0.05, label: 'Amount', description: 'how far the value moves at the closest, in its own unit' },
+    axis: { type: 'enum', default: 'both', options: ['both', 'x', 'y'], label: 'Axis', description: 'the component of a vector that moves (a number always moves)' },
+    mode: { type: 'enum', default: 'lift', options: ['lift', 'push'], label: 'Mode', description: 'lift: along the axis; push: away from the pointer' },
+    freq: { type: 'number', default: 2.2, min: 0.1, step: 0.1, unit: 'x', label: 'Spring (Hz)' },
+    damping: { type: 'number', default: 0.5, min: 0.02, max: 1, step: 0.01, label: 'Damping' },
+  },
+  apply(v, p, c) {
+    const source = p.source == null ? '' : String(p.source);
+    if (!source || !c.position || !(isNum(v) || isVec(v))) return v;
+    const here = c.position('', c.t);
+    if (!here) return v;
+    // how close the pointer is over the spring's window: 1 under it, 0 past the radius
+    const closeness = (t: number): number => {
+      const q = c.position!(source, t);
+      if (!q) return 0;
+      const x = Math.min(1, Math.hypot(q[0] - here[0], q[1] - here[1]) / Math.max(1, p.radius));
+      return 1 - x * x * (3 - 2 * x);
+    };
+    // the spring's response to that moving closeness: superposed step responses,
+    // as the spring modifier does across keyframes, here across a sampled window
+    const settle = Math.min(2.5, Math.max(0.2, 3 / (Math.max(0.02, p.damping) * 2 * Math.PI * Math.max(0.1, p.freq))));
+    const t0 = Math.max(0, c.t - settle), n = 14;
+    let u = closeness(t0), ring = u;
+    for (let i = 1; i <= n; i++) {
+      const t = t0 + ((c.t - t0) * i) / n;
+      const next = closeness(t);
+      ring += (next - u) * springStep(c.t - t, p.freq, p.damping);
+      u = next;
+    }
+    if (p.mode === 'push' && isVec(v)) {
+      const q = c.position!(source, c.t) ?? here;
+      const dx = here[0] - q[0], dy = here[1] - q[1], len = Math.hypot(dx, dy) || 1;
+      return v.map((_, i) => v[i] + ((i ? dy : dx) / len) * p.amount * ring);
+    }
+    const axis = p.axis === 'x' ? 0 : p.axis === 'y' ? 1 : -1;
+    return isNum(v) ? v + p.amount * ring : v.map((x, i) => (axis < 0 || i === axis ? x + p.amount * ring : x));
+  },
+};
+
 /** notes for the assistant: when each built-in modifier fits */
 const MODIFIER_NOTES: Record<string, AiNotes> = {
   wiggle: { when: 'handheld camera feel (position amp 4 to 10 px, freq 0.6 to 1.2), floating elements, flicker', avoid: 'high frequency on large objects (nervous)' },
@@ -179,9 +236,10 @@ const MODIFIER_NOTES: Record<string, AiNotes> = {
   noise: { when: 'varying a value across siblings without motion (sizes, rotations of a scatter)' },
   smooth: { when: 'softening jittery keyframes or tracked data' },
   react: { when: 'making things move with the music once it has an analysis (the beats tool): scale +0.06 on beat for a pulse, opacity on hit for flashes, position on low for a bounce', example: { type: 'react', source: 'music', signal: 'beat', amount: 0.06, decay: 0.18 } },
+  near: { when: 'figures that answer a pointer: keyframe a small layer as the pointer, then let the shapes around it rise, sink or lean (freq 2 to 3, damping 0.45 to 0.6); the layer and its pointer must be siblings', avoid: 'amounts that break the drawing (a scale past 2, an offset past a cell): the rest pose is the picture, the pointer is a bonus', example: { type: 'near', source: 'pointer', radius: 240, amount: 1.4, axis: 'y', freq: 2.4, damping: 0.55 } },
 };
 
-export const BUILTIN_MODIFIERS = [wiggle, loop, spring, stagger, noise, smooth, react];
+export const BUILTIN_MODIFIERS = [wiggle, loop, spring, stagger, noise, smooth, react, near];
 for (const mod of BUILTIN_MODIFIERS) mod.ai = MODIFIER_NOTES[mod.type];
 
 /** default params filled in */

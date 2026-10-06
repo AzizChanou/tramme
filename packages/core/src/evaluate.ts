@@ -280,7 +280,8 @@ export class Evaluator {
   private applyMods(ctx: FrameCtx, address: string, prop: Prop, def: PropDef, v: unknown, upto: number): unknown {
     const mods = modsOf(prop)!;
     const kp = propKind(prop) === 'keyframes' ? asKeyframed(prop) : null;
-    const [index, count] = this.rank(ctx.comp, address.split('.')[0]);
+    const selfId = address.split('.')[0];
+    const [index, count] = this.rank(ctx.comp, selfId);
     for (let k = 0; k < upto; k++) {
       const spec = mods[k];
       if (!this.registry.hasModifier(spec.type)) throw new EvalError(address, `unknown modifier "${spec.type}"`);
@@ -288,6 +289,7 @@ export class Evaluator {
       const mc: ModifierContext = {
         t: ctx.t, fps: ctx.comp.fps, index, count, seed: seedOf(address),
         audio: (source: string) => this.audioAt(ctx, source),
+        position: (id: string, t2?: number) => this.layerPosition(ctx, address, id || selfId, t2 ?? ctx.t),
         keys: kp ? kp.$k : null,
         keyValues: kp ? kp.$k.map((key) => resolveTokens(def.type, key.v, this.doc.tokens)) : null,
         base: (t2: number) => this.valueAt(ctx, address, prop, def, t2, k),
@@ -295,6 +297,30 @@ export class Evaluator {
       v = m.apply(v, modifierParams(m, spec), mc);
     }
     return v;
+  }
+
+  /**
+   * The position of a layer, as a modifier's pointer: another layer's with
+   * everything that drives it (the dependency is recorded); the owning
+   * layer's own rest position, without its modifiers, so a modifier never
+   * feeds itself.
+   */
+  private layerPosition(ctx: FrameCtx, from: string, id: string, t: number): Vec2 | null {
+    if (!ctx.comp.layers[id]) return null;
+    const address = `${id}.transform.position`;
+    let v: unknown;
+    if (id === from.split('.')[0]) {
+      // the rest pose: computed raw (no modifiers), so the modifier cannot feed
+      // itself; a cycle through an expression or a link is caught by read
+      const { prop, def } = this.slot(ctx, address);
+      v = prop === undefined ? def.default : this.computeRaw(ctx, address, prop, def);
+    } else {
+      this.depend(from, address);
+      v = t === ctx.t
+        ? this.read(ctx, address)
+        : this.read({ ...ctx, t, frame: Math.round(t * ctx.comp.fps), memo: new Map(), stack: [...ctx.stack] }, address);
+    }
+    return Array.isArray(v) && v.length === 2 && v.every((x) => typeof x === 'number' && Number.isFinite(x)) ? (v as Vec2) : null;
   }
 
   /** the property at another time, with only its first `upto` modifiers */

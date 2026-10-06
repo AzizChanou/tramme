@@ -96,6 +96,8 @@ async function consume(start: (signal: AbortSignal) => AsyncGenerator<AiEvent>) 
         // the agent refines its proposal: the card updates in place
         if (chat.value.some((it) => it.proposal?.id === ev.id)) chat.value = chat.value.map((it) => (it.proposal?.id === ev.id ? { ...it, proposal: card } : it));
         else chat.value = [...chat.value, { id: uid(), role: 'assistant', proposal: card }];
+        // apply everything, as it comes: the document moves while the assistant works
+        if (aiSettings.peek().apply === 'all') decide(true);
       } else if (ev.type === 'proposal-clear') {
         if (S.proposal.peek()?.id === ev.id) S.proposal.value = null;
         chat.value = chat.value.filter((it) => it.proposal?.id !== ev.id);
@@ -126,11 +128,11 @@ const LONG_TURN = 15_000;
  * always when something was applied without them).
  */
 function finished(from: number, error: string, ms: number) {
-  const { notify: tell, autoApply } = aiSettings.peek();
+  const { notify: tell, apply } = aiSettings.peek();
   const turn = chat.peek().slice(from);
   const p = S.proposal.peek();
   const proposal = p?.status === 'pending' && turn.some((it) => it.proposal?.id === p.id) ? p : null;
-  const applied = !error && !!proposal && autoApply && decide(true);
+  const applied = !error && !!proposal && apply === 'turn' && decide(true);
   const said = turn.filter((it) => it.role === 'assistant' && it.text).at(-1)?.text?.replace(/\s+/g, ' ').trim();
   const body = error ? t('assistant.doneError', { error })
     : applied ? t('assistant.doneApplied', { label: proposal!.label })
