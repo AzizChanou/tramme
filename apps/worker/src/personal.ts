@@ -55,16 +55,22 @@ export async function personal(req: Request, env: Env): Promise<Response> {
       throw new HttpError(404, 'this server keeps nothing: projects and keys stay in the browser (personal mode)');
     }
     if (url.pathname === '/vault.html') throw new HttpError(404, 'not found');
-    return editorPage(await env.ASSETS.fetch(req), vault);
+    return editorPage(await env.ASSETS.fetch(req), vault, app);
   } catch (e) { return failure(e); }
 }
 
 const attr = (s: string) => s.replace(/[&"<>]/g, (c) => `&#${c.charCodeAt(0)};`);
 
-/** the editor's page tells it the mode: where the vault is (mode.ts reads it before anything) */
-async function editorPage(res: Response, vault: string): Promise<Response> {
+/**
+ * The editor's page tells it the mode: where the vault is (mode.ts reads it
+ * before anything). A link to it is shown with its address and the preview
+ * (og.jpg, beside the page), whatever path was asked: there is one editor.
+ */
+async function editorPage(res: Response, vault: string, app: string): Promise<Response> {
   if (!(res.headers.get('content-type') ?? '').startsWith('text/html')) return res;
-  const html = (await res.text()).replace('<head>', `<head><meta name="tramme-vault" content="${attr(vault)}">`);
+  const home = attr(`${app}/`), preview = attr(`${app}/og.jpg`);
+  const html = (await res.text()).replace('<head>', `<head><meta name="tramme-vault" content="${attr(vault)}">`
+    + `<link rel="canonical" href="${home}"><meta property="og:url" content="${home}"><meta property="og:image" content="${preview}"><meta name="twitter:image" content="${preview}">`);
   const headers = new Headers(res.headers);
   headers.delete('content-length');
   return new Response(html, { status: res.status, headers });

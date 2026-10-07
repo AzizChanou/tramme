@@ -1,10 +1,14 @@
 ---
-// Starlight's head (its own Head.astro, rendered the same way), with the
-// site's icon and fonts in place of its favicon
+// Starlight's head (its own Head.astro, rendered the same way: canonical,
+// Open Graph and X cards, sitemap), with the site's icon, fonts and link
+// preview; the 404 page is kept out of the search engines
 import SiteHead from '../SiteHead.astro';
+import SocialImage from '../SocialImage.astro';
 
-const { head } = Astro.locals.starlightRoute;
+const { head, entry } = Astro.locals.starlightRoute;
 ---
 
 {head.filter(({ attrs }) => attrs?.rel !== 'shortcut icon').map(({ tag: Tag, attrs, content }) => <Tag {...attrs} set:html={content} />)}
+<SocialImage />
+{entry.id === '404' && <meta name="robots" content="noindex" />}
 <SiteHead />

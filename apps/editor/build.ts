@@ -21,24 +21,41 @@ const DIST = process.env.TRAMME_DIST ? path.resolve(process.env.TRAMME_DIST) : p
 const dev = process.argv.includes('--dev');
 const personal = process.argv.includes('--personal');
 
-// the app's icon, shared with the site (apps/site)
+// the app's icon and its link preview (scripts/og-image.ts), shared with the site (apps/site)
 const ICON = fs.readFileSync(path.join(HERE, 'icon.svg'), 'utf8').trim();
+const OG = path.join(HERE, 'og.jpg');
 
-/** a page of the build: its bundle and stylesheet, and what its head adds */
-const page = (js: string, css: string | undefined, head: string) => `<!doctype html>
+/** a page of the build: its bundle and stylesheet, its title, and what its head adds */
+const page = (js: string, css: string | undefined, title: string, head: string) => `<!doctype html>
 <html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="color-scheme" content="dark">${head}
-<title>tramme</title>
+<title>${title}</title>
 <link rel="icon" href="data:image/svg+xml,${encodeURIComponent(ICON)}">
 ${css ? `<link rel="stylesheet" href="/${css}">` : ''}</head>
 <body><div id="app"></div><script type="module" src="/${js}"></script></body></html>
 `;
 
-/** the editor: installable on a phone's home screen */
+const EDITOR_TITLE = 'tramme, the open-source motion design editor';
+const EDITOR_ABOUT = 'Make motion design in the browser: layers, keyframes, shaders and an AI assistant that edits the same JSON document as you. Your projects and keys stay on your device.';
+/**
+ * the editor: installable on a phone's home screen, and described for a link
+ * to it (its address, the preview's and the canonical link are the Worker's to
+ * add: apps/worker/src/personal.ts)
+ */
 const EDITOR_HEAD = `<meta name="theme-color" content="#0b0f12">
-<link rel="manifest" href="/manifest.webmanifest"><meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-title" content="tramme">`;
-/** the key vault: the editor's address, the only one it answers, set by the Worker */
-const VAULT_HEAD = '<meta name="tramme-app" content="%APP_ORIGIN%">';
+<link rel="manifest" href="/manifest.webmanifest"><meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-title" content="tramme">
+<meta name="description" content="${EDITOR_ABOUT}">
+<meta property="og:type" content="website"><meta property="og:site_name" content="tramme"><meta property="og:title" content="${EDITOR_TITLE}"><meta property="og:description" content="${EDITOR_ABOUT}">
+<meta property="og:image:type" content="image/jpeg"><meta property="og:image:width" content="1200"><meta property="og:image:height" content="630"><meta property="og:image:alt" content="tramme: motion design, written as data. The editor, with a composition, its layers and its timeline.">
+<meta name="twitter:card" content="summary_large_image"><meta name="twitter:title" content="${EDITOR_TITLE}"><meta name="twitter:description" content="${EDITOR_ABOUT}">`;
+/** the key vault: the editor's address, the only one it answers, set by the Worker; never in a search engine */
+const VAULT_HEAD = '<meta name="tramme-app" content="%APP_ORIGIN%"><meta name="robots" content="noindex">';
+/** the editor's pages: the start page only, never a project's (/p/<id>, kept on each device) */
+const ROBOTS = `User-agent: *
+Allow: /
+Disallow: /p/
+Disallow: /api/
+`;
 
 // built files have hashed names: they never change and stay cached. In dev the
 // names are stable: always checked again (and versioned in the page, see below)
@@ -56,10 +73,10 @@ function writePage(meta: esbuild.Metafile) {
   const outs = Object.keys(meta.outputs).map((p) => path.relative(DIST, path.resolve(ROOT, p)).split(path.sep).join('/'));
   // in dev, a new address at each rebuild, so no browser keeps an older bundle
   const v = dev ? `?v=${Date.now().toString(36)}` : '';
-  for (const [entry, file, head] of [['main', 'index.html', EDITOR_HEAD], ['vault', 'vault.html', VAULT_HEAD]]) {
+  for (const [entry, file, title, head] of [['main', 'index.html', EDITOR_TITLE, EDITOR_HEAD], ['vault', 'vault.html', 'tramme', VAULT_HEAD]]) {
     const js = outs.find((p) => new RegExp(`^assets/${entry}(-[^/]+)?\\.js$`).test(p))!;
     const css = outs.find((p) => new RegExp(`^assets/${entry}(-[^/]+)?\\.css$`).test(p));
-    fs.writeFileSync(path.join(DIST, file), page(`${js}${v}`, css && `${css}${v}`, head));
+    fs.writeFileSync(path.join(DIST, file), page(`${js}${v}`, css && `${css}${v}`, title, head));
   }
   // drop the bundles of previous builds
   const keep = new Set(outs.flatMap((p) => [p, `${p}.LEGAL.txt`]));
@@ -131,6 +148,8 @@ fs.mkdirSync(path.join(DIST, 'assets'), { recursive: true });
 fs.writeFileSync(path.join(DIST, '_headers'), HEADERS);
 // installable on a phone's home screen: opens full screen, in the editor's colours
 fs.writeFileSync(path.join(DIST, 'icon.svg'), ICON);
+fs.copyFileSync(OG, path.join(DIST, 'og.jpg'));
+fs.writeFileSync(path.join(DIST, 'robots.txt'), ROBOTS);
 fs.writeFileSync(path.join(DIST, 'manifest.webmanifest'), JSON.stringify({
   name: 'tramme', short_name: 'tramme', start_url: '/', scope: '/', display: 'standalone', background_color: '#0b0f12', theme_color: '#0b0f12',
   icons: [{ src: '/icon.svg', sizes: 'any', type: 'image/svg+xml', purpose: 'any' }],

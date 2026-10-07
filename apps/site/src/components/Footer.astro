@@ -1,7 +1,9 @@
 ---
 import Brand from './Brand.astro';
 import { docHref } from '../lib/docs';
-import { REPO, repoFile } from '../lib/links';
+import { APP, REPO, repoFile } from '../lib/links';
+
+const download = __DOWNLOAD__;
 ---
 
 <footer class="foot">
@@ -9,6 +11,8 @@ import { REPO, repoFile } from '../lib/links';
     <Brand />
     <p>© 2026 Aziz Chanou</p>
     <ul role="list">
+      <li><a href={APP}>Open the app</a></li>
+      {download && <li><a href={download.href} download>Windows app</a></li>}
       <li><a href={docHref('')}>Docs</a></li>
       <li><a href={docHref('document')}>Document format</a></li>
       <li><a href={REPO}>GitHub</a></li>

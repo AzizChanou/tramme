@@ -1,10 +1,13 @@
 ---
 // What every page's head carries, the landing page's and the docs': the
-// app's icon (apps/editor/icon.svg, inlined) and the site's two fonts
+// app's icon (apps/editor/icon.svg, and its PNGs: pages/icons), the web
+// manifest and the site's two fonts
 import { Font } from 'astro:assets';
 import icon from '../../../editor/icon.svg?url';
 ---
 
 <link rel="icon" href={icon} type="image/svg+xml" />
+<link rel="apple-touch-icon" href="/icons/180.png" />
+<link rel="manifest" href="/site.webmanifest" />
 <Font cssVariable="--font-sans" preload />
 <Font cssVariable="--font-mono" />

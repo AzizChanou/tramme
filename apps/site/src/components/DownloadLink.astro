@@ -1,0 +1,14 @@
+---
+// The desktop app for Windows, when the site serves its installer
+// (lib/download.ts); nothing otherwise
+import WindowsLogo from '@phosphor-icons/core/assets/fill/windows-logo-fill.svg';
+
+const d = __DOWNLOAD__;
+const size = d && `${Math.round(d.size / 1e6)} MB`;
+---
+
+{d && (
+  <a class="btn btn-ghost" href={d.href} download title={`tramme ${d.version} for Windows 10 and 11 (x64), ${size}`}>
+    <WindowsLogo aria-hidden="true" />Download for Windows
+  </a>
+)}

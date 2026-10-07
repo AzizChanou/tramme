@@ -2,3 +2,5 @@
 # copied from examples/ and apps/editor/ at each build (astro.config.mjs)
 public/examples/
 public/icon.svg
+# the Windows installer, copied at each build when built here (src/lib/download.ts)
+public/download/

@@ -4,6 +4,7 @@ import { EFFECTS, NODES } from '@tramme/nodes';
 import Copy from '@phosphor-icons/core/assets/regular/copy.svg';
 import Check from '@phosphor-icons/core/assets/regular/check.svg';
 import Head from './Head.astro';
+import DownloadLink from './DownloadLink.astro';
 import RepoLink from './RepoLink.astro';
 import { FORMATS } from '../lib/formats';
 import { REPO } from '../lib/links';
@@ -36,6 +37,7 @@ const CLONE = `git clone ${REPO}`;
           </button>
         </div>
         <RepoLink />
+        <DownloadLink />
       </div>
     </div>
   </div>

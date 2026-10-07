@@ -1,6 +1,7 @@
 ---
 import Media from './Media.astro';
-import RepoLink from './RepoLink.astro';
+import AppLink from './AppLink.astro';
+import DownloadLink from './DownloadLink.astro';
 import { docHref } from '../lib/docs';
 import { example } from '../lib/examples';
 
@@ -14,7 +15,8 @@ const about = 'A shader sky, particles, nested compositions, layer effects and m
     <div class="side">
       <p>An open-source engine and editor. You and the AI edit the same JSON document, with the same undo.</p>
       <div class="ctas">
-        <RepoLink />
+        <AppLink />
+        <DownloadLink />
         <a class="btn btn-ghost" href={docHref('')}>Read the docs</a>
       </div>
     </div>

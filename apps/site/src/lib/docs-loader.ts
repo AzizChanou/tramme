@@ -102,15 +102,17 @@ function rewriteLinks(body: string, page: DocPage, root: URL) {
     .join('\n');
 }
 
-/** the first paragraph, as plain text, for the page's description */
+/** the first paragraph, as plain text, for the page's description; the first items of its first list when it opens on one */
 function describe(body: string) {
-  const para: string[] = [];
+  const para: string[] = [], items: string[] = [];
   for (const { text, code } of lines(body)) {
+    const item = !code && /^\s*(?:[-*+]|\d+\.) (.+)$/.exec(text);
+    if (item && !para.length && items.length < 3) items.push(item[1].trim());
     if (code || /^\s*([#>|]|[-*+] |\d+\. )/.test(text)) { if (para.length) break; continue; }
     if (!text.trim()) { if (para.length) break; continue; }
     para.push(text.trim());
   }
-  const text = plain(para.join(' '));
+  const text = plain((para.length ? para : items).join(' '));
   return text.length <= 160 ? text : `${text.slice(0, 157).replace(/\s+\S*$/, '')}...`;
 }
 

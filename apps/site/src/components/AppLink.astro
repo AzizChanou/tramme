@@ -1,0 +1,10 @@
+---
+// The way into the editor, online: the page's first call to action
+import ArrowUpRight from '@phosphor-icons/core/assets/regular/arrow-up-right.svg';
+import { APP } from '../lib/links';
+
+interface Props { small?: boolean }
+const { small = false } = Astro.props;
+---
+
+<a class:list={['btn btn-accent', { 'btn-sm': small }]} href={APP}>Open the app<ArrowUpRight aria-hidden="true" /></a>

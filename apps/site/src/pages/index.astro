@@ -9,9 +9,15 @@ import Assistant from '../components/Assistant.astro';
 import Render from '../components/Render.astro';
 import OpenSource from '../components/OpenSource.astro';
 import Footer from '../components/Footer.astro';
+import { landingData, SITE } from '../lib/site';
+import { previewUrl } from '../lib/preview';
+
+// what the search engines read of the page: the site, the app, its code
+const data = landingData(Astro.site!, previewUrl(Astro.site));
 ---
 
-<Base title="tramme, motion design written as data" description="An open-source motion design engine and editor. You and the AI edit the same JSON document, and the preview is the export.">
+<Base title={SITE.title} description={SITE.description}>
+  <script is:inline slot="head" type="application/ld+json" set:html={JSON.stringify(data)} />
   <Nav />
   <main>
     <Hero />

@@ -1,0 +1,17 @@
+---
+// The picture a link to any page of the site shows (Open Graph, X): the card
+// shared with the editor's page (lib/preview.ts)
+import { previewUrl } from '../lib/preview';
+import { SITE } from '../lib/site';
+
+const src = previewUrl(Astro.site);
+const { width, height, alt } = SITE.preview;
+---
+
+<meta property="og:image" content={src} />
+<meta property="og:image:type" content="image/jpeg" />
+<meta property="og:image:width" content={String(width)} />
+<meta property="og:image:height" content={String(height)} />
+<meta property="og:image:alt" content={alt} />
+<meta name="twitter:image" content={src} />
+<meta name="twitter:image:alt" content={alt} />

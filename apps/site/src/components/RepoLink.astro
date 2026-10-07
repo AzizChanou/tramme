@@ -1,10 +1,10 @@
 ---
-// The page's call to action, the same wherever it shows: the repository
+// The repository, the same wherever it shows: a call to action, or quieter beside the app's
 import GithubLogo from '@phosphor-icons/core/assets/fill/github-logo-fill.svg';
 import { REPO } from '../lib/links';
 
-interface Props { small?: boolean }
-const { small = false } = Astro.props;
+interface Props { small?: boolean; ghost?: boolean }
+const { small = false, ghost = false } = Astro.props;
 ---
 
-<a class:list={['btn btn-accent', { 'btn-sm': small }]} href={REPO}><GithubLogo aria-hidden="true" />View on GitHub</a>
+<a class:list={['btn', ghost ? 'btn-ghost' : 'btn-accent', { 'btn-sm': small }]} href={REPO}><GithubLogo aria-hidden="true" />View on GitHub</a>

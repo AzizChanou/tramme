@@ -1,5 +1,6 @@
 ---
 import Brand from './Brand.astro';
+import AppLink from './AppLink.astro';
 import RepoLink from './RepoLink.astro';
 import ThemeToggle from './ThemeToggle.astro';
 import { docHref } from '../lib/docs';
@@ -17,7 +18,8 @@ import { docHref } from '../lib/docs';
     </ul>
     <div class="end">
       <ThemeToggle />
-      <RepoLink small />
+      <span class="repo"><RepoLink small ghost /></span>
+      <AppLink small />
     </div>
   </nav>
 </header>
@@ -39,4 +41,6 @@ import { docHref } from '../lib/docs';
     .links { display: none; }
     .end { margin-left: auto; }
   }
+  /* a phone: the app's way in only (the repository is further down the page) */
+  @media (max-width: 560px) { .repo { display: none; } }
 </style>

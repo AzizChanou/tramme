@@ -42,6 +42,14 @@ describe('personal mode: the editor\'s address', () => {
     expect((await call(`${APP}/vault.html`)).status).toBe(404);
   });
 
+  it('shows a link to any of its pages as the editor, with its address and preview', async () => {
+    const page = await (await setup()(`${APP}/p/trip-abc123`)).text();
+    expect(page).toContain(`<link rel="canonical" href="${APP}/">`);
+    expect(page).toContain(`<meta property="og:url" content="${APP}/">`);
+    expect(page).toContain(`<meta property="og:image" content="${APP}/og.jpg">`);
+    expect(page).toContain(`<meta name="twitter:image" content="${APP}/og.jpg">`);
+  });
+
   it('sends any other address of the Worker to the editor\'s', async () => {
     const res = await setup()('https://tramme-personal.someone.workers.dev/p/x?y=1');
     expect(res.status).toBe(301);
