@@ -22,6 +22,7 @@ npm run typecheck
 
 npm run dev                   # the editor on http://localhost:8787/ (local Worker, projects in .wrangler/state)
 npm run site                  # the landing page and the docs (Astro) on http://localhost:4321/
+npm run desktop:dev           # the editor as a native window (Tauri 2), projects in Documents/Tramme
 ```
 
 `npm run dev` rebuilds the editor on every change and runs the Worker locally (`wrangler dev`): R2 storage simulated on disk, no Cloudflare Access. It also starts the assistant's companion, which pairs with this editor by itself (`TRAMME_NO_COMPANION=1` to go without it). The home screen offers to create a project, open a `.tramme` file or a Lottie animation, or start from an example.
@@ -33,6 +34,10 @@ npm run tramme -- agent      # companion: Claude with this machine's Claude Code
 ```
 
 then paste the token it prints in the editor (Assistant, settings). See [The assistant](#the-assistant).
+
+## The desktop app
+
+The same editor in a native window ([Tauri 2](https://v2.tauri.app/), proof of concept on Windows): `npm run desktop:dev`. A custom protocol serves the built editor and its `/api` routes from Rust, so the editor runs unmodified and its projects live in folders (`Documents/Tramme`), without a server. The assistant's providers and the large-file uploads are not wired yet; the whole picture, and what comes next, in [docs/desktop-and-mobile-apps.md](docs/desktop-and-mobile-apps.md).
 
 ## Deploying
 
@@ -71,6 +76,7 @@ tramme schema                                         regenerates the JSON schem
 apps/
   editor/    the editor (Preact): projects home, viewport, timeline, curves, inspector, assistant, exports
   worker/    the Cloudflare Worker: serves the editor; private mode: projects in R2, assistant relay, Cloudflare Access check; personal mode: the key vault's page and its relay
+  desktop/   the native app (Tauri 2): one window on the editor, the /api storage answered from the local folders in Rust
   site/      the project's site (Astro, static, light and dark): the landing page (no engine on the page; the examples as videos in src/videos, placeholders until they are there) and the docs under /docs/ (Starlight, made from docs/ and this README: src/lib/docs.ts)
 packages/
   core/      document, properties, keyframes, expressions, modifiers, evaluation, operations, validation

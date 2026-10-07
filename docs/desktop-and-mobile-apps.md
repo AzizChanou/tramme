@@ -1,6 +1,6 @@
 # Desktop and mobile apps with Tauri
 
-Status: **plan, not started.** This note gathers what is needed to ship Tramme as a native app with [Tauri 2](https://v2.tauri.app/) (Windows, macOS, Linux, Android, iOS), so the work can start from here.
+Status: **step 1 of the plan is done** (proof of concept on Windows, local mode). This note gathers what is needed to ship Tramme as a native app with [Tauri 2](https://v2.tauri.app/) (Windows, macOS, Linux, Android, iOS), so the work can start from here.
 
 ## Summary
 
@@ -98,8 +98,8 @@ Ways to cover the gaps:
 
 ## Plan
 
-1. **Proof of concept (Windows).** `apps/desktop` with Tauri 2, loading the built editor (`apps/editor/dist`). Projects served by the custom protocol from a local folder. Goal: open an example, edit, save, reload, export MP4.
-2. **Local mode complete.** All API routes, ETags and ranges, `.tramme` import and export, thumbnails, settings for the projects folder. Tests reusing the Worker's test cases against the local handler.
+1. **Proof of concept (Windows) — done.** `apps/desktop` with Tauri 2, loading the built editor (`apps/editor/dist`). Projects served by the custom protocol from a local folder (`Documents/Tramme`, `TRAMME_HOME` to move it). One protocol handler (`tramme` scheme) answers the embedded assets, the editor's pages (`/p/<id>` → index.html) and the `/api` storage routes in Rust (`apps/desktop/src-tauri/src/{api,store,format}.rs`): projects CRUD, duplicate, export as a `.tramme` archive, file reads with ETag, `If-None-Match` and byte ranges, writes with `If-Match`, delete, the plugin and sound shelves, and `/api/config`. The editor of `apps/editor` is untouched. Consciously left out (the next steps pick them up): the document's full schema is not re-checked on write (only JSON), multipart uploads over 95 MB answer 501, the providers and the transcription answer 501, and the storage tests are Rust unit tests, not the API's contract suite yet.
+2. **Local mode complete.** Multipart uploads, settings for the projects folder, the contract tests of `packages/api` run against the local handler, file association for `.tramme`.
 3. **Assistant.** Keys in the keychain, direct provider calls, transcription.
 4. **macOS.** Signing and notarization, WKWebView checks (export formats, saving files).
 5. **Linux.** Native encoding fallback or reduced export formats.

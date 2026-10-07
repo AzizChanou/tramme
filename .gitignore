@@ -21,6 +21,10 @@ examples/*/.tramme/
 # Cloudflare
 .wrangler/
 
+# Desktop (Tauri)
+apps/desktop/src-tauri/target/
+apps/desktop/src-tauri/gen/schemas/
+
 # Secrets (the *.example models stay in git)
 .dev.vars
 .env
@@ -39,3 +43,4 @@ desktop.ini
 # Local agent tooling
 .kilo/
 .claude/
+.zcode/

@@ -19,6 +19,8 @@
     "site": "npm run dev -w apps/site",
     "site:build": "npm run build -w apps/site",
     "site:deploy": "npm run site:build && wrangler deploy -c apps/site/wrangler.jsonc",
+    "desktop:dev": "node apps/editor/build.ts && cd apps/desktop && tauri dev",
+    "desktop:build": "node apps/editor/build.ts && cd apps/desktop && tauri build",
     "test": "vitest run",
     "typecheck": "tsc --noEmit -p . && tsc --noEmit -p apps/worker",
     "tramme": "node packages/cli/src/main.ts",
@@ -30,6 +32,7 @@
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^5.20261001.1",
+    "@tauri-apps/cli": "^2.12.1",
     "@types/node": "^22.20.4",
     "@types/pngjs": "^6.0.5",
     "@types/ws": "^8.18.2",
