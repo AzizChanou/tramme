@@ -18,6 +18,7 @@
     "deploy:personal": "node apps/editor/build.ts && wrangler deploy -c apps/worker/wrangler.jsonc --env personal",
     "site": "npm run dev -w apps/site",
     "site:build": "npm run build -w apps/site",
+    "site:deploy": "npm run site:build && wrangler deploy -c apps/site/wrangler.jsonc",
     "test": "vitest run",
     "typecheck": "tsc --noEmit -p . && tsc --noEmit -p apps/worker",
     "tramme": "node packages/cli/src/main.ts",

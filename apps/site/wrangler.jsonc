@@ -1,0 +1,20 @@
+{
+  "$schema": "../../node_modules/wrangler/config-schema.json",
+  // The project's site (apps/site): a static Astro build (landing page + Starlight
+  // docs), served as static assets by a Worker of its own. No script, no bindings:
+  // npm run site:deploy (build, then wrangler deploy). See docs/deploy.md for the editor Worker.
+  "name": "tramme-site",
+  "compatibility_date": "2026-09-25",
+  "assets": {
+    "directory": "./dist",
+    // Starlight builds a 404.html: served, with a 404 status, on unknown paths
+    "not_found_handling": "404-page"
+  }
+  // To serve the site from your own domain (a zone on this Cloudflare account),
+  // add routes and deploy again. Keep them in step with the editor's addresses
+  // (apps/worker/wrangler.jsonc): the site at the root, the editor on a subdomain.
+  // "routes": [
+  //   { "pattern": "tramme.example.com", "custom_domain": true },
+  //   { "pattern": "www.tramme.example.com", "custom_domain": true }
+  // ]
+}
