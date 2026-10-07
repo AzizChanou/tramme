@@ -1,0 +1,5768 @@
+{
+  "$schema": "../../schema/tramme-1.schema.json",
+  "schema": "tramme/1",
+  "meta": {
+    "title": "Showreel",
+    "description": "A motion designer's showreel, made by the assistant in one conversation: kinetic type with a stagger, a grid of shapes, a counter, a shader smoke, particles, motion blur and a camera look (bloom, chromatic aberration, grain).",
+    "thumbnailTime": 4
+  },
+  "tokens": {
+    "background": {
+      "type": "color",
+      "value": "#0E0F12"
+    },
+    "text": {
+      "type": "color",
+      "value": "#F4F5F7"
+    },
+    "accent": {
+      "type": "color",
+      "value": "#2EC4B6"
+    },
+    "smooth": {
+      "type": "ease",
+      "value": [
+        0.42,
+        0,
+        0.58,
+        1
+      ]
+    },
+    "snappy": {
+      "type": "ease",
+      "value": [
+        0.16,
+        1,
+        0.3,
+        1
+      ]
+    },
+    "accent2": {
+      "type": "color",
+      "value": "#FF4F79"
+    },
+    "accent3": {
+      "type": "color",
+      "value": "#FFC857"
+    },
+    "pop": {
+      "type": "ease",
+      "value": [
+        0.34,
+        1.56,
+        0.64,
+        1
+      ]
+    },
+    "expo": {
+      "type": "ease",
+      "value": [
+        0.87,
+        0,
+        0.13,
+        1
+      ]
+    },
+    "in": {
+      "type": "ease",
+      "value": [
+        0.7,
+        0,
+        0.84,
+        0
+      ]
+    },
+    "wipe": {
+      "type": "ease",
+      "value": [
+        0.7,
+        0,
+        0.3,
+        1
+      ]
+    }
+  },
+  "assets": {},
+  "root": "main",
+  "compositions": {
+    "main": {
+      "name": "Test claude",
+      "width": 1920,
+      "height": 1080,
+      "fps": 30,
+      "duration": 15,
+      "background": "@background",
+      "motionBlur": {
+        "samples": 8,
+        "shutter": 0.5
+      },
+      "layers": {
+        "intro": {
+          "type": "group",
+          "name": "Act 0 — Intro",
+          "in": 0,
+          "out": 3,
+          "children": [
+            "intro_rings",
+            "intro_sparks",
+            "intro_mask_top",
+            "intro_mask_bottom",
+            "intro_motion",
+            "intro_designer",
+            "intro_kicker",
+            "intro_line"
+          ]
+        },
+        "intro_rings": {
+          "type": "group",
+          "name": "Rings",
+          "children": [
+            "ring_1",
+            "ring_2",
+            "ring_3"
+          ]
+        },
+        "ring_1": {
+          "type": "shape.ellipse",
+          "name": "Ring teal",
+          "transform": {
+            "position": [
+              960,
+              570
+            ],
+            "opacity": {
+              "$k": [
+                {
+                  "t": 0.3,
+                  "v": 1
+                },
+                {
+                  "t": 1.4,
+                  "v": 0
+                }
+              ],
+              "$mod": [
+                {
+                  "type": "stagger",
+                  "delay": 0.09
+                }
+              ]
+            }
+          },
+          "props": {
+            "fill": null,
+            "stroke": "@accent",
+            "strokeWidth": 4,
+            "size": {
+              "$k": [
+                {
+                  "t": 0.3,
+                  "v": [
+                    0,
+                    0
+                  ],
+                  "ease": "@snappy"
+                },
+                {
+                  "t": 1.4,
+                  "v": [
+                    1500,
+                    1500
+                  ]
+                }
+              ],
+              "$mod": [
+                {
+                  "type": "stagger",
+                  "delay": 0.09
+                }
+              ]
+            }
+          }
+        },
+        "ring_2": {
+          "type": "shape.ellipse",
+          "name": "Ring pink",
+          "transform": {
+            "position": [
+              960,
+              570
+            ],
+            "opacity": {
+              "$k": [
+                {
+                  "t": 0.3,
+                  "v": 1
+                },
+                {
+                  "t": 1.4,
+                  "v": 0
+                }
+              ],
+              "$mod": [
+                {
+                  "type": "stagger",
+                  "delay": 0.09
+                }
+              ]
+            }
+          },
+          "props": {
+            "fill": null,
+            "stroke": "@accent2",
+            "strokeWidth": 4,
+            "size": {
+              "$k": [
+                {
+                  "t": 0.3,
+                  "v": [
+                    0,
+                    0
+                  ],
+                  "ease": "@snappy"
+                },
+                {
+                  "t": 1.4,
+                  "v": [
+                    1500,
+                    1500
+                  ]
+                }
+              ],
+              "$mod": [
+                {
+                  "type": "stagger",
+                  "delay": 0.09
+                }
+              ]
+            }
+          }
+        },
+        "ring_3": {
+          "type": "shape.ellipse",
+          "name": "Ring yellow",
+          "transform": {
+            "position": [
+              960,
+              570
+            ],
+            "opacity": {
+              "$k": [
+                {
+                  "t": 0.3,
+                  "v": 1
+                },
+                {
+                  "t": 1.4,
+                  "v": 0
+                }
+              ],
+              "$mod": [
+                {
+                  "type": "stagger",
+                  "delay": 0.09
+                }
+              ]
+            }
+          },
+          "props": {
+            "fill": null,
+            "stroke": "@accent3",
+            "strokeWidth": 4,
+            "size": {
+              "$k": [
+                {
+                  "t": 0.3,
+                  "v": [
+                    0,
+                    0
+                  ],
+                  "ease": "@snappy"
+                },
+                {
+                  "t": 1.4,
+                  "v": [
+                    1500,
+                    1500
+                  ]
+                }
+              ],
+              "$mod": [
+                {
+                  "type": "stagger",
+                  "delay": 0.09
+                }
+              ]
+            }
+          }
+        },
+        "intro_sparks": {
+          "type": "particles",
+          "name": "Spark burst",
+          "in": 0.3,
+          "transform": {
+            "position": [
+              960,
+              570
+            ]
+          },
+          "props": {
+            "rate": 700,
+            "duration": 0.08,
+            "life": 0.75,
+            "lifeVar": 0.4,
+            "speed": 1200,
+            "speedVar": 0.55,
+            "spread": 360,
+            "direction": 0,
+            "gravity": [
+              0,
+              0
+            ],
+            "drag": 3,
+            "size": 5,
+            "sizeEnd": 0,
+            "shape": "streak",
+            "color": "@text",
+            "colorEnd": "@accent",
+            "seed": 3
+          }
+        },
+        "intro_mask_top": {
+          "type": "shape.rect",
+          "name": "Mask above line",
+          "visible": false,
+          "transform": {
+            "position": [
+              960,
+              285
+            ]
+          },
+          "props": {
+            "size": [
+              1920,
+              570
+            ]
+          }
+        },
+        "intro_mask_bottom": {
+          "type": "shape.rect",
+          "name": "Mask below line",
+          "visible": false,
+          "transform": {
+            "position": [
+              960,
+              825
+            ]
+          },
+          "props": {
+            "size": [
+              1920,
+              510
+            ]
+          }
+        },
+        "intro_motion": {
+          "type": "group",
+          "name": "MOTION",
+          "clip": "intro_mask_top",
+          "children": [
+            "m_1",
+            "m_2",
+            "m_3",
+            "m_4",
+            "m_5",
+            "m_6"
+          ]
+        },
+        "m_1": {
+          "type": "text",
+          "name": "M",
+          "transform": {
+            "position": {
+              "$k": [
+                {
+                  "t": 0.75,
+                  "v": [
+                    528,
+                    820
+                  ],
+                  "ease": "@snappy"
+                },
+                {
+                  "t": 1.3,
+                  "v": [
+                    528,
+                    540
+                  ]
+                },
+                {
+                  "t": 2.3,
+                  "v": [
+                    528,
+                    540
+                  ],
+                  "ease": "@in"
+                },
+                {
+                  "t": 2.62,
+                  "v": [
+                    528,
+                    840
+                  ]
+                }
+              ],
+              "$mod": [
+                {
+                  "type": "stagger",
+                  "delay": 0.045
+                }
+              ]
+            },
+            "rotation": {
+              "$k": [
+                {
+                  "t": 0.75,
+                  "v": 12,
+                  "ease": "@snappy"
+                },
+                {
+                  "t": 1.3,
+                  "v": 0
+                }
+              ],
+              "$mod": [
+                {
+                  "type": "stagger",
+                  "delay": 0.045
+                }
+              ]
+            }
+          },
+          "props": {
+            "text": "M",
+            "size": 260,
+            "weight": 900,
+            "align": "center",
+            "color": "@text"
+          }
+        },
+        "m_2": {
+          "type": "text",
+          "name": "O",
+          "transform": {
+            "position": {
+              "$k": [
+                {
+                  "t": 0.75,
+                  "v": [
+                    744,
+                    820
+                  ],
+                  "ease": "@snappy"
+                },
+                {
+                  "t": 1.3,
+                  "v": [
+                    744,
+                    540
+                  ]
+                },
+                {
+                  "t": 2.3,
+                  "v": [
+                    744,
+                    540
+                  ],
+                  "ease": "@in"
+                },
+                {
+                  "t": 2.62,
+                  "v": [
+                    744,
+                    840
+                  ]
+                }
+              ],
+              "$mod": [
+                {
+                  "type": "stagger",
+                  "delay": 0.045
+                }
+              ]
+            },
+            "rotation": {
+              "$k": [
+                {
+                  "t": 0.75,
+                  "v": 12,
+                  "ease": "@snappy"
+                },
+                {
+                  "t": 1.3,
+                  "v": 0
+                }
+              ],
+              "$mod": [
+                {
+                  "type": "stagger",
+                  "delay": 0.045
+                }
+              ]
+            }
+          },
+          "props": {
+            "text": "O",
+            "size": 260,
+            "weight": 900,
+            "align": "center",
+            "color": "@text"
+          }
+        },
+        "m_3": {
+          "type": "text",
+          "name": "T",
+          "transform": {
+            "position": {
+              "$k": [
+                {
+                  "t": 0.75,
+                  "v": [
+                    934,
+                    820
+                  ],
+                  "ease": "@snappy"
+                },
+                {
+                  "t": 1.3,
+                  "v": [
+                    934,
+                    540
+                  ]
+                },
+                {
+                  "t": 2.3,
+                  "v": [
+                    934,
+                    540
+                  ],
+                  "ease": "@in"
+                },
+                {
+                  "t": 2.62,
+                  "v": [
+                    934,
+                    840
+                  ]
+                }
+              ],
+              "$mod": [
+                {
+                  "type": "stagger",
+                  "delay": 0.045
+                }
+              ]
+            },
+            "rotation": {
+              "$k": [
+                {
+                  "t": 0.75,
+                  "v": 12,
+                  "ease": "@snappy"
+                },
+                {
+                  "t": 1.3,
+                  "v": 0
+                }
+              ],
+              "$mod": [
+                {
+                  "type": "stagger",
+                  "delay": 0.045
+                }
+              ]
+            }
+          },
+          "props": {
+            "text": "T",
+            "size": 260,
+            "weight": 900,
+            "align": "center",
+            "color": "@text"
+          }
+        },
+        "m_4": {
+          "type": "text",
+          "name": "I",
+          "transform": {
+            "position": {
+              "$k": [
+                {
+                  "t": 0.75,
+                  "v": [
+                    1059,
+                    820
+                  ],
+                  "ease": "@snappy"
+                },
+                {
+                  "t": 1.3,
+                  "v": [
+                    1059,
+                    540
+                  ]
+                },
+                {
+                  "t": 2.3,
+                  "v": [
+                    1059,
+                    540
+                  ],
+                  "ease": "@in"
+                },
+                {
+                  "t": 2.62,
+                  "v": [
+                    1059,
+                    840
+                  ]
+                }
+              ],
+              "$mod": [
+                {
+                  "type": "stagger",
+                  "delay": 0.045
+                }
+              ]
+            },
+            "rotation": {
+              "$k": [
+                {
+                  "t": 0.75,
+                  "v": 12,
+                  "ease": "@snappy"
+                },
+                {
+                  "t": 1.3,
+                  "v": 0
+                }
+              ],
+              "$mod": [
+                {
+                  "type": "stagger",
+                  "delay": 0.045
+                }
+              ]
+            }
+          },
+          "props": {
+            "text": "I",
+            "size": 260,
+            "weight": 900,
+            "align": "center",
+            "color": "@accent"
+          }
+        },
+        "m_5": {
+          "type": "text",
+          "name": "O",
+          "transform": {
+            "position": {
+              "$k": [
+                {
+                  "t": 0.75,
+                  "v": [
+                    1202,
+                    820
+                  ],
+                  "ease": "@snappy"
+                },
+                {
+                  "t": 1.3,
+                  "v": [
+                    1202,
+                    540
+                  ]
+                },
+                {
+                  "t": 2.3,
+                  "v": [
+                    1202,
+                    540
+                  ],
+                  "ease": "@in"
+                },
+                {
+                  "t": 2.62,
+                  "v": [
+                    1202,
+                    840
+                  ]
+                }
+              ],
+              "$mod": [
+                {
+                  "type": "stagger",
+                  "delay": 0.045
+                }
+              ]
+            },
+            "rotation": {
+              "$k": [
+                {
+                  "t": 0.75,
+                  "v": 12,
+                  "ease": "@snappy"
+                },
+                {
+                  "t": 1.3,
+                  "v": 0
+                }
+              ],
+              "$mod": [
+                {
+                  "type": "stagger",
+                  "delay": 0.045
+                }
+              ]
+            }
+          },
+          "props": {
+            "text": "O",
+            "size": 260,
+            "weight": 900,
+            "align": "center",
+            "color": "@text"
+          }
+        },
+        "m_6": {
+          "type": "text",
+          "name": "N",
+          "transform": {
+            "position": {
+              "$k": [
+                {
+                  "t": 0.75,
+                  "v": [
+                    1405,
+                    820
+                  ],
+                  "ease": "@snappy"
+                },
+                {
+                  "t": 1.3,
+                  "v": [
+                    1405,
+                    540
+                  ]
+                },
+                {
+                  "t": 2.3,
+                  "v": [
+                    1405,
+                    540
+                  ],
+                  "ease": "@in"
+                },
+                {
+                  "t": 2.62,
+                  "v": [
+                    1405,
+                    840
+                  ]
+                }
+              ],
+              "$mod": [
+                {
+                  "type": "stagger",
+                  "delay": 0.045
+                }
+              ]
+            },
+            "rotation": {
+              "$k": [
+                {
+                  "t": 0.75,
+                  "v": 12,
+                  "ease": "@snappy"
+                },
+                {
+                  "t": 1.3,
+                  "v": 0
+                }
+              ],
+              "$mod": [
+                {
+                  "type": "stagger",
+                  "delay": 0.045
+                }
+              ]
+            }
+          },
+          "props": {
+            "text": "N",
+            "size": 260,
+            "weight": 900,
+            "align": "center",
+            "color": "@text"
+          }
+        },
+        "intro_designer": {
+          "type": "text",
+          "name": "DESIGNER",
+          "clip": "intro_mask_bottom",
+          "transform": {
+            "position": {
+              "$k": [
+                {
+                  "t": 0.95,
+                  "v": [
+                    960,
+                    520
+                  ],
+                  "ease": "@snappy"
+                },
+                {
+                  "t": 1.45,
+                  "v": [
+                    960,
+                    680
+                  ]
+                },
+                {
+                  "t": 2.3,
+                  "v": [
+                    960,
+                    680
+                  ],
+                  "ease": "@in"
+                },
+                {
+                  "t": 2.6,
+                  "v": [
+                    960,
+                    520
+                  ]
+                }
+              ]
+            }
+          },
+          "props": {
+            "text": "DESIGNER",
+            "size": 92,
+            "weight": 800,
+            "align": "center",
+            "color": "@accent",
+            "tracking": {
+              "$k": [
+                {
+                  "t": 0.95,
+                  "v": 1,
+                  "ease": "@snappy"
+                },
+                {
+                  "t": 1.7,
+                  "v": 0.42
+                }
+              ]
+            }
+          }
+        },
+        "intro_kicker": {
+          "type": "text",
+          "name": "Kicker",
+          "transform": {
+            "position": [
+              960,
+              290
+            ],
+            "opacity": {
+              "$k": [
+                {
+                  "t": 1.2,
+                  "v": 0
+                },
+                {
+                  "t": 1.6,
+                  "v": 0.8
+                },
+                {
+                  "t": 2.2,
+                  "v": 0.8
+                },
+                {
+                  "t": 2.45,
+                  "v": 0
+                }
+              ]
+            }
+          },
+          "props": {
+            "text": "SHOWREEL — 2026",
+            "size": 38,
+            "weight": 600,
+            "align": "center",
+            "color": "@text",
+            "tracking": {
+              "$k": [
+                {
+                  "t": 1.2,
+                  "v": 0.9,
+                  "ease": "@snappy"
+                },
+                {
+                  "t": 1.9,
+                  "v": 0.5
+                }
+              ]
+            }
+          }
+        },
+        "intro_line": {
+          "type": "shape.rect",
+          "name": "Dot to line",
+          "transform": {
+            "position": [
+              960,
+              570
+            ]
+          },
+          "props": {
+            "fill": "@accent",
+            "radius": {
+              "$k": [
+                {
+                  "t": 0.5,
+                  "v": 14
+                },
+                {
+                  "t": 0.95,
+                  "v": 3
+                }
+              ]
+            },
+            "size": {
+              "$k": [
+                {
+                  "t": 0,
+                  "v": [
+                    0,
+                    0
+                  ],
+                  "ease": "@pop"
+                },
+                {
+                  "t": 0.3,
+                  "v": [
+                    28,
+                    28
+                  ]
+                },
+                {
+                  "t": 0.5,
+                  "v": [
+                    28,
+                    28
+                  ],
+                  "ease": "@expo"
+                },
+                {
+                  "t": 0.95,
+                  "v": [
+                    1300,
+                    6
+                  ]
+                },
+                {
+                  "t": 2.4,
+                  "v": [
+                    1300,
+                    6
+                  ],
+                  "ease": "@expo"
+                },
+                {
+                  "t": 2.8,
+                  "v": [
+                    0,
+                    6
+                  ]
+                }
+              ]
+            }
+          }
+        },
+        "shapes": {
+          "type": "group",
+          "name": "Act 1 — Shapes",
+          "in": 2.62,
+          "out": 6.07,
+          "children": [
+            "shapes_plate",
+            "shapes_grid"
+          ]
+        },
+        "shapes_plate": {
+          "type": "shape.ellipse",
+          "name": "Pink plate",
+          "transform": {
+            "position": [
+              960,
+              570
+            ]
+          },
+          "props": {
+            "fill": "@accent2",
+            "size": {
+              "$k": [
+                {
+                  "t": 2.62,
+                  "v": [
+                    0,
+                    0
+                  ],
+                  "ease": "@wipe"
+                },
+                {
+                  "t": 3,
+                  "v": [
+                    2400,
+                    2400
+                  ]
+                }
+              ]
+            }
+          }
+        },
+        "shapes_grid": {
+          "type": "group",
+          "name": "Tile grid",
+          "transform": {
+            "position": [
+              960,
+              540
+            ],
+            "rotation": {
+              "$k": [
+                {
+                  "t": 4.5,
+                  "v": 0,
+                  "ease": "@expo"
+                },
+                {
+                  "t": 5.3,
+                  "v": 45
+                }
+              ]
+            },
+            "scale": {
+              "$k": [
+                {
+                  "t": 4.5,
+                  "v": [
+                    1,
+                    1
+                  ],
+                  "ease": "@expo"
+                },
+                {
+                  "t": 5.3,
+                  "v": [
+                    1.12,
+                    1.12
+                  ]
+                }
+              ]
+            }
+          },
+          "children": [
+            "t_0",
+            "t_1",
+            "t_2",
+            "t_3",
+            "t_4",
+            "t_5",
+            "t_6",
+            "t_7",
+            "t_8",
+            "t_9",
+            "t_10",
+            "t_11",
+            "t_12",
+            "t_13",
+            "t_14"
+          ]
+        },
+        "t_0": {
+          "type": "shape.rect",
+          "name": "Tile 0",
+          "transform": {
+            "position": {
+              "$k": [
+                {
+                  "t": 3.9,
+                  "v": [
+                    0,
+                    0
+                  ],
+                  "ease": "@expo"
+                },
+                {
+                  "t": 4.5,
+                  "v": [
+                    0,
+                    0
+                  ]
+                },
+                {
+                  "t": 4.95,
+                  "v": [
+                    0,
+                    0
+                  ],
+                  "ease": "@expo"
+                },
+                {
+                  "t": 5.3,
+                  "v": [
+                    0,
+                    0
+                  ]
+                }
+              ],
+              "$mod": [
+                {
+                  "type": "stagger",
+                  "delay": 0.03
+                }
+              ]
+            },
+            "scale": {
+              "$k": [
+                {
+                  "t": 3,
+                  "v": [
+                    0,
+                    0
+                  ],
+                  "ease": "@pop"
+                },
+                {
+                  "t": 3.45,
+                  "v": [
+                    1,
+                    1
+                  ]
+                },
+                {
+                  "t": 5.3,
+                  "v": [
+                    1,
+                    1
+                  ],
+                  "ease": "@in"
+                },
+                {
+                  "t": 5.6,
+                  "v": [
+                    0,
+                    0
+                  ]
+                }
+              ],
+              "$mod": [
+                {
+                  "type": "stagger",
+                  "delay": 0.03
+                }
+              ]
+            },
+            "rotation": {
+              "$k": [
+                {
+                  "t": 3,
+                  "v": -90,
+                  "ease": "@snappy"
+                },
+                {
+                  "t": 3.45,
+                  "v": 0
+                },
+                {
+                  "t": 3.9,
+                  "v": 0,
+                  "ease": "@expo"
+                },
+                {
+                  "t": 4.5,
+                  "v": 180
+                }
+              ],
+              "$mod": [
+                {
+                  "type": "stagger",
+                  "delay": 0.03
+                }
+              ]
+            }
+          },
+          "props": {
+            "size": [
+              150,
+              150
+            ],
+            "fill": "@accent3",
+            "radius": {
+              "$k": [
+                {
+                  "t": 3.9,
+                  "v": 0,
+                  "ease": "@expo"
+                },
+                {
+                  "t": 4.5,
+                  "v": 75
+                },
+                {
+                  "t": 4.95,
+                  "v": 75,
+                  "ease": "@expo"
+                },
+                {
+                  "t": 5.3,
+                  "v": 16
+                }
+              ],
+              "$mod": [
+                {
+                  "type": "stagger",
+                  "delay": 0.03
+                }
+              ]
+            }
+          }
+        },
+        "t_1": {
+          "type": "shape.rect",
+          "name": "Tile 1",
+          "transform": {
+            "position": {
+              "$k": [
+                {
+                  "t": 3.9,
+                  "v": [
+                    -220,
+                    0
+                  ],
+                  "ease": "@expo"
+                },
+                {
+                  "t": 4.5,
+                  "v": [
+                    -275,
+                    0
+                  ]
+                },
+                {
+                  "t": 4.95,
+                  "v": [
+                    -275,
+                    0
+                  ],
+                  "ease": "@expo"
+                },
+                {
+                  "t": 5.3,
+                  "v": [
+                    -220,
+                    0
+                  ]
+                }
+              ],
+              "$mod": [
+                {
+                  "type": "stagger",
+                  "delay": 0.03
+                }
+              ]
+            },
+            "scale": {
+              "$k": [
+                {
+                  "t": 3,
+                  "v": [
+                    0,
+                    0
+                  ],
+                  "ease": "@pop"
+                },
+                {
+                  "t": 3.45,
+                  "v": [
+                    1,
+                    1
+                  ]
+                },
+                {
+                  "t": 5.3,
+                  "v": [
+                    1,
+                    1
+                  ],
+                  "ease": "@in"
+                },
+                {
+                  "t": 5.6,
+                  "v": [
+                    0,
+                    0
+                  ]
+                }
+              ],
+              "$mod": [
+                {
+                  "type": "stagger",
+                  "delay": 0.03
+                }
+              ]
+            },
+            "rotation": {
+              "$k": [
+                {
+                  "t": 3,
+                  "v": -90,
+                  "ease": "@snappy"
+                },
+                {
+                  "t": 3.45,
+                  "v": 0
+                },
+                {
+                  "t": 3.9,
+                  "v": 0,
+                  "ease": "@expo"
+                },
+                {
+                  "t": 4.5,
+                  "v": 180
+                }
+              ],
+              "$mod": [
+                {
+                  "type": "stagger",
+                  "delay": 0.03
+                }
+              ]
+            }
+          },
+          "props": {
+            "size": [
+              150,
+              150
+            ],
+            "fill": "@background",
+            "radius": {
+              "$k": [
+                {
+                  "t": 3.9,
+                  "v": 0,
+                  "ease": "@expo"
+                },
+                {
+                  "t": 4.5,
+                  "v": 75
+                },
+                {
+                  "t": 4.95,
+                  "v": 75,
+                  "ease": "@expo"
+                },
+                {
+                  "t": 5.3,
+                  "v": 16
+                }
+              ],
+              "$mod": [
+                {
+                  "type": "stagger",
+                  "delay": 0.03
+                }
+              ]
+            }
+          }
+        },
+        "t_2": {
+          "type": "shape.rect",
+          "name": "Tile 2",
+          "transform": {
+            "position": {
+              "$k": [
+                {
+                  "t": 3.9,
+                  "v": [
+                    220,
+                    0
+                  ],
+                  "ease": "@expo"
+                },
+                {
+                  "t": 4.5,
+                  "v": [
+                    275,
+                    0
+                  ]
+                },
+                {
+                  "t": 4.95,
+                  "v": [
+                    275,
+                    0
+                  ],
+                  "ease": "@expo"
+                },
+                {
+                  "t": 5.3,
+                  "v": [
+                    220,
+                    0
+                  ]
+                }
+              ],
+              "$mod": [
+                {
+                  "type": "stagger",
+                  "delay": 0.03
+                }
+              ]
+            },
+            "scale": {
+              "$k": [
+                {
+                  "t": 3,
+                  "v": [
+                    0,
+                    0
+                  ],
+                  "ease": "@pop"
+                },
+                {
+                  "t": 3.45,
+                  "v": [
+                    1,
+                    1
+                  ]
+                },
+                {
+                  "t": 5.3,
+                  "v": [
+                    1,
+                    1
+                  ],
+                  "ease": "@in"
+                },
+                {
+                  "t": 5.6,
+                  "v": [
+                    0,
+                    0
+                  ]
+                }
+              ],
+              "$mod": [
+                {
+                  "type": "stagger",
+                  "delay": 0.03
+                }
+              ]
+            },
+            "rotation": {
+              "$k": [
+                {
+                  "t": 3,
+                  "v": -90,
+                  "ease": "@snappy"
+                },
+                {
+                  "t": 3.45,
+                  "v": 0
+                },
+                {
+                  "t": 3.9,
+                  "v": 0,
+                  "ease": "@expo"
+                },
+                {
+                  "t": 4.5,
+                  "v": 180
+                }
+              ],
+              "$mod": [
+                {
+                  "type": "stagger",
+                  "delay": 0.03
+                }
+              ]
+            }
+          },
+          "props": {
+            "size": [
+              150,
+              150
+            ],
+            "fill": "@background",
+            "radius": {
+              "$k": [
+                {
+                  "t": 3.9,
+                  "v": 0,
+                  "ease": "@expo"
+                },
+                {
+                  "t": 4.5,
+                  "v": 75
+                },
+                {
+                  "t": 4.95,
+                  "v": 75,
+                  "ease": "@expo"
+                },
+                {
+                  "t": 5.3,
+                  "v": 16
+                }
+              ],
+              "$mod": [
+                {
+                  "type": "stagger",
+                  "delay": 0.03
+                }
+              ]
+            }
+          }
+        },
+        "t_3": {
+          "type": "shape.rect",
+          "name": "Tile 3",
+          "transform": {
+            "position": {
+              "$k": [
+                {
+                  "t": 3.9,
+                  "v": [
+                    0,
+                    -220
+                  ],
+                  "ease": "@expo"
+                },
+                {
+                  "t": 4.5,
+                  "v": [
+                    0,
+                    -275
+                  ]
+                },
+                {
+                  "t": 4.95,
+                  "v": [
+                    0,
+                    -275
+                  ],
+                  "ease": "@expo"
+                },
+                {
+                  "t": 5.3,
+                  "v": [
+                    0,
+                    -220
+                  ]
+                }
+              ],
+              "$mod": [
+                {
+                  "type": "stagger",
+                  "delay": 0.03
+                }
+              ]
+            },
+            "scale": {
+              "$k": [
+                {
+                  "t": 3,
+                  "v": [
+                    0,
+                    0
+                  ],
+                  "ease": "@pop"
+                },
+                {
+                  "t": 3.45,
+                  "v": [
+                    1,
+                    1
+                  ]
+                },
+                {
+                  "t": 5.3,
+                  "v": [
+                    1,
+                    1
+                  ],
+                  "ease": "@in"
+                },
+                {
+                  "t": 5.6,
+                  "v": [
+                    0,
+                    0
+                  ]
+                }
+              ],
+              "$mod": [
+                {
+                  "type": "stagger",
+                  "delay": 0.03
+                }
+              ]
+            },
+            "rotation": {
+              "$k": [
+                {
+                  "t": 3,
+                  "v": -90,
+                  "ease": "@snappy"
+                },
+                {
+                  "t": 3.45,
+                  "v": 0
+                },
+                {
+                  "t": 3.9,
+                  "v": 0,
+                  "ease": "@expo"
+                },
+                {
+                  "t": 4.5,
+                  "v": 180
+                }
+              ],
+              "$mod": [
+                {
+                  "type": "stagger",
+                  "delay": 0.03
+                }
+              ]
+            }
+          },
+          "props": {
+            "size": [
+              150,
+              150
+            ],
+            "fill": "@background",
+            "radius": {
+              "$k": [
+                {
+                  "t": 3.9,
+                  "v": 0,
+                  "ease": "@expo"
+                },
+                {
+                  "t": 4.5,
+                  "v": 75
+                },
+                {
+                  "t": 4.95,
+                  "v": 75,
+                  "ease": "@expo"
+                },
+                {
+                  "t": 5.3,
+                  "v": 16
+                }
+              ],
+              "$mod": [
+                {
+                  "type": "stagger",
+                  "delay": 0.03
+                }
+              ]
+            }
+          }
+        },
+        "t_4": {
+          "type": "shape.rect",
+          "name": "Tile 4",
+          "transform": {
+            "position": {
+              "$k": [
+                {
+                  "t": 3.9,
+                  "v": [
+                    0,
+                    220
+                  ],
+                  "ease": "@expo"
+                },
+                {
+                  "t": 4.5,
+                  "v": [
+                    0,
+                    275
+                  ]
+                },
+                {
+                  "t": 4.95,
+                  "v": [
+                    0,
+                    275
+                  ],
+                  "ease": "@expo"
+                },
+                {
+                  "t": 5.3,
+                  "v": [
+                    0,
+                    220
+                  ]
+                }
+              ],
+              "$mod": [
+                {
+                  "type": "stagger",
+                  "delay": 0.03
+                }
+              ]
+            },
+            "scale": {
+              "$k": [
+                {
+                  "t": 3,
+                  "v": [
+                    0,
+                    0
+                  ],
+                  "ease": "@pop"
+                },
+                {
+                  "t": 3.45,
+                  "v": [
+                    1,
+                    1
+                  ]
+                },
+                {
+                  "t": 5.3,
+                  "v": [
+                    1,
+                    1
+                  ],
+                  "ease": "@in"
+                },
+                {
+                  "t": 5.6,
+                  "v": [
+                    0,
+                    0
+                  ]
+                }
+              ],
+              "$mod": [
+                {
+                  "type": "stagger",
+                  "delay": 0.03
+                }
+              ]
+            },
+            "rotation": {
+              "$k": [
+                {
+                  "t": 3,
+                  "v": -90,
+                  "ease": "@snappy"
+                },
+                {
+                  "t": 3.45,
+                  "v": 0
+                },
+                {
+                  "t": 3.9,
+                  "v": 0,
+                  "ease": "@expo"
+                },
+                {
+                  "t": 4.5,
+                  "v": 180
+                }
+              ],
+              "$mod": [
+                {
+                  "type": "stagger",
+                  "delay": 0.03
+                }
+              ]
+            }
+          },
+          "props": {
+            "size": [
+              150,
+              150
+            ],
+            "fill": "@background",
+            "radius": {
+              "$k": [
+                {
+                  "t": 3.9,
+                  "v": 0,
+                  "ease": "@expo"
+                },
+                {
+                  "t": 4.5,
+                  "v": 75
+                },
+                {
+                  "t": 4.95,
+                  "v": 75,
+                  "ease": "@expo"
+                },
+                {
+                  "t": 5.3,
+                  "v": 16
+                }
+              ],
+              "$mod": [
+                {
+                  "type": "stagger",
+                  "delay": 0.03
+                }
+              ]
+            }
+          }
+        },
+        "t_5": {
+          "type": "shape.rect",
+          "name": "Tile 5",
+          "transform": {
+            "position": {
+              "$k": [
+                {
+                  "t": 3.9,
+                  "v": [
+                    -220,
+                    -220
+                  ],
+                  "ease": "@expo"
+                },
+                {
+                  "t": 4.5,
+                  "v": [
+                    -275,
+                    -275
+                  ]
+                },
+                {
+                  "t": 4.95,
+                  "v": [
+                    -275,
+                    -275
+                  ],
+                  "ease": "@expo"
+                },
+                {
+                  "t": 5.3,
+                  "v": [
+                    -220,
+                    -220
+                  ]
+                }
+              ],
+              "$mod": [
+                {
+                  "type": "stagger",
+                  "delay": 0.03
+                }
+              ]
+            },
+            "scale": {
+              "$k": [
+                {
+                  "t": 3,
+                  "v": [
+                    0,
+                    0
+                  ],
+                  "ease": "@pop"
+                },
+                {
+                  "t": 3.45,
+                  "v": [
+                    1,
+                    1
+                  ]
+                },
+                {
+                  "t": 5.3,
+                  "v": [
+                    1,
+                    1
+                  ],
+                  "ease": "@in"
+                },
+                {
+                  "t": 5.6,
+                  "v": [
+                    0,
+                    0
+                  ]
+                }
+              ],
+              "$mod": [
+                {
+                  "type": "stagger",
+                  "delay": 0.03
+                }
+              ]
+            },
+            "rotation": {
+              "$k": [
+                {
+                  "t": 3,
+                  "v": -90,
+                  "ease": "@snappy"
+                },
+                {
+                  "t": 3.45,
+                  "v": 0
+                },
+                {
+                  "t": 3.9,
+                  "v": 0,
+                  "ease": "@expo"
+                },
+                {
+                  "t": 4.5,
+                  "v": 180
+                }
+              ],
+              "$mod": [
+                {
+                  "type": "stagger",
+                  "delay": 0.03
+                }
+              ]
+            }
+          },
+          "props": {
+            "size": [
+              150,
+              150
+            ],
+            "fill": "@text",
+            "radius": {
+              "$k": [
+                {
+                  "t": 3.9,
+                  "v": 0,
+                  "ease": "@expo"
+                },
+                {
+                  "t": 4.5,
+                  "v": 75
+                },
+                {
+                  "t": 4.95,
+                  "v": 75,
+                  "ease": "@expo"
+                },
+                {
+                  "t": 5.3,
+                  "v": 16
+                }
+              ],
+              "$mod": [
+                {
+                  "type": "stagger",
+                  "delay": 0.03
+                }
+              ]
+            }
+          }
+        },
+        "t_6": {
+          "type": "shape.rect",
+          "name": "Tile 6",
+          "transform": {
+            "position": {
+              "$k": [
+                {
+                  "t": 3.9,
+                  "v": [
+                    220,
+                    -220
+                  ],
+                  "ease": "@expo"
+                },
+                {
+                  "t": 4.5,
+                  "v": [
+                    275,
+                    -275
+                  ]
+                },
+                {
+                  "t": 4.95,
+                  "v": [
+                    275,
+                    -275
+                  ],
+                  "ease": "@expo"
+                },
+                {
+                  "t": 5.3,
+                  "v": [
+                    220,
+                    -220
+                  ]
+                }
+              ],
+              "$mod": [
+                {
+                  "type": "stagger",
+                  "delay": 0.03
+                }
+              ]
+            },
+            "scale": {
+              "$k": [
+                {
+                  "t": 3,
+                  "v": [
+                    0,
+                    0
+                  ],
+                  "ease": "@pop"
+                },
+                {
+                  "t": 3.45,
+                  "v": [
+                    1,
+                    1
+                  ]
+                },
+                {
+                  "t": 5.3,
+                  "v": [
+                    1,
+                    1
+                  ],
+                  "ease": "@in"
+                },
+                {
+                  "t": 5.6,
+                  "v": [
+                    0,
+                    0
+                  ]
+                }
+              ],
+              "$mod": [
+                {
+                  "type": "stagger",
+                  "delay": 0.03
+                }
+              ]
+            },
+            "rotation": {
+              "$k": [
+                {
+                  "t": 3,
+                  "v": -90,
+                  "ease": "@snappy"
+                },
+                {
+                  "t": 3.45,
+                  "v": 0
+                },
+                {
+                  "t": 3.9,
+                  "v": 0,
+                  "ease": "@expo"
+                },
+                {
+                  "t": 4.5,
+                  "v": 180
+                }
+              ],
+              "$mod": [
+                {
+                  "type": "stagger",
+                  "delay": 0.03
+                }
+              ]
+            }
+          },
+          "props": {
+            "size": [
+              150,
+              150
+            ],
+            "fill": "@text",
+            "radius": {
+              "$k": [
+                {
+                  "t": 3.9,
+                  "v": 0,
+                  "ease": "@expo"
+                },
+                {
+                  "t": 4.5,
+                  "v": 75
+                },
+                {
+                  "t": 4.95,
+                  "v": 75,
+                  "ease": "@expo"
+                },
+                {
+                  "t": 5.3,
+                  "v": 16
+                }
+              ],
+              "$mod": [
+                {
+                  "type": "stagger",
+                  "delay": 0.03
+                }
+              ]
+            }
+          }
+        },
+        "t_7": {
+          "type": "shape.rect",
+          "name": "Tile 7",
+          "transform": {
+            "position": {
+              "$k": [
+                {
+                  "t": 3.9,
+                  "v": [
+                    -220,
+                    220
+                  ],
+                  "ease": "@expo"
+                },
+                {
+                  "t": 4.5,
+                  "v": [
+                    -275,
+                    275
+                  ]
+                },
+                {
+                  "t": 4.95,
+                  "v": [
+                    -275,
+                    275
+                  ],
+                  "ease": "@expo"
+                },
+                {
+                  "t": 5.3,
+                  "v": [
+                    -220,
+                    220
+                  ]
+                }
+              ],
+              "$mod": [
+                {
+                  "type": "stagger",
+                  "delay": 0.03
+                }
+              ]
+            },
+            "scale": {
+              "$k": [
+                {
+                  "t": 3,
+                  "v": [
+                    0,
+                    0
+                  ],
+                  "ease": "@pop"
+                },
+                {
+                  "t": 3.45,
+                  "v": [
+                    1,
+                    1
+                  ]
+                },
+                {
+                  "t": 5.3,
+                  "v": [
+                    1,
+                    1
+                  ],
+                  "ease": "@in"
+                },
+                {
+                  "t": 5.6,
+                  "v": [
+                    0,
+                    0
+                  ]
+                }
+              ],
+              "$mod": [
+                {
+                  "type": "stagger",
+                  "delay": 0.03
+                }
+              ]
+            },
+            "rotation": {
+              "$k": [
+                {
+                  "t": 3,
+                  "v": -90,
+                  "ease": "@snappy"
+                },
+                {
+                  "t": 3.45,
+                  "v": 0
+                },
+                {
+                  "t": 3.9,
+                  "v": 0,
+                  "ease": "@expo"
+                },
+                {
+                  "t": 4.5,
+                  "v": 180
+                }
+              ],
+              "$mod": [
+                {
+                  "type": "stagger",
+                  "delay": 0.03
+                }
+              ]
+            }
+          },
+          "props": {
+            "size": [
+              150,
+              150
+            ],
+            "fill": "@text",
+            "radius": {
+              "$k": [
+                {
+                  "t": 3.9,
+                  "v": 0,
+                  "ease": "@expo"
+                },
+                {
+                  "t": 4.5,
+                  "v": 75
+                },
+                {
+                  "t": 4.95,
+                  "v": 75,
+                  "ease": "@expo"
+                },
+                {
+                  "t": 5.3,
+                  "v": 16
+                }
+              ],
+              "$mod": [
+                {
+                  "type": "stagger",
+                  "delay": 0.03
+                }
+              ]
+            }
+          }
+        },
+        "t_8": {
+          "type": "shape.rect",
+          "name": "Tile 8",
+          "transform": {
+            "position": {
+              "$k": [
+                {
+                  "t": 3.9,
+                  "v": [
+                    220,
+                    220
+                  ],
+                  "ease": "@expo"
+                },
+                {
+                  "t": 4.5,
+                  "v": [
+                    275,
+                    275
+                  ]
+                },
+                {
+                  "t": 4.95,
+                  "v": [
+                    275,
+                    275
+                  ],
+                  "ease": "@expo"
+                },
+                {
+                  "t": 5.3,
+                  "v": [
+                    220,
+                    220
+                  ]
+                }
+              ],
+              "$mod": [
+                {
+                  "type": "stagger",
+                  "delay": 0.03
+                }
+              ]
+            },
+            "scale": {
+              "$k": [
+                {
+                  "t": 3,
+                  "v": [
+                    0,
+                    0
+                  ],
+                  "ease": "@pop"
+                },
+                {
+                  "t": 3.45,
+                  "v": [
+                    1,
+                    1
+                  ]
+                },
+                {
+                  "t": 5.3,
+                  "v": [
+                    1,
+                    1
+                  ],
+                  "ease": "@in"
+                },
+                {
+                  "t": 5.6,
+                  "v": [
+                    0,
+                    0
+                  ]
+                }
+              ],
+              "$mod": [
+                {
+                  "type": "stagger",
+                  "delay": 0.03
+                }
+              ]
+            },
+            "rotation": {
+              "$k": [
+                {
+                  "t": 3,
+                  "v": -90,
+                  "ease": "@snappy"
+                },
+                {
+                  "t": 3.45,
+                  "v": 0
+                },
+                {
+                  "t": 3.9,
+                  "v": 0,
+                  "ease": "@expo"
+                },
+                {
+                  "t": 4.5,
+                  "v": 180
+                }
+              ],
+              "$mod": [
+                {
+                  "type": "stagger",
+                  "delay": 0.03
+                }
+              ]
+            }
+          },
+          "props": {
+            "size": [
+              150,
+              150
+            ],
+            "fill": "@text",
+            "radius": {
+              "$k": [
+                {
+                  "t": 3.9,
+                  "v": 0,
+                  "ease": "@expo"
+                },
+                {
+                  "t": 4.5,
+                  "v": 75
+                },
+                {
+                  "t": 4.95,
+                  "v": 75,
+                  "ease": "@expo"
+                },
+                {
+                  "t": 5.3,
+                  "v": 16
+                }
+              ],
+              "$mod": [
+                {
+                  "type": "stagger",
+                  "delay": 0.03
+                }
+              ]
+            }
+          }
+        },
+        "t_9": {
+          "type": "shape.rect",
+          "name": "Tile 9",
+          "transform": {
+            "position": {
+              "$k": [
+                {
+                  "t": 3.9,
+                  "v": [
+                    -440,
+                    0
+                  ],
+                  "ease": "@expo"
+                },
+                {
+                  "t": 4.5,
+                  "v": [
+                    -550,
+                    0
+                  ]
+                },
+                {
+                  "t": 4.95,
+                  "v": [
+                    -550,
+                    0
+                  ],
+                  "ease": "@expo"
+                },
+                {
+                  "t": 5.3,
+                  "v": [
+                    -440,
+                    0
+                  ]
+                }
+              ],
+              "$mod": [
+                {
+                  "type": "stagger",
+                  "delay": 0.03
+                }
+              ]
+            },
+            "scale": {
+              "$k": [
+                {
+                  "t": 3,
+                  "v": [
+                    0,
+                    0
+                  ],
+                  "ease": "@pop"
+                },
+                {
+                  "t": 3.45,
+                  "v": [
+                    1,
+                    1
+                  ]
+                },
+                {
+                  "t": 5.3,
+                  "v": [
+                    1,
+                    1
+                  ],
+                  "ease": "@in"
+                },
+                {
+                  "t": 5.6,
+                  "v": [
+                    0,
+                    0
+                  ]
+                }
+              ],
+              "$mod": [
+                {
+                  "type": "stagger",
+                  "delay": 0.03
+                }
+              ]
+            },
+            "rotation": {
+              "$k": [
+                {
+                  "t": 3,
+                  "v": -90,
+                  "ease": "@snappy"
+                },
+                {
+                  "t": 3.45,
+                  "v": 0
+                },
+                {
+                  "t": 3.9,
+                  "v": 0,
+                  "ease": "@expo"
+                },
+                {
+                  "t": 4.5,
+                  "v": 180
+                }
+              ],
+              "$mod": [
+                {
+                  "type": "stagger",
+                  "delay": 0.03
+                }
+              ]
+            }
+          },
+          "props": {
+            "size": [
+              150,
+              150
+            ],
+            "fill": "@accent",
+            "radius": {
+              "$k": [
+                {
+                  "t": 3.9,
+                  "v": 0,
+                  "ease": "@expo"
+                },
+                {
+                  "t": 4.5,
+                  "v": 75
+                },
+                {
+                  "t": 4.95,
+                  "v": 75,
+                  "ease": "@expo"
+                },
+                {
+                  "t": 5.3,
+                  "v": 16
+                }
+              ],
+              "$mod": [
+                {
+                  "type": "stagger",
+                  "delay": 0.03
+                }
+              ]
+            }
+          }
+        },
+        "t_10": {
+          "type": "shape.rect",
+          "name": "Tile 10",
+          "transform": {
+            "position": {
+              "$k": [
+                {
+                  "t": 3.9,
+                  "v": [
+                    440,
+                    0
+                  ],
+                  "ease": "@expo"
+                },
+                {
+                  "t": 4.5,
+                  "v": [
+                    550,
+                    0
+                  ]
+                },
+                {
+                  "t": 4.95,
+                  "v": [
+                    550,
+                    0
+                  ],
+                  "ease": "@expo"
+                },
+                {
+                  "t": 5.3,
+                  "v": [
+                    440,
+                    0
+                  ]
+                }
+              ],
+              "$mod": [
+                {
+                  "type": "stagger",
+                  "delay": 0.03
+                }
+              ]
+            },
+            "scale": {
+              "$k": [
+                {
+                  "t": 3,
+                  "v": [
+                    0,
+                    0
+                  ],
+                  "ease": "@pop"
+                },
+                {
+                  "t": 3.45,
+                  "v": [
+                    1,
+                    1
+                  ]
+                },
+                {
+                  "t": 5.3,
+                  "v": [
+                    1,
+                    1
+                  ],
+                  "ease": "@in"
+                },
+                {
+                  "t": 5.6,
+                  "v": [
+                    0,
+                    0
+                  ]
+                }
+              ],
+              "$mod": [
+                {
+                  "type": "stagger",
+                  "delay": 0.03
+                }
+              ]
+            },
+            "rotation": {
+              "$k": [
+                {
+                  "t": 3,
+                  "v": -90,
+                  "ease": "@snappy"
+                },
+                {
+                  "t": 3.45,
+                  "v": 0
+                },
+                {
+                  "t": 3.9,
+                  "v": 0,
+                  "ease": "@expo"
+                },
+                {
+                  "t": 4.5,
+                  "v": 180
+                }
+              ],
+              "$mod": [
+                {
+                  "type": "stagger",
+                  "delay": 0.03
+                }
+              ]
+            }
+          },
+          "props": {
+            "size": [
+              150,
+              150
+            ],
+            "fill": "@accent",
+            "radius": {
+              "$k": [
+                {
+                  "t": 3.9,
+                  "v": 0,
+                  "ease": "@expo"
+                },
+                {
+                  "t": 4.5,
+                  "v": 75
+                },
+                {
+                  "t": 4.95,
+                  "v": 75,
+                  "ease": "@expo"
+                },
+                {
+                  "t": 5.3,
+                  "v": 16
+                }
+              ],
+              "$mod": [
+                {
+                  "type": "stagger",
+                  "delay": 0.03
+                }
+              ]
+            }
+          }
+        },
+        "t_11": {
+          "type": "shape.rect",
+          "name": "Tile 11",
+          "transform": {
+            "position": {
+              "$k": [
+                {
+                  "t": 3.9,
+                  "v": [
+                    -440,
+                    -220
+                  ],
+                  "ease": "@expo"
+                },
+                {
+                  "t": 4.5,
+                  "v": [
+                    -550,
+                    -275
+                  ]
+                },
+                {
+                  "t": 4.95,
+                  "v": [
+                    -550,
+                    -275
+                  ],
+                  "ease": "@expo"
+                },
+                {
+                  "t": 5.3,
+                  "v": [
+                    -440,
+                    -220
+                  ]
+                }
+              ],
+              "$mod": [
+                {
+                  "type": "stagger",
+                  "delay": 0.03
+                }
+              ]
+            },
+            "scale": {
+              "$k": [
+                {
+                  "t": 3,
+                  "v": [
+                    0,
+                    0
+                  ],
+                  "ease": "@pop"
+                },
+                {
+                  "t": 3.45,
+                  "v": [
+                    1,
+                    1
+                  ]
+                },
+                {
+                  "t": 5.3,
+                  "v": [
+                    1,
+                    1
+                  ],
+                  "ease": "@in"
+                },
+                {
+                  "t": 5.6,
+                  "v": [
+                    0,
+                    0
+                  ]
+                }
+              ],
+              "$mod": [
+                {
+                  "type": "stagger",
+                  "delay": 0.03
+                }
+              ]
+            },
+            "rotation": {
+              "$k": [
+                {
+                  "t": 3,
+                  "v": -90,
+                  "ease": "@snappy"
+                },
+                {
+                  "t": 3.45,
+                  "v": 0
+                },
+                {
+                  "t": 3.9,
+                  "v": 0,
+                  "ease": "@expo"
+                },
+                {
+                  "t": 4.5,
+                  "v": 180
+                }
+              ],
+              "$mod": [
+                {
+                  "type": "stagger",
+                  "delay": 0.03
+                }
+              ]
+            }
+          },
+          "props": {
+            "size": [
+              150,
+              150
+            ],
+            "fill": "@background",
+            "radius": {
+              "$k": [
+                {
+                  "t": 3.9,
+                  "v": 0,
+                  "ease": "@expo"
+                },
+                {
+                  "t": 4.5,
+                  "v": 75
+                },
+                {
+                  "t": 4.95,
+                  "v": 75,
+                  "ease": "@expo"
+                },
+                {
+                  "t": 5.3,
+                  "v": 16
+                }
+              ],
+              "$mod": [
+                {
+                  "type": "stagger",
+                  "delay": 0.03
+                }
+              ]
+            }
+          }
+        },
+        "t_12": {
+          "type": "shape.rect",
+          "name": "Tile 12",
+          "transform": {
+            "position": {
+              "$k": [
+                {
+                  "t": 3.9,
+                  "v": [
+                    440,
+                    -220
+                  ],
+                  "ease": "@expo"
+                },
+                {
+                  "t": 4.5,
+                  "v": [
+                    550,
+                    -275
+                  ]
+                },
+                {
+                  "t": 4.95,
+                  "v": [
+                    550,
+                    -275
+                  ],
+                  "ease": "@expo"
+                },
+                {
+                  "t": 5.3,
+                  "v": [
+                    440,
+                    -220
+                  ]
+                }
+              ],
+              "$mod": [
+                {
+                  "type": "stagger",
+                  "delay": 0.03
+                }
+              ]
+            },
+            "scale": {
+              "$k": [
+                {
+                  "t": 3,
+                  "v": [
+                    0,
+                    0
+                  ],
+                  "ease": "@pop"
+                },
+                {
+                  "t": 3.45,
+                  "v": [
+                    1,
+                    1
+                  ]
+                },
+                {
+                  "t": 5.3,
+                  "v": [
+                    1,
+                    1
+                  ],
+                  "ease": "@in"
+                },
+                {
+                  "t": 5.6,
+                  "v": [
+                    0,
+                    0
+                  ]
+                }
+              ],
+              "$mod": [
+                {
+                  "type": "stagger",
+                  "delay": 0.03
+                }
+              ]
+            },
+            "rotation": {
+              "$k": [
+                {
+                  "t": 3,
+                  "v": -90,
+                  "ease": "@snappy"
+                },
+                {
+                  "t": 3.45,
+                  "v": 0
+                },
+                {
+                  "t": 3.9,
+                  "v": 0,
+                  "ease": "@expo"
+                },
+                {
+                  "t": 4.5,
+                  "v": 180
+                }
+              ],
+              "$mod": [
+                {
+                  "type": "stagger",
+                  "delay": 0.03
+                }
+              ]
+            }
+          },
+          "props": {
+            "size": [
+              150,
+              150
+            ],
+            "fill": "@background",
+            "radius": {
+              "$k": [
+                {
+                  "t": 3.9,
+                  "v": 0,
+                  "ease": "@expo"
+                },
+                {
+                  "t": 4.5,
+                  "v": 75
+                },
+                {
+                  "t": 4.95,
+                  "v": 75,
+                  "ease": "@expo"
+                },
+                {
+                  "t": 5.3,
+                  "v": 16
+                }
+              ],
+              "$mod": [
+                {
+                  "type": "stagger",
+                  "delay": 0.03
+                }
+              ]
+            }
+          }
+        },
+        "t_13": {
+          "type": "shape.rect",
+          "name": "Tile 13",
+          "transform": {
+            "position": {
+              "$k": [
+                {
+                  "t": 3.9,
+                  "v": [
+                    -440,
+                    220
+                  ],
+                  "ease": "@expo"
+                },
+                {
+                  "t": 4.5,
+                  "v": [
+                    -550,
+                    275
+                  ]
+                },
+                {
+                  "t": 4.95,
+                  "v": [
+                    -550,
+                    275
+                  ],
+                  "ease": "@expo"
+                },
+                {
+                  "t": 5.3,
+                  "v": [
+                    -440,
+                    220
+                  ]
+                }
+              ],
+              "$mod": [
+                {
+                  "type": "stagger",
+                  "delay": 0.03
+                }
+              ]
+            },
+            "scale": {
+              "$k": [
+                {
+                  "t": 3,
+                  "v": [
+                    0,
+                    0
+                  ],
+                  "ease": "@pop"
+                },
+                {
+                  "t": 3.45,
+                  "v": [
+                    1,
+                    1
+                  ]
+                },
+                {
+                  "t": 5.3,
+                  "v": [
+                    1,
+                    1
+                  ],
+                  "ease": "@in"
+                },
+                {
+                  "t": 5.6,
+                  "v": [
+                    0,
+                    0
+                  ]
+                }
+              ],
+              "$mod": [
+                {
+                  "type": "stagger",
+                  "delay": 0.03
+                }
+              ]
+            },
+            "rotation": {
+              "$k": [
+                {
+                  "t": 3,
+                  "v": -90,
+                  "ease": "@snappy"
+                },
+                {
+                  "t": 3.45,
+                  "v": 0
+                },
+                {
+                  "t": 3.9,
+                  "v": 0,
+                  "ease": "@expo"
+                },
+                {
+                  "t": 4.5,
+                  "v": 180
+                }
+              ],
+              "$mod": [
+                {
+                  "type": "stagger",
+                  "delay": 0.03
+                }
+              ]
+            }
+          },
+          "props": {
+            "size": [
+              150,
+              150
+            ],
+            "fill": "@background",
+            "radius": {
+              "$k": [
+                {
+                  "t": 3.9,
+                  "v": 0,
+                  "ease": "@expo"
+                },
+                {
+                  "t": 4.5,
+                  "v": 75
+                },
+                {
+                  "t": 4.95,
+                  "v": 75,
+                  "ease": "@expo"
+                },
+                {
+                  "t": 5.3,
+                  "v": 16
+                }
+              ],
+              "$mod": [
+                {
+                  "type": "stagger",
+                  "delay": 0.03
+                }
+              ]
+            }
+          }
+        },
+        "t_14": {
+          "type": "shape.rect",
+          "name": "Tile 14",
+          "transform": {
+            "position": {
+              "$k": [
+                {
+                  "t": 3.9,
+                  "v": [
+                    440,
+                    220
+                  ],
+                  "ease": "@expo"
+                },
+                {
+                  "t": 4.5,
+                  "v": [
+                    550,
+                    275
+                  ]
+                },
+                {
+                  "t": 4.95,
+                  "v": [
+                    550,
+                    275
+                  ],
+                  "ease": "@expo"
+                },
+                {
+                  "t": 5.3,
+                  "v": [
+                    440,
+                    220
+                  ]
+                }
+              ],
+              "$mod": [
+                {
+                  "type": "stagger",
+                  "delay": 0.03
+                }
+              ]
+            },
+            "scale": {
+              "$k": [
+                {
+                  "t": 3,
+                  "v": [
+                    0,
+                    0
+                  ],
+                  "ease": "@pop"
+                },
+                {
+                  "t": 3.45,
+                  "v": [
+                    1,
+                    1
+                  ]
+                },
+                {
+                  "t": 5.3,
+                  "v": [
+                    1,
+                    1
+                  ],
+                  "ease": "@in"
+                },
+                {
+                  "t": 5.6,
+                  "v": [
+                    0,
+                    0
+                  ]
+                }
+              ],
+              "$mod": [
+                {
+                  "type": "stagger",
+                  "delay": 0.03
+                }
+              ]
+            },
+            "rotation": {
+              "$k": [
+                {
+                  "t": 3,
+                  "v": -90,
+                  "ease": "@snappy"
+                },
+                {
+                  "t": 3.45,
+                  "v": 0
+                },
+                {
+                  "t": 3.9,
+                  "v": 0,
+                  "ease": "@expo"
+                },
+                {
+                  "t": 4.5,
+                  "v": 180
+                }
+              ],
+              "$mod": [
+                {
+                  "type": "stagger",
+                  "delay": 0.03
+                }
+              ]
+            }
+          },
+          "props": {
+            "size": [
+              150,
+              150
+            ],
+            "fill": "@background",
+            "radius": {
+              "$k": [
+                {
+                  "t": 3.9,
+                  "v": 0,
+                  "ease": "@expo"
+                },
+                {
+                  "t": 4.5,
+                  "v": 75
+                },
+                {
+                  "t": 4.95,
+                  "v": 75,
+                  "ease": "@expo"
+                },
+                {
+                  "t": 5.3,
+                  "v": 16
+                }
+              ],
+              "$mod": [
+                {
+                  "type": "stagger",
+                  "delay": 0.03
+                }
+              ]
+            }
+          }
+        },
+        "bars_wipe": {
+          "type": "group",
+          "name": "Bar transition",
+          "in": 5.55,
+          "out": 6.45,
+          "children": [
+            "bw_0",
+            "bw_1",
+            "bw_2",
+            "bw_3",
+            "bw_4",
+            "bw_5"
+          ]
+        },
+        "bw_0": {
+          "type": "shape.rect",
+          "name": "Bar 0",
+          "transform": {
+            "position": {
+              "$k": [
+                {
+                  "t": 5.6,
+                  "v": [
+                    160,
+                    -560
+                  ],
+                  "ease": "@wipe"
+                },
+                {
+                  "t": 5.9,
+                  "v": [
+                    160,
+                    540
+                  ]
+                },
+                {
+                  "t": 6.1,
+                  "v": [
+                    160,
+                    540
+                  ],
+                  "ease": "@wipe"
+                },
+                {
+                  "t": 6.4,
+                  "v": [
+                    160,
+                    1650
+                  ]
+                }
+              ],
+              "$mod": [
+                {
+                  "type": "stagger",
+                  "delay": 0.03
+                }
+              ]
+            }
+          },
+          "props": {
+            "size": [
+              324,
+              1100
+            ],
+            "fill": "@accent3"
+          }
+        },
+        "bw_1": {
+          "type": "shape.rect",
+          "name": "Bar 1",
+          "transform": {
+            "position": {
+              "$k": [
+                {
+                  "t": 5.6,
+                  "v": [
+                    480,
+                    -560
+                  ],
+                  "ease": "@wipe"
+                },
+                {
+                  "t": 5.9,
+                  "v": [
+                    480,
+                    540
+                  ]
+                },
+                {
+                  "t": 6.1,
+                  "v": [
+                    480,
+                    540
+                  ],
+                  "ease": "@wipe"
+                },
+                {
+                  "t": 6.4,
+                  "v": [
+                    480,
+                    1650
+                  ]
+                }
+              ],
+              "$mod": [
+                {
+                  "type": "stagger",
+                  "delay": 0.03
+                }
+              ]
+            }
+          },
+          "props": {
+            "size": [
+              324,
+              1100
+            ],
+            "fill": "@accent3"
+          }
+        },
+        "bw_2": {
+          "type": "shape.rect",
+          "name": "Bar 2",
+          "transform": {
+            "position": {
+              "$k": [
+                {
+                  "t": 5.6,
+                  "v": [
+                    800,
+                    -560
+                  ],
+                  "ease": "@wipe"
+                },
+                {
+                  "t": 5.9,
+                  "v": [
+                    800,
+                    540
+                  ]
+                },
+                {
+                  "t": 6.1,
+                  "v": [
+                    800,
+                    540
+                  ],
+                  "ease": "@wipe"
+                },
+                {
+                  "t": 6.4,
+                  "v": [
+                    800,
+                    1650
+                  ]
+                }
+              ],
+              "$mod": [
+                {
+                  "type": "stagger",
+                  "delay": 0.03
+                }
+              ]
+            }
+          },
+          "props": {
+            "size": [
+              324,
+              1100
+            ],
+            "fill": "@accent3"
+          }
+        },
+        "bw_3": {
+          "type": "shape.rect",
+          "name": "Bar 3",
+          "transform": {
+            "position": {
+              "$k": [
+                {
+                  "t": 5.6,
+                  "v": [
+                    1120,
+                    -560
+                  ],
+                  "ease": "@wipe"
+                },
+                {
+                  "t": 5.9,
+                  "v": [
+                    1120,
+                    540
+                  ]
+                },
+                {
+                  "t": 6.1,
+                  "v": [
+                    1120,
+                    540
+                  ],
+                  "ease": "@wipe"
+                },
+                {
+                  "t": 6.4,
+                  "v": [
+                    1120,
+                    1650
+                  ]
+                }
+              ],
+              "$mod": [
+                {
+                  "type": "stagger",
+                  "delay": 0.03
+                }
+              ]
+            }
+          },
+          "props": {
+            "size": [
+              324,
+              1100
+            ],
+            "fill": "@accent3"
+          }
+        },
+        "bw_4": {
+          "type": "shape.rect",
+          "name": "Bar 4",
+          "transform": {
+            "position": {
+              "$k": [
+                {
+                  "t": 5.6,
+                  "v": [
+                    1440,
+                    -560
+                  ],
+                  "ease": "@wipe"
+                },
+                {
+                  "t": 5.9,
+                  "v": [
+                    1440,
+                    540
+                  ]
+                },
+                {
+                  "t": 6.1,
+                  "v": [
+                    1440,
+                    540
+                  ],
+                  "ease": "@wipe"
+                },
+                {
+                  "t": 6.4,
+                  "v": [
+                    1440,
+                    1650
+                  ]
+                }
+              ],
+              "$mod": [
+                {
+                  "type": "stagger",
+                  "delay": 0.03
+                }
+              ]
+            }
+          },
+          "props": {
+            "size": [
+              324,
+              1100
+            ],
+            "fill": "@accent3"
+          }
+        },
+        "bw_5": {
+          "type": "shape.rect",
+          "name": "Bar 5",
+          "transform": {
+            "position": {
+              "$k": [
+                {
+                  "t": 5.6,
+                  "v": [
+                    1760,
+                    -560
+                  ],
+                  "ease": "@wipe"
+                },
+                {
+                  "t": 5.9,
+                  "v": [
+                    1760,
+                    540
+                  ]
+                },
+                {
+                  "t": 6.1,
+                  "v": [
+                    1760,
+                    540
+                  ],
+                  "ease": "@wipe"
+                },
+                {
+                  "t": 6.4,
+                  "v": [
+                    1760,
+                    1650
+                  ]
+                }
+              ],
+              "$mod": [
+                {
+                  "type": "stagger",
+                  "delay": 0.03
+                }
+              ]
+            }
+          },
+          "props": {
+            "size": [
+              324,
+              1100
+            ],
+            "fill": "@accent3"
+          }
+        },
+        "type": {
+          "type": "group",
+          "name": "Act 2 — Type",
+          "in": 6.07,
+          "out": 9.07,
+          "children": [
+            "type_flash",
+            "w_type",
+            "w_that",
+            "w_moves",
+            "marquee"
+          ]
+        },
+        "type_flash": {
+          "type": "shape.rect",
+          "name": "Pink flash plate",
+          "in": 6.6,
+          "out": 7.05,
+          "transform": {
+            "position": [
+              960,
+              540
+            ]
+          },
+          "props": {
+            "size": [
+              1920,
+              1080
+            ],
+            "fill": "@accent2"
+          }
+        },
+        "w_type": {
+          "type": "text",
+          "name": "TYPE",
+          "in": 6.07,
+          "out": 6.6,
+          "transform": {
+            "position": [
+              960,
+              540
+            ],
+            "scale": {
+              "$k": [
+                {
+                  "t": 6.2,
+                  "v": [
+                    1.7,
+                    1.7
+                  ],
+                  "ease": "@snappy"
+                },
+                {
+                  "t": 6.42,
+                  "v": [
+                    1,
+                    1
+                  ]
+                },
+                {
+                  "t": 6.6,
+                  "v": [
+                    0.96,
+                    0.96
+                  ]
+                }
+              ]
+            }
+          },
+          "effects": [
+            {
+              "id": "blur",
+              "type": "fx.blur",
+              "props": {
+                "radius": {
+                  "$k": [
+                    {
+                      "t": 6.2,
+                      "v": 28,
+                      "ease": "@snappy"
+                    },
+                    {
+                      "t": 6.36,
+                      "v": 0
+                    }
+                  ]
+                }
+              }
+            }
+          ],
+          "props": {
+            "text": "TYPE",
+            "size": 360,
+            "weight": 900,
+            "align": "center",
+            "baseline": "middle",
+            "color": "@text",
+            "tracking": -0.02
+          }
+        },
+        "w_that": {
+          "type": "text",
+          "name": "THAT",
+          "in": 6.6,
+          "out": 7.05,
+          "transform": {
+            "position": [
+              960,
+              540
+            ],
+            "rotation": {
+              "$k": [
+                {
+                  "t": 6.6,
+                  "v": -10,
+                  "ease": "@snappy"
+                },
+                {
+                  "t": 6.85,
+                  "v": 0
+                }
+              ]
+            },
+            "scale": {
+              "$k": [
+                {
+                  "t": 6.6,
+                  "v": [
+                    0.55,
+                    0.55
+                  ],
+                  "ease": "@pop"
+                },
+                {
+                  "t": 6.85,
+                  "v": [
+                    1,
+                    1
+                  ]
+                },
+                {
+                  "t": 7.05,
+                  "v": [
+                    1.04,
+                    1.04
+                  ]
+                }
+              ]
+            }
+          },
+          "props": {
+            "text": "THAT",
+            "size": 360,
+            "weight": 900,
+            "align": "center",
+            "baseline": "middle",
+            "color": "@background",
+            "tracking": -0.02
+          }
+        },
+        "w_moves": {
+          "type": "text",
+          "name": "MOVES",
+          "in": 7.05,
+          "out": 7.55,
+          "transform": {
+            "position": [
+              960,
+              540
+            ],
+            "scale": {
+              "$k": [
+                {
+                  "t": 7.05,
+                  "v": [
+                    1.25,
+                    1.25
+                  ],
+                  "ease": "@snappy"
+                },
+                {
+                  "t": 7.35,
+                  "v": [
+                    1,
+                    1
+                  ]
+                },
+                {
+                  "t": 7.55,
+                  "v": [
+                    0.96,
+                    0.96
+                  ]
+                }
+              ]
+            }
+          },
+          "props": {
+            "text": "MOVES",
+            "size": 340,
+            "weight": 900,
+            "align": "center",
+            "baseline": "middle",
+            "color": "@accent",
+            "tracking": {
+              "$k": [
+                {
+                  "t": 7.05,
+                  "v": 0.7,
+                  "ease": "@snappy"
+                },
+                {
+                  "t": 7.35,
+                  "v": -0.02
+                }
+              ]
+            }
+          }
+        },
+        "marquee": {
+          "type": "group",
+          "name": "Marquee",
+          "in": 7.55,
+          "transform": {
+            "position": [
+              960,
+              540
+            ],
+            "rotation": -8,
+            "scale": {
+              "$k": [
+                {
+                  "t": 7.55,
+                  "v": [
+                    1.4,
+                    1.4
+                  ],
+                  "ease": "@snappy"
+                },
+                {
+                  "t": 8,
+                  "v": [
+                    1,
+                    1
+                  ]
+                },
+                {
+                  "t": 9.07,
+                  "v": [
+                    1.07,
+                    1.07
+                  ]
+                }
+              ]
+            }
+          },
+          "children": [
+            "mq_1",
+            "mq_2",
+            "mq_3"
+          ]
+        },
+        "mq_1": {
+          "type": "text",
+          "name": "Row 1",
+          "transform": {
+            "position": {
+              "$expr": "const u = Math.max(0, t - 7.55); return [300 - 420*u - 1400*Math.exp(-u*7), -228];"
+            }
+          },
+          "props": {
+            "text": "TYPE THAT MOVES — TYPE THAT MOVES — TYPE THAT MOVES — TYPE THAT MOVES —",
+            "size": 200,
+            "weight": 900,
+            "align": "center",
+            "baseline": "middle",
+            "color": "@text",
+            "tracking": -0.01
+          }
+        },
+        "mq_2": {
+          "type": "text",
+          "name": "Row 2",
+          "transform": {
+            "position": {
+              "$expr": "const u = Math.max(0, t - 7.55); return [-300 + 420*u + 1400*Math.exp(-u*7), 0];"
+            }
+          },
+          "props": {
+            "text": "TIMING — RHYTHM — FEEL — TIMING — RHYTHM — FEEL — TIMING — RHYTHM — FEEL —",
+            "size": 200,
+            "weight": 900,
+            "align": "center",
+            "baseline": "middle",
+            "color": "@accent",
+            "tracking": -0.01
+          }
+        },
+        "mq_3": {
+          "type": "text",
+          "name": "Row 3",
+          "transform": {
+            "opacity": 0.3,
+            "position": {
+              "$expr": "const u = Math.max(0, t - 7.55); return [700 - 520*u - 1700*Math.exp(-u*7), 228];"
+            }
+          },
+          "props": {
+            "text": "MOTION DESIGN — MOTION DESIGN — MOTION DESIGN — MOTION DESIGN —",
+            "size": 200,
+            "weight": 900,
+            "align": "center",
+            "baseline": "middle",
+            "color": "@text",
+            "tracking": -0.01
+          }
+        },
+        "wipe": {
+          "type": "group",
+          "name": "Angled wipe",
+          "in": 8.7,
+          "out": 9.5,
+          "children": [
+            "wipe_a",
+            "wipe_b"
+          ]
+        },
+        "wipe_a": {
+          "type": "shape.rect",
+          "name": "Wipe pink",
+          "transform": {
+            "rotation": 12,
+            "position": {
+              "$k": [
+                {
+                  "t": 8.72,
+                  "v": [
+                    -1500,
+                    540
+                  ],
+                  "ease": "@wipe"
+                },
+                {
+                  "t": 8.98,
+                  "v": [
+                    960,
+                    540
+                  ]
+                },
+                {
+                  "t": 9.16,
+                  "v": [
+                    960,
+                    540
+                  ],
+                  "ease": "@wipe"
+                },
+                {
+                  "t": 9.46,
+                  "v": [
+                    3420,
+                    540
+                  ]
+                }
+              ]
+            }
+          },
+          "props": {
+            "size": [
+              2400,
+              2200
+            ],
+            "fill": "@accent2"
+          }
+        },
+        "wipe_b": {
+          "type": "shape.rect",
+          "name": "Wipe teal",
+          "transform": {
+            "rotation": 12,
+            "position": {
+              "$k": [
+                {
+                  "t": 8.78,
+                  "v": [
+                    -1500,
+                    540
+                  ],
+                  "ease": "@wipe"
+                },
+                {
+                  "t": 9.04,
+                  "v": [
+                    960,
+                    540
+                  ]
+                },
+                {
+                  "t": 9.1,
+                  "v": [
+                    960,
+                    540
+                  ],
+                  "ease": "@wipe"
+                },
+                {
+                  "t": 9.4,
+                  "v": [
+                    3420,
+                    540
+                  ]
+                }
+              ]
+            }
+          },
+          "props": {
+            "size": [
+              2400,
+              2200
+            ],
+            "fill": "@accent"
+          }
+        },
+        "data": {
+          "type": "group",
+          "name": "Act 3 — Data",
+          "in": 9.07,
+          "out": 11.92,
+          "children": [
+            "data_rule",
+            "data_bars",
+            "data_line_mask",
+            "data_line",
+            "data_ping",
+            "data_dot",
+            "data_counter",
+            "data_pct",
+            "data_label"
+          ]
+        },
+        "data_rule": {
+          "type": "shape.rect",
+          "name": "Baseline",
+          "transform": {
+            "anchor": [
+              -410,
+              0
+            ],
+            "position": [
+              1000,
+              802
+            ],
+            "opacity": 0.35,
+            "scale": {
+              "$k": [
+                {
+                  "t": 9.12,
+                  "v": [
+                    0,
+                    1
+                  ],
+                  "ease": "@expo"
+                },
+                {
+                  "t": 9.6,
+                  "v": [
+                    1,
+                    1
+                  ]
+                }
+              ]
+            }
+          },
+          "props": {
+            "size": [
+              820,
+              4
+            ],
+            "fill": "@text"
+          }
+        },
+        "data_bars": {
+          "type": "group",
+          "name": "Bars",
+          "children": [
+            "db_0",
+            "db_1",
+            "db_2",
+            "db_3",
+            "db_4",
+            "db_5",
+            "db_6"
+          ]
+        },
+        "db_0": {
+          "type": "shape.rect",
+          "name": "Bar 0",
+          "transform": {
+            "anchor": [
+              0,
+              85
+            ],
+            "position": [
+              1080,
+              800
+            ],
+            "scale": {
+              "$k": [
+                {
+                  "t": 9.3,
+                  "v": [
+                    1,
+                    0
+                  ],
+                  "ease": "@snappy"
+                },
+                {
+                  "t": 10,
+                  "v": [
+                    1,
+                    1
+                  ]
+                }
+              ],
+              "$mod": [
+                {
+                  "type": "stagger",
+                  "delay": 0.07
+                }
+              ]
+            }
+          },
+          "props": {
+            "size": [
+              72,
+              170
+            ],
+            "radius": 6,
+            "fill": "@text"
+          }
+        },
+        "db_1": {
+          "type": "shape.rect",
+          "name": "Bar 1",
+          "transform": {
+            "anchor": [
+              0,
+              120
+            ],
+            "position": [
+              1190,
+              800
+            ],
+            "scale": {
+              "$k": [
+                {
+                  "t": 9.3,
+                  "v": [
+                    1,
+                    0
+                  ],
+                  "ease": "@snappy"
+                },
+                {
+                  "t": 10,
+                  "v": [
+                    1,
+                    1
+                  ]
+                }
+              ],
+              "$mod": [
+                {
+                  "type": "stagger",
+                  "delay": 0.07
+                }
+              ]
+            }
+          },
+          "props": {
+            "size": [
+              72,
+              240
+            ],
+            "radius": 6,
+            "fill": "@text"
+          }
+        },
+        "db_2": {
+          "type": "shape.rect",
+          "name": "Bar 2",
+          "transform": {
+            "anchor": [
+              0,
+              105
+            ],
+            "position": [
+              1300,
+              800
+            ],
+            "scale": {
+              "$k": [
+                {
+                  "t": 9.3,
+                  "v": [
+                    1,
+                    0
+                  ],
+                  "ease": "@snappy"
+                },
+                {
+                  "t": 10,
+                  "v": [
+                    1,
+                    1
+                  ]
+                }
+              ],
+              "$mod": [
+                {
+                  "type": "stagger",
+                  "delay": 0.07
+                }
+              ]
+            }
+          },
+          "props": {
+            "size": [
+              72,
+              210
+            ],
+            "radius": 6,
+            "fill": "@text"
+          }
+        },
+        "db_3": {
+          "type": "shape.rect",
+          "name": "Bar 3",
+          "transform": {
+            "anchor": [
+              0,
+              160
+            ],
+            "position": [
+              1410,
+              800
+            ],
+            "scale": {
+              "$k": [
+                {
+                  "t": 9.3,
+                  "v": [
+                    1,
+                    0
+                  ],
+                  "ease": "@snappy"
+                },
+                {
+                  "t": 10,
+                  "v": [
+                    1,
+                    1
+                  ]
+                }
+              ],
+              "$mod": [
+                {
+                  "type": "stagger",
+                  "delay": 0.07
+                }
+              ]
+            }
+          },
+          "props": {
+            "size": [
+              72,
+              320
+            ],
+            "radius": 6,
+            "fill": "@text"
+          }
+        },
+        "db_4": {
+          "type": "shape.rect",
+          "name": "Bar 4",
+          "transform": {
+            "anchor": [
+              0,
+              145
+            ],
+            "position": [
+              1520,
+              800
+            ],
+            "scale": {
+              "$k": [
+                {
+                  "t": 9.3,
+                  "v": [
+                    1,
+                    0
+                  ],
+                  "ease": "@snappy"
+                },
+                {
+                  "t": 10,
+                  "v": [
+                    1,
+                    1
+                  ]
+                }
+              ],
+              "$mod": [
+                {
+                  "type": "stagger",
+                  "delay": 0.07
+                }
+              ]
+            }
+          },
+          "props": {
+            "size": [
+              72,
+              290
+            ],
+            "radius": 6,
+            "fill": "@text"
+          }
+        },
+        "db_5": {
+          "type": "shape.rect",
+          "name": "Bar 5",
+          "transform": {
+            "anchor": [
+              0,
+              205
+            ],
+            "position": [
+              1630,
+              800
+            ],
+            "scale": {
+              "$k": [
+                {
+                  "t": 9.3,
+                  "v": [
+                    1,
+                    0
+                  ],
+                  "ease": "@snappy"
+                },
+                {
+                  "t": 10,
+                  "v": [
+                    1,
+                    1
+                  ]
+                }
+              ],
+              "$mod": [
+                {
+                  "type": "stagger",
+                  "delay": 0.07
+                }
+              ]
+            }
+          },
+          "props": {
+            "size": [
+              72,
+              410
+            ],
+            "radius": 6,
+            "fill": "@text"
+          }
+        },
+        "db_6": {
+          "type": "shape.rect",
+          "name": "Bar 6",
+          "transform": {
+            "anchor": [
+              0,
+              270
+            ],
+            "position": [
+              1740,
+              800
+            ],
+            "scale": {
+              "$k": [
+                {
+                  "t": 9.3,
+                  "v": [
+                    1,
+                    0
+                  ],
+                  "ease": "@snappy"
+                },
+                {
+                  "t": 10,
+                  "v": [
+                    1,
+                    1
+                  ]
+                }
+              ],
+              "$mod": [
+                {
+                  "type": "stagger",
+                  "delay": 0.07
+                }
+              ]
+            }
+          },
+          "props": {
+            "size": [
+              72,
+              540
+            ],
+            "radius": 6,
+            "fill": "@accent"
+          }
+        },
+        "data_line_mask": {
+          "type": "shape.rect",
+          "name": "Line reveal mask",
+          "visible": false,
+          "transform": {
+            "anchor": [
+              -390,
+              0
+            ],
+            "position": [
+              1040,
+              400
+            ],
+            "scale": {
+              "$k": [
+                {
+                  "t": 9.95,
+                  "v": [
+                    0,
+                    1
+                  ],
+                  "ease": "@expo"
+                },
+                {
+                  "t": 10.8,
+                  "v": [
+                    1,
+                    1
+                  ]
+                }
+              ]
+            }
+          },
+          "props": {
+            "size": [
+              780,
+              600
+            ]
+          }
+        },
+        "data_line": {
+          "type": "shape.path",
+          "name": "Trend line",
+          "clip": "data_line_mask",
+          "props": {
+            "path": {
+              "v": [
+                [
+                  1080,
+                  570
+                ],
+                [
+                  1190,
+                  500
+                ],
+                [
+                  1300,
+                  530
+                ],
+                [
+                  1410,
+                  420
+                ],
+                [
+                  1520,
+                  450
+                ],
+                [
+                  1630,
+                  330
+                ],
+                [
+                  1740,
+                  200
+                ]
+              ],
+              "closed": false
+            },
+            "fill": null,
+            "stroke": "@accent2",
+            "strokeWidth": 7,
+            "lineCap": "round",
+            "lineJoin": "round"
+          }
+        },
+        "data_ping": {
+          "type": "shape.ellipse",
+          "name": "Ping",
+          "transform": {
+            "position": [
+              1740,
+              200
+            ],
+            "opacity": {
+              "$k": [
+                {
+                  "t": 10.8,
+                  "v": 0
+                },
+                {
+                  "t": 10.82,
+                  "v": 1
+                },
+                {
+                  "t": 11.5,
+                  "v": 0
+                }
+              ]
+            }
+          },
+          "props": {
+            "fill": null,
+            "stroke": "@accent2",
+            "strokeWidth": 4,
+            "size": {
+              "$k": [
+                {
+                  "t": 10.8,
+                  "v": [
+                    26,
+                    26
+                  ],
+                  "ease": "@snappy"
+                },
+                {
+                  "t": 11.5,
+                  "v": [
+                    150,
+                    150
+                  ]
+                }
+              ]
+            }
+          }
+        },
+        "data_dot": {
+          "type": "shape.ellipse",
+          "name": "End dot",
+          "transform": {
+            "position": [
+              1740,
+              200
+            ],
+            "scale": {
+              "$k": [
+                {
+                  "t": 10.72,
+                  "v": [
+                    0,
+                    0
+                  ],
+                  "ease": "@pop"
+                },
+                {
+                  "t": 11,
+                  "v": [
+                    1,
+                    1
+                  ]
+                }
+              ]
+            }
+          },
+          "props": {
+            "size": [
+              30,
+              30
+            ],
+            "fill": "@accent2"
+          }
+        },
+        "data_counter": {
+          "type": "text.counter",
+          "name": "Counter",
+          "transform": {
+            "position": [
+              760,
+              600
+            ],
+            "opacity": {
+              "$k": [
+                {
+                  "t": 9.1,
+                  "v": 0
+                },
+                {
+                  "t": 9.3,
+                  "v": 1
+                }
+              ]
+            }
+          },
+          "props": {
+            "from": "000",
+            "to": "240",
+            "progress": {
+              "$k": [
+                {
+                  "t": 9.2,
+                  "v": 0,
+                  "ease": "@snappy"
+                },
+                {
+                  "t": 10.7,
+                  "v": 1
+                }
+              ]
+            },
+            "turns": 1,
+            "size": 320,
+            "weight": 900,
+            "align": "right",
+            "color": "@text"
+          }
+        },
+        "data_pct": {
+          "type": "text",
+          "name": "Percent",
+          "transform": {
+            "position": [
+              780,
+              600
+            ],
+            "scale": {
+              "$k": [
+                {
+                  "t": 10.55,
+                  "v": [
+                    0,
+                    0
+                  ],
+                  "ease": "@pop"
+                },
+                {
+                  "t": 10.85,
+                  "v": [
+                    1,
+                    1
+                  ]
+                }
+              ]
+            }
+          },
+          "props": {
+            "text": "%",
+            "size": 200,
+            "weight": 900,
+            "color": "@accent"
+          }
+        },
+        "data_label": {
+          "type": "text",
+          "name": "Stat label",
+          "transform": {
+            "position": {
+              "$k": [
+                {
+                  "t": 9.4,
+                  "v": [
+                    150,
+                    690
+                  ],
+                  "ease": "@snappy"
+                },
+                {
+                  "t": 9.9,
+                  "v": [
+                    196,
+                    690
+                  ]
+                }
+              ]
+            },
+            "opacity": {
+              "$k": [
+                {
+                  "t": 9.4,
+                  "v": 0
+                },
+                {
+                  "t": 9.8,
+                  "v": 0.8
+                }
+              ]
+            }
+          },
+          "props": {
+            "text": "AVERAGE ENGAGEMENT LIFT",
+            "size": 40,
+            "weight": 700,
+            "tracking": 0.22,
+            "color": "@text"
+          }
+        },
+        "finale": {
+          "type": "group",
+          "name": "Act 4 — End card",
+          "in": 11.5,
+          "children": [
+            "fin_mask",
+            "fin_bg",
+            "fin_dust",
+            "fin_ring",
+            "fin_mask_top",
+            "fin_mask_bottom",
+            "fin_name",
+            "fin_role",
+            "fin_hire",
+            "fin_line"
+          ]
+        },
+        "fin_mask": {
+          "type": "shape.ellipse",
+          "name": "Reveal mask",
+          "visible": false,
+          "transform": {
+            "position": [
+              960,
+              540
+            ]
+          },
+          "props": {
+            "size": {
+              "$k": [
+                {
+                  "t": 11.5,
+                  "v": [
+                    0,
+                    0
+                  ],
+                  "ease": "@wipe"
+                },
+                {
+                  "t": 11.92,
+                  "v": [
+                    2300,
+                    2300
+                  ]
+                }
+              ]
+            }
+          }
+        },
+        "fin_bg": {
+          "type": "shader",
+          "name": "Liquid gradient",
+          "clip": "fin_mask",
+          "transform": {
+            "position": [
+              960,
+              540
+            ]
+          },
+          "props": {
+            "size": [
+              1920,
+              1080
+            ],
+            "colorA": "@accent",
+            "colorB": "@accent2",
+            "p1": 1.6,
+            "p2": 0.45,
+            "code": "float hash(vec2 p){ return fract(sin(dot(p, vec2(127.1,311.7)))*43758.5453); }\nfloat vnoise(vec2 p){ vec2 i=floor(p); vec2 f=fract(p); vec2 u=f*f*(3.0-2.0*f);\n  return mix(mix(hash(i),hash(i+vec2(1.0,0.0)),u.x), mix(hash(i+vec2(0.0,1.0)),hash(i+vec2(1.0,1.0)),u.x), u.y); }\nfloat fbm(vec2 p){ float v=0.0; float a=0.5; for(int k=0;k<5;k++){ v+=a*vnoise(p); p*=2.0; a*=0.5; } return v; }\nvec4 shade(vec2 uv){\n  vec2 p = (uv - 0.5) * vec2(1.7778, 1.0) * uParams.x;\n  float tt = uTime * uParams.y;\n  vec2 q = vec2(fbm(p + tt*0.3), fbm(p + vec2(5.2,1.3) - tt*0.2));\n  vec2 r = vec2(fbm(p + 4.0*q + vec2(1.7,9.2) + tt*0.15), fbm(p + 4.0*q + vec2(8.3,2.8)));\n  float f = fbm(p + 4.0*r);\n  vec3 dark = vec3(0.055,0.059,0.071);\n  vec3 col = mix(dark, uColorA.rgb, smoothstep(0.3, 0.85, f));\n  col = mix(col, uColorB.rgb, smoothstep(0.5, 1.0, length(q)) * 0.85);\n  col = mix(dark, col, 0.35 + 0.85*f);\n  float vig = smoothstep(1.1, 0.15, length((uv-0.5)*vec2(1.6,1.0)));\n  float band = smoothstep(0.42, 0.0, abs(uv.y - 0.55));\n  col *= mix(0.45, 1.0, vig) * mix(1.0, 0.6, band * 0.6);\n  return vec4(col, 1.0);\n}"
+          }
+        },
+        "fin_dust": {
+          "type": "particles",
+          "name": "Rising dust",
+          "in": 11.7,
+          "transform": {
+            "position": [
+              960,
+              1110
+            ]
+          },
+          "props": {
+            "emitter": "rect",
+            "emitterSize": [
+              1920,
+              10
+            ],
+            "direction": -90,
+            "spread": 12,
+            "speed": 110,
+            "speedVar": 0.6,
+            "gravity": [
+              0,
+              0
+            ],
+            "drag": 0,
+            "life": 4,
+            "lifeVar": 0.4,
+            "preroll": 3,
+            "rate": 45,
+            "size": 5,
+            "sizeEnd": 2,
+            "sizeVar": 0.6,
+            "color": "@text",
+            "opacity": 0.45,
+            "shape": "circle",
+            "seed": 7
+          }
+        },
+        "fin_ring": {
+          "type": "shape.ellipse",
+          "name": "Reveal edge",
+          "transform": {
+            "position": [
+              960,
+              540
+            ],
+            "opacity": {
+              "$k": [
+                {
+                  "t": 11.8,
+                  "v": 1
+                },
+                {
+                  "t": 11.95,
+                  "v": 0
+                }
+              ]
+            }
+          },
+          "props": {
+            "fill": null,
+            "stroke": "@accent3",
+            "strokeWidth": 10,
+            "size": {
+              "$k": [
+                {
+                  "t": 11.5,
+                  "v": [
+                    0,
+                    0
+                  ],
+                  "ease": "@wipe"
+                },
+                {
+                  "t": 11.92,
+                  "v": [
+                    2300,
+                    2300
+                  ]
+                }
+              ]
+            }
+          }
+        },
+        "fin_mask_top": {
+          "type": "shape.rect",
+          "name": "Mask above line",
+          "visible": false,
+          "transform": {
+            "position": [
+              960,
+              300
+            ]
+          },
+          "props": {
+            "size": [
+              1920,
+              600
+            ]
+          }
+        },
+        "fin_mask_bottom": {
+          "type": "shape.rect",
+          "name": "Mask below line",
+          "visible": false,
+          "transform": {
+            "position": [
+              960,
+              840
+            ]
+          },
+          "props": {
+            "size": [
+              1920,
+              480
+            ]
+          }
+        },
+        "fin_name": {
+          "type": "group",
+          "name": "CLAUDE",
+          "clip": "fin_mask_top",
+          "children": [
+            "c_1",
+            "c_2",
+            "c_3",
+            "c_4",
+            "c_5",
+            "c_6"
+          ]
+        },
+        "c_1": {
+          "type": "text",
+          "name": "C",
+          "transform": {
+            "position": {
+              "$k": [
+                {
+                  "t": 12.1,
+                  "v": [
+                    470,
+                    860
+                  ],
+                  "ease": "@snappy"
+                },
+                {
+                  "t": 12.65,
+                  "v": [
+                    470,
+                    570
+                  ]
+                }
+              ],
+              "$mod": [
+                {
+                  "type": "stagger",
+                  "delay": 0.05
+                }
+              ]
+            },
+            "rotation": {
+              "$k": [
+                {
+                  "t": 12.1,
+                  "v": -12,
+                  "ease": "@snappy"
+                },
+                {
+                  "t": 12.65,
+                  "v": 0
+                }
+              ],
+              "$mod": [
+                {
+                  "type": "stagger",
+                  "delay": 0.05
+                }
+              ]
+            }
+          },
+          "props": {
+            "text": "C",
+            "size": 280,
+            "weight": 900,
+            "align": "center",
+            "color": "@text"
+          }
+        },
+        "c_2": {
+          "type": "text",
+          "name": "L",
+          "transform": {
+            "position": {
+              "$k": [
+                {
+                  "t": 12.1,
+                  "v": [
+                    657,
+                    860
+                  ],
+                  "ease": "@snappy"
+                },
+                {
+                  "t": 12.65,
+                  "v": [
+                    657,
+                    570
+                  ]
+                }
+              ],
+              "$mod": [
+                {
+                  "type": "stagger",
+                  "delay": 0.05
+                }
+              ]
+            },
+            "rotation": {
+              "$k": [
+                {
+                  "t": 12.1,
+                  "v": -12,
+                  "ease": "@snappy"
+                },
+                {
+                  "t": 12.65,
+                  "v": 0
+                }
+              ],
+              "$mod": [
+                {
+                  "type": "stagger",
+                  "delay": 0.05
+                }
+              ]
+            }
+          },
+          "props": {
+            "text": "L",
+            "size": 280,
+            "weight": 900,
+            "align": "center",
+            "color": "@text"
+          }
+        },
+        "c_3": {
+          "type": "text",
+          "name": "A",
+          "transform": {
+            "position": {
+              "$k": [
+                {
+                  "t": 12.1,
+                  "v": [
+                    850,
+                    860
+                  ],
+                  "ease": "@snappy"
+                },
+                {
+                  "t": 12.65,
+                  "v": [
+                    850,
+                    570
+                  ]
+                }
+              ],
+              "$mod": [
+                {
+                  "type": "stagger",
+                  "delay": 0.05
+                }
+              ]
+            },
+            "rotation": {
+              "$k": [
+                {
+                  "t": 12.1,
+                  "v": -12,
+                  "ease": "@snappy"
+                },
+                {
+                  "t": 12.65,
+                  "v": 0
+                }
+              ],
+              "$mod": [
+                {
+                  "type": "stagger",
+                  "delay": 0.05
+                }
+              ]
+            }
+          },
+          "props": {
+            "text": "A",
+            "size": 280,
+            "weight": 900,
+            "align": "center",
+            "color": "@text"
+          }
+        },
+        "c_4": {
+          "type": "text",
+          "name": "U",
+          "transform": {
+            "position": {
+              "$k": [
+                {
+                  "t": 12.1,
+                  "v": [
+                    1063,
+                    860
+                  ],
+                  "ease": "@snappy"
+                },
+                {
+                  "t": 12.65,
+                  "v": [
+                    1063,
+                    570
+                  ]
+                }
+              ],
+              "$mod": [
+                {
+                  "type": "stagger",
+                  "delay": 0.05
+                }
+              ]
+            },
+            "rotation": {
+              "$k": [
+                {
+                  "t": 12.1,
+                  "v": -12,
+                  "ease": "@snappy"
+                },
+                {
+                  "t": 12.65,
+                  "v": 0
+                }
+              ],
+              "$mod": [
+                {
+                  "type": "stagger",
+                  "delay": 0.05
+                }
+              ]
+            }
+          },
+          "props": {
+            "text": "U",
+            "size": 280,
+            "weight": 900,
+            "align": "center",
+            "color": "@text"
+          }
+        },
+        "c_5": {
+          "type": "text",
+          "name": "D",
+          "transform": {
+            "position": {
+              "$k": [
+                {
+                  "t": 12.1,
+                  "v": [
+                    1273,
+                    860
+                  ],
+                  "ease": "@snappy"
+                },
+                {
+                  "t": 12.65,
+                  "v": [
+                    1273,
+                    570
+                  ]
+                }
+              ],
+              "$mod": [
+                {
+                  "type": "stagger",
+                  "delay": 0.05
+                }
+              ]
+            },
+            "rotation": {
+              "$k": [
+                {
+                  "t": 12.1,
+                  "v": -12,
+                  "ease": "@snappy"
+                },
+                {
+                  "t": 12.65,
+                  "v": 0
+                }
+              ],
+              "$mod": [
+                {
+                  "type": "stagger",
+                  "delay": 0.05
+                }
+              ]
+            }
+          },
+          "props": {
+            "text": "D",
+            "size": 280,
+            "weight": 900,
+            "align": "center",
+            "color": "@text"
+          }
+        },
+        "c_6": {
+          "type": "text",
+          "name": "E",
+          "transform": {
+            "position": {
+              "$k": [
+                {
+                  "t": 12.1,
+                  "v": [
+                    1466,
+                    860
+                  ],
+                  "ease": "@snappy"
+                },
+                {
+                  "t": 12.65,
+                  "v": [
+                    1466,
+                    570
+                  ]
+                }
+              ],
+              "$mod": [
+                {
+                  "type": "stagger",
+                  "delay": 0.05
+                }
+              ]
+            },
+            "rotation": {
+              "$k": [
+                {
+                  "t": 12.1,
+                  "v": -12,
+                  "ease": "@snappy"
+                },
+                {
+                  "t": 12.65,
+                  "v": 0
+                }
+              ],
+              "$mod": [
+                {
+                  "type": "stagger",
+                  "delay": 0.05
+                }
+              ]
+            }
+          },
+          "props": {
+            "text": "E",
+            "size": 280,
+            "weight": 900,
+            "align": "center",
+            "color": "@text"
+          }
+        },
+        "fin_role": {
+          "type": "text",
+          "name": "Role",
+          "clip": "fin_mask_bottom",
+          "transform": {
+            "position": {
+              "$k": [
+                {
+                  "t": 12.55,
+                  "v": [
+                    960,
+                    590
+                  ],
+                  "ease": "@snappy"
+                },
+                {
+                  "t": 13,
+                  "v": [
+                    960,
+                    700
+                  ]
+                }
+              ]
+            }
+          },
+          "props": {
+            "text": "MOTION DESIGNER",
+            "size": 64,
+            "weight": 800,
+            "align": "center",
+            "color": "@text",
+            "tracking": {
+              "$k": [
+                {
+                  "t": 12.55,
+                  "v": 1,
+                  "ease": "@snappy"
+                },
+                {
+                  "t": 13.3,
+                  "v": 0.32
+                }
+              ]
+            }
+          }
+        },
+        "fin_hire": {
+          "type": "text",
+          "name": "Available",
+          "transform": {
+            "position": [
+              960,
+              800
+            ],
+            "opacity": {
+              "$k": [
+                {
+                  "t": 13.1,
+                  "v": 0
+                },
+                {
+                  "t": 13.5,
+                  "v": 1
+                }
+              ]
+            }
+          },
+          "props": {
+            "text": "AVAILABLE FOR HIRE  ·  2026",
+            "size": 38,
+            "weight": 700,
+            "align": "center",
+            "color": "@accent3",
+            "tracking": {
+              "$k": [
+                {
+                  "t": 13.1,
+                  "v": 0.5,
+                  "ease": "@snappy"
+                },
+                {
+                  "t": 13.8,
+                  "v": 0.3
+                }
+              ]
+            }
+          }
+        },
+        "fin_line": {
+          "type": "shape.rect",
+          "name": "Name line",
+          "transform": {
+            "position": [
+              960,
+              600
+            ]
+          },
+          "props": {
+            "fill": "@accent3",
+            "radius": 3,
+            "size": {
+              "$k": [
+                {
+                  "t": 11.95,
+                  "v": [
+                    0,
+                    6
+                  ],
+                  "ease": "@expo"
+                },
+                {
+                  "t": 12.45,
+                  "v": [
+                    1240,
+                    6
+                  ]
+                }
+              ]
+            }
+          }
+        },
+        "hud": {
+          "type": "group",
+          "name": "HUD",
+          "transform": {
+            "opacity": {
+              "$k": [
+                {
+                  "t": 0.4,
+                  "v": 0
+                },
+                {
+                  "t": 0.9,
+                  "v": 1
+                }
+              ]
+            }
+          },
+          "children": [
+            "hud_tl",
+            "hud_tc",
+            "hud_section",
+            "hud_track",
+            "hud_fill",
+            "br_tl",
+            "br_tr",
+            "br_bl",
+            "br_br"
+          ]
+        },
+        "hud_tl": {
+          "type": "text",
+          "name": "Brand",
+          "transform": {
+            "position": [
+              110,
+              80
+            ]
+          },
+          "props": {
+            "text": "CLAUDE — SHOWREEL ’26",
+            "size": 34,
+            "weight": 700,
+            "tracking": 0.16,
+            "baseline": "middle",
+            "color": "@text"
+          }
+        },
+        "hud_tc": {
+          "type": "text",
+          "name": "Timecode",
+          "transform": {
+            "position": [
+              1810,
+              80
+            ]
+          },
+          "props": {
+            "text": {
+              "$expr": "const f = Math.floor(t * 30 + 1e-6); const s = Math.floor(f / 30); const ff = f % 30; return '00:00:' + String(s).padStart(2, '0') + ':' + String(ff).padStart(2, '0');"
+            },
+            "size": 34,
+            "weight": 700,
+            "tracking": 0.12,
+            "align": "right",
+            "baseline": "middle",
+            "color": "@text"
+          }
+        },
+        "hud_section": {
+          "type": "text",
+          "name": "Section",
+          "transform": {
+            "position": [
+              110,
+              1002
+            ]
+          },
+          "props": {
+            "text": {
+              "$expr": "t < 3.0 ? '00 — INTRO' : t < 6.07 ? '01 — SHAPE' : t < 9.07 ? '02 — TYPE' : t < 11.92 ? '03 — DATA' : '04 — HELLO'"
+            },
+            "size": 34,
+            "weight": 700,
+            "tracking": 0.16,
+            "baseline": "middle",
+            "color": "@text"
+          }
+        },
+        "hud_track": {
+          "type": "shape.rect",
+          "name": "Progress track",
+          "transform": {
+            "position": [
+              1640,
+              1002
+            ],
+            "opacity": 0.3
+          },
+          "props": {
+            "size": [
+              340,
+              4
+            ],
+            "fill": "@text"
+          }
+        },
+        "hud_fill": {
+          "type": "shape.rect",
+          "name": "Progress fill",
+          "transform": {
+            "anchor": [
+              -170,
+              0
+            ],
+            "position": [
+              1470,
+              1002
+            ],
+            "scale": {
+              "$expr": "[clamp(t / 15, 0, 1), 1]"
+            }
+          },
+          "props": {
+            "size": [
+              340,
+              4
+            ],
+            "fill": "@accent"
+          }
+        },
+        "br_tl": {
+          "type": "shape.path",
+          "name": "Corner TL",
+          "transform": {
+            "position": [
+              56,
+              56
+            ]
+          },
+          "props": {
+            "path": {
+              "v": [
+                [
+                  0,
+                  36
+                ],
+                [
+                  0,
+                  0
+                ],
+                [
+                  36,
+                  0
+                ]
+              ],
+              "closed": false
+            },
+            "fill": null,
+            "stroke": "@text",
+            "strokeWidth": 3
+          }
+        },
+        "br_tr": {
+          "type": "shape.path",
+          "name": "Corner TR",
+          "transform": {
+            "position": [
+              1864,
+              56
+            ]
+          },
+          "props": {
+            "path": {
+              "v": [
+                [
+                  -36,
+                  0
+                ],
+                [
+                  0,
+                  0
+                ],
+                [
+                  0,
+                  36
+                ]
+              ],
+              "closed": false
+            },
+            "fill": null,
+            "stroke": "@text",
+            "strokeWidth": 3
+          }
+        },
+        "br_bl": {
+          "type": "shape.path",
+          "name": "Corner BL",
+          "transform": {
+            "position": [
+              56,
+              1024
+            ]
+          },
+          "props": {
+            "path": {
+              "v": [
+                [
+                  0,
+                  -36
+                ],
+                [
+                  0,
+                  0
+                ],
+                [
+                  36,
+                  0
+                ]
+              ],
+              "closed": false
+            },
+            "fill": null,
+            "stroke": "@text",
+            "strokeWidth": 3
+          }
+        },
+        "br_br": {
+          "type": "shape.path",
+          "name": "Corner BR",
+          "transform": {
+            "position": [
+              1864,
+              1024
+            ]
+          },
+          "props": {
+            "path": {
+              "v": [
+                [
+                  -36,
+                  0
+                ],
+                [
+                  0,
+                  0
+                ],
+                [
+                  0,
+                  -36
+                ]
+              ],
+              "closed": false
+            },
+            "fill": null,
+            "stroke": "@text",
+            "strokeWidth": 3
+          }
+        }
+      },
+      "order": [
+        "intro",
+        "shapes",
+        "type",
+        "bars_wipe",
+        "data",
+        "wipe",
+        "finale",
+        "hud"
+      ],
+      "effects": [
+        {
+          "id": "bloom",
+          "type": "look.bloom",
+          "props": {
+            "amount": 0.25,
+            "threshold": 0.8
+          }
+        },
+        {
+          "id": "chroma",
+          "type": "look.chromatic",
+          "props": {
+            "amount": {
+              "$expr": "const hits=[0.3,2.65,3.0,6.07,6.6,7.05,7.55,9.07,10.7,11.92,12.6]; let a=0.6; for (const h of hits) { const d=t-h; if (d>=0) a += 7*Math.exp(-d*14); } return a;"
+            }
+          }
+        },
+        {
+          "id": "vignette",
+          "type": "look.vignette",
+          "props": {
+            "amount": 0.22
+          }
+        },
+        {
+          "id": "grain",
+          "type": "look.grain",
+          "props": {
+            "amount": 0.018
+          }
+        },
+        {
+          "id": "fade",
+          "type": "look.exposure",
+          "props": {
+            "value": {
+              "$k": [
+                {
+                  "t": 14.55,
+                  "v": 1,
+                  "ease": "@smooth"
+                },
+                {
+                  "t": 15,
+                  "v": 0
+                }
+              ]
+            }
+          }
+        }
+      ]
+    }
+  }
+}

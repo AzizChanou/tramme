@@ -1,0 +1,11 @@
+{
+  "format": "tramme-project/1",
+  "id": "example-showreel",
+  "name": "Showreel",
+  "created": "2026-10-02T22:25:06.460Z",
+  "modified": "2026-10-02T22:35:29.356Z",
+  "width": 1920,
+  "height": 1080,
+  "duration": 15,
+  "thumbnail": "thumbnail.webp"
+}

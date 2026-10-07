@@ -1,0 +1,5 @@
+{
+ "code": "\nconst TIMES = [0.563,0.71,0.75,0.79,0.817,0.857,0.897,0.937,0.963,1.003,1.043,1.07,1.083,1.11,1.123,1.15,1.163,1.177,1.19,1.217,1.243,1.283,1.297,1.323,1.35,1.377,1.39,1.403,1.43,1.443,1.47,1.483,1.497,1.523,1.523,1.55,1.563,1.577,1.59,1.603,1.617,1.63,1.643,1.67,1.683,1.71,1.737,1.763,1.79,1.83,1.87,1.897,1.937,1.99];\nfor (const t of TIMES) {\n  const n = kit.noise('white', 0.04), bp = ctx.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = 2600 + kit.random() * 1800; bp.Q.value = 1.4;\n  const g = ctx.createGain(); g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(0.5 + kit.random() * 0.3, t + 0.001); g.gain.setTargetAtTime(0, t + 0.002, 0.008);\n  const o = ctx.createOscillator(); o.frequency.value = 1500 + kit.random() * 600;\n  const go = ctx.createGain(); go.gain.setValueAtTime(0, t); go.gain.linearRampToValueAtTime(0.12, t + 0.001); go.gain.setTargetAtTime(0, t + 0.002, 0.01);\n  n.connect(bp).connect(g).connect(ctx.destination); o.connect(go).connect(ctx.destination);\n  n.start(t); o.start(t); o.stop(t + 0.06);\n}",
+ "duration": 2.6,
+ "seed": 1
+}

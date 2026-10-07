@@ -1,0 +1,5 @@
+{
+ "code": "// air past the lens: pink noise swept up and down, loudest at 0.35 s\nconst n = kit.noise('pink'), bp = ctx.createBiquadFilter(); bp.type = 'bandpass'; bp.Q.value = 1.6;\nkit.env(bp.frequency, [[0, 350], [0.35, 3200], [0.7, 500]], 'exp');\nconst g = ctx.createGain(); kit.env(g.gain, [[0, 0.001], [0.35, 1], [0.7, 0.001]], 'exp');\nn.connect(bp).connect(g).connect(ctx.destination); n.start(0);",
+ "duration": 0.7,
+ "seed": 1
+}

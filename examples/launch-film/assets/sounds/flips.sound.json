@@ -1,0 +1,5 @@
+{
+ "code": "\nconst TIMES = [0.02,0.27,0.52,0.77,1.02,1.27,1.52,1.77];\nfor (const t of TIMES) {\n  const o = ctx.createOscillator(); o.type = 'triangle'; o.frequency.setValueAtTime(2600 * (0.95 + kit.random() * 0.1), t); o.frequency.exponentialRampToValueAtTime(1300, t + 0.03);\n  const g = ctx.createGain(); g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(0.5, t + 0.001); g.gain.setTargetAtTime(0, t + 0.002, 0.012);\n  const n = kit.noise('white', 0.02), hp = ctx.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 6000;\n  const gn = ctx.createGain(); gn.gain.setValueAtTime(0.3, t); gn.gain.setTargetAtTime(0, t + 0.001, 0.004);\n  o.connect(g).connect(ctx.destination); n.connect(hp).connect(gn).connect(ctx.destination);\n  o.start(t); o.stop(t + 0.08); n.start(t);\n}",
+ "duration": 2.2,
+ "seed": 1
+}

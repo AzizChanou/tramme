@@ -1,13 +1,13 @@
 ---
 import { BUILTIN_MODIFIERS } from '@tramme/core';
-import hello from '../../../../examples/hello/document.tramme.json';
+import film from '../../../../examples/launch-film/document.tramme.json';
 import Code from './Code.astro';
 import Head from './Head.astro';
 import { formatJson } from '../lib/code';
 
-// a layer of the Hello example, as it is in the repository: hovering a row
-// lights its keys in the code
-const pill = hello.compositions.main.layers.pill;
+// a layer of the Launch film example, as it is in the repository: hovering
+// a row lights its keys in the code
+const square = film.compositions.s3.layers.square;
 const ROWS = [
   { key: '$k', name: 'Keyframes', what: 'An ease per key, shaped in the curve editor.' },
   { key: '$expr', name: 'Expressions', what: 'Pure JavaScript of time, frames and the other layers.' },
@@ -29,7 +29,7 @@ const ROWS = [
         ))}
       </dl>
       <div data-reveal>
-        <Code lang="json" title="examples/hello/document.tramme.json" code={`"pill": ${formatJson(pill)}`} />
+        <Code lang="json" title="examples/launch-film/document.tramme.json" code={`"square": ${formatJson(square)}`} />
       </div>
     </div>
   </div>

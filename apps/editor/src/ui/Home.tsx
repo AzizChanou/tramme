@@ -274,7 +274,7 @@ export function Home() {
               {examples.map((x) => (
                 <button key={x.file} class="example" onClick={() => useExample(x)}>
                   <span class="example-thumb">{x.thumbnail ? <img src={`/examples/${x.thumbnail}`} alt="" loading="lazy" /> : <span class="frame" style={{ aspectRatio: `${x.width} / ${x.height}` }}><Icon name="film" /></span>}</span>
-                  <span class="example-text"><b>{t(x.name)}</b><span class="faint">{t(x.description)}</span><span class="faint mono">{dims(x)}</span></span>
+                  <span class="example-text" title={t(x.description)}><b>{t(x.name)}</b><span class="faint example-about">{t(x.description)}</span><span class="faint mono">{dims(x)}</span></span>
                 </button>
               ))}
             </div>

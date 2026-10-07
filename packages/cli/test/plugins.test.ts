@@ -18,7 +18,8 @@ function read(dir: string): Map<string, Uint8Array> {
   return files;
 }
 
-const NIGHT_SKY = path.resolve(import.meta.dirname, '../../../examples/night-sky');
+// a project with its own plugin (a node, a tool, a workflow)
+const NIGHT_SKY = path.resolve(import.meta.dirname, 'fixtures/night-sky');
 
 describe('a project in memory (pack, unpack)', () => {
   it('is checked with its own plugins, not the built-in vocabulary alone', async () => {

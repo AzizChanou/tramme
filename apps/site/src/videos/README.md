@@ -5,7 +5,7 @@ Each video slot on the page (`components/Media.astro`) shows a placeholder until
 | Slot | Files | Size |
 |---|---|---|
 | hero | `showcase.webm` and/or `showcase.mp4`, `showcase.webp` | 1920×1080 |
-| examples | `anime`, `night-sky`, `hello`, `road-trip` (same extensions) | the example's own |
+| examples | `launch-film`, `anime`, `showreel` (same extensions) | the example's own |
 | assistant | `assistant.webm` and/or `assistant.mp4`, `assistant.webp` | 1600×1000 (16:10) |
 
 - **WebM (VP9) first, MP4 (H.264) as a fallback**: the browser takes the first one it can play. One of the two is enough.

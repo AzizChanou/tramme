@@ -1,0 +1,5 @@
+{
+ "code": "// a ball dropping into frame: a whistle sliding down, gone at the landing (0.5 s)\nconst o = ctx.createOscillator(); kit.env(o.frequency, [[0, 2600], [0.5, 520]], 'exp');\nconst v = ctx.createOscillator(); v.frequency.value = 22; const vd = ctx.createGain(); vd.gain.value = 18; v.connect(vd).connect(o.frequency);\nconst g = ctx.createGain(); kit.env(g.gain, [[0, 0.001], [0.12, 0.35], [0.46, 0.3], [0.5, 0.0001]], 'exp');\no.connect(g).connect(ctx.destination); o.start(0); v.start(0); o.stop(0.6); v.stop(0.6);",
+ "duration": 0.6,
+ "seed": 1
+}

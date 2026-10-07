@@ -1,0 +1,5 @@
+{
+ "code": "// a shower of tiny bells for the particles\nfor (let i = 0; i < 46; i++) {\n  const t = Math.pow(kit.random(), 1.8) * 1.1, f = 2000 + kit.random() * 7000;\n  const o = ctx.createOscillator(); o.frequency.value = f;\n  const g = ctx.createGain(); g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(0.08 + kit.random() * 0.1, t + 0.002); g.gain.setTargetAtTime(0, t + 0.004, 0.06 + kit.random() * 0.1);\n  const p = ctx.createStereoPanner(); p.pan.value = kit.random() * 1.6 - 0.8;\n  o.connect(g).connect(p).connect(ctx.destination); o.start(t); o.stop(t + 0.6);\n}",
+ "duration": 1.6,
+ "seed": 1
+}

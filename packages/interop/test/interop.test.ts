@@ -82,7 +82,7 @@ describe('import Lottie', () => {
 
 describe('export SVG', () => {
   it('shapes, gradients, clip, filters, text, as vectors', () => {
-    const doc = load('examples/hello/document.tramme.json');
+    const doc = load('packages/interop/test/fixtures/hello.tramme.json');
     const { svg } = toSvg(doc, reg, 1.5);
     expect(svg).toMatch(/^<svg xmlns="http:\/\/www.w3.org\/2000\/svg" width="1080" height="1080"/);
     expect(svg).toMatch(/<linearGradient id="g\d+" gradientUnits="userSpaceOnUse"/);

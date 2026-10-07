@@ -1005,7 +1005,7 @@ a.brand:hover { background: var(--field); }
 .home-h { display: flex; align-items: baseline; gap: 10px; margin-bottom: 14px; }
 .home-h h2 { margin: 0; font-size: 15px; font-weight: 600; letter-spacing: -0.01em; }
 .home-h .faint { font-size: 11.5px; }
-.home-note { display: flex; gap: 8px; align-items: center; padding: 10px 12px; border-radius: var(--radius); background: var(--panel); color: var(--text-2); }
+.home-note { display: flex; gap: 8px; align-items: center; padding: 10px 12px; margin-bottom: 14px; border-radius: var(--radius); background: var(--panel); color: var(--text-2); }
 .home-note.err { color: var(--error-text); box-shadow: 0 0 0 1px rgba(255,107,107,.35); }
 .home-note svg.i { flex: none; }
 .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 16px; }
@@ -1056,6 +1056,8 @@ a.brand:hover { background: var(--field); }
 .example .frame { width: 58%; max-width: 58%; max-height: 70%; color: var(--text-3); }
 .example-text { display: flex; flex-direction: column; gap: 3px; min-width: 0; font-size: 11.5px; }
 .example-text b { font-size: 12.5px; font-weight: 500; }
+/* three lines at most, whatever the example says: the cards keep one height (the whole text on hover) */
+.example-about { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; line-clamp: 3; overflow: hidden; }
 .drop-hint {
   position: fixed; inset: 12px; z-index: 40; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px;
   border-radius: 14px; border: 2px dashed var(--accent-line); background: var(--glass); color: var(--text); font-size: 13px;

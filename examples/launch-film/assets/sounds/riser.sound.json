@@ -1,0 +1,5 @@
+{
+ "code": "// noise and a detuned saw climbing for two seconds, cut dead on the drop\nconst n = kit.noise('white'), bp = ctx.createBiquadFilter(); bp.type = 'bandpass'; bp.Q.value = 2;\nkit.env(bp.frequency, [[0, 300], [1.98, 9000]], 'exp');\nconst gn = ctx.createGain(); kit.env(gn.gain, [[0, 0.01], [1.9, 0.8], [1.99, 0.001]], 'exp');\nn.connect(bp).connect(gn).connect(ctx.destination); n.start(0);\nfor (const det of [-14, 14]) {\n  const o = ctx.createOscillator(); o.type = 'sawtooth'; o.detune.value = det; kit.env(o.frequency, [[0, 110], [1.98, 880]], 'exp');\n  const f = ctx.createBiquadFilter(); f.type = 'lowpass'; kit.env(f.frequency, [[0, 400], [1.98, 6000]], 'exp');\n  const g = ctx.createGain(); kit.env(g.gain, [[0, 0.001], [1.9, 0.12], [1.99, 0.0001]], 'exp');\n  o.connect(f).connect(g).connect(ctx.destination); o.start(0); o.stop(2);\n}",
+ "duration": 2,
+ "seed": 1
+}

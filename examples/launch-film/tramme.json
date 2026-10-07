@@ -1,0 +1,11 @@
+{
+  "format": "tramme-project/1",
+  "id": "example-launch-film",
+  "name": "Launch film",
+  "created": "2026-10-03T08:04:09.672Z",
+  "modified": "2026-10-03T08:22:35.340Z",
+  "width": 1920,
+  "height": 1080,
+  "duration": 45,
+  "thumbnail": "thumbnail.webp"
+}

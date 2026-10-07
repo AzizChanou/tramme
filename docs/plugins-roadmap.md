@@ -54,7 +54,7 @@ export const meta = { name, version, api: 1 };   // manifest (step 10)
 - [x] `ai` notes (`when`, `avoid`, `example`) on nodes, effects, modifiers and tools, returned by `list_nodes`.
 - [x] Docs (document.md, "Tools" under "Node plugins") with an example tool.
 - [x] `ai` notes on the built-in nodes, effects and modifiers (`packages/nodes/src/notes.ts`, `packages/core/src/modifiers.ts`).
-- [x] An example project, `examples/night-sky`: its plugin brings a node (`sky.moon`), a tool (`sky.stars`), a workflow (`sky.night`) and French names.
+- [x] An example project, `packages/cli/test/fixtures/night-sky` (once in `examples/`, now the plugin tests' project): its plugin brings a node (`sky.moon`), a tool (`sky.stars`), a workflow (`sky.night`) and French names.
 
 Done when: a project plugin exports a tool, the assistant finds it with `list_nodes`, calls it, and its operations show up as a proposal.
 

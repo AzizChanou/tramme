@@ -88,10 +88,10 @@ packages/
   api/       the /api routes wherever they run: storage over any bucket (R2, IndexedDB), providers reached with the user's keys
   cli/       command line: offline renders (headless Chrome + ffmpeg), exports, project format, companion
 examples/
-  hello/       minimal demo (keyframes, expression, spring)
+  launch-film/ "Launch film": 45 s on the beat, nested compositions, a 2.5D camera, sound-reactive motion, music and sound written as code
+  showreel/    "Showreel": made by the assistant, kinetic type, shapes, a counter, a shader smoke, particles, a camera look
   showcase/    shader, particles, nested compositions, layer effects, modifiers
   anime/       "Evening Breeze": example anime, frame by frame drawings in sequences, three shots (made by scripts/anime-example.ts)
-  road-trip/   "Road trip": one event list drives the title, the counters, a tag at each purchase and the receipt at the end
 ```
 
 ## The editor

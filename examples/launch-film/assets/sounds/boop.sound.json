@@ -1,0 +1,5 @@
+{
+ "code": "// a glassy bounce: a pitched blip over a soft thump (A4; the layers pitch it with their speed)\nconst o = ctx.createOscillator(); o.type = 'sine';\no.frequency.setValueAtTime(660, 0); o.frequency.exponentialRampToValueAtTime(440, 0.035);\nconst m = ctx.createOscillator(); m.frequency.value = 880 * 2.01; const md = ctx.createGain(); kit.env(md.gain, [[0, 600], [0.25, 1]], 'exp'); m.connect(md).connect(o.frequency);\nconst g = ctx.createGain(); g.gain.setValueAtTime(0, 0); g.gain.linearRampToValueAtTime(0.6, 0.004); g.gain.setTargetAtTime(0, 0.01, 0.12);\no.connect(g).connect(ctx.destination); o.start(0); m.start(0); o.stop(0.7); m.stop(0.7);\nconst th = ctx.createOscillator(); th.frequency.setValueAtTime(150, 0); th.frequency.exponentialRampToValueAtTime(55, 0.09);\nconst gt = ctx.createGain(); gt.gain.setValueAtTime(0, 0); gt.gain.linearRampToValueAtTime(0.5, 0.003); gt.gain.setTargetAtTime(0, 0.02, 0.04);\nth.connect(gt).connect(ctx.destination); th.start(0); th.stop(0.4);",
+ "duration": 0.7,
+ "seed": 1
+}

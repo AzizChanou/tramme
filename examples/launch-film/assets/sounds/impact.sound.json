@@ -1,0 +1,5 @@
+{
+ "code": "// a sub drop, a crack and a room\nconst s = ctx.createOscillator(); kit.env(s.frequency, [[0, 90], [0.7, 32]], 'exp');\nconst gs = ctx.createGain(); gs.gain.setValueAtTime(0, 0); gs.gain.linearRampToValueAtTime(1, 0.004); gs.gain.setTargetAtTime(0, 0.05, 0.45);\ns.connect(gs).connect(ctx.destination); s.start(0); s.stop(2.6);\nconst n = kit.noise('pink', 1.5), lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; kit.env(lp.frequency, [[0, 9000], [0.8, 180]], 'exp');\nconst gn = ctx.createGain(); gn.gain.setValueAtTime(0, 0); gn.gain.linearRampToValueAtTime(0.9, 0.002); gn.gain.setTargetAtTime(0, 0.01, 0.18);\nconst ir = ctx.createBuffer(2, 48000 * 2.2, 48000);\nfor (let c = 0; c < 2; c++) { const d = ir.getChannelData(c); for (let i = 0; i < d.length; i++) d[i] = (kit.random() * 2 - 1) * Math.pow(1 - i / d.length, 3); }\nconst room = ctx.createConvolver(); room.buffer = ir; const gr = ctx.createGain(); gr.gain.value = 0.35;\nn.connect(lp).connect(gn); gn.connect(ctx.destination); gn.connect(gr).connect(room).connect(ctx.destination); n.start(0);",
+ "duration": 2.6,
+ "seed": 1
+}
