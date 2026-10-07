@@ -1,0 +1,10 @@
+---
+// What every page's head carries, the landing page's and the docs': the
+// app's icon (apps/editor/icon.svg, inlined) and the site's two fonts
+import { Font } from 'astro:assets';
+import icon from '../../../editor/icon.svg?url';
+---
+
+<link rel="icon" href={icon} type="image/svg+xml" />
+<Font cssVariable="--font-sans" preload />
+<Font cssVariable="--font-mono" />

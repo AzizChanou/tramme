@@ -1,5 +1,6 @@
 ---
 import Brand from './Brand.astro';
+import { docHref } from '../lib/docs';
 import { REPO, repoFile } from '../lib/links';
 ---
 
@@ -8,8 +9,9 @@ import { REPO, repoFile } from '../lib/links';
     <Brand />
     <p>© 2026 Aziz Chanou</p>
     <ul role="list">
+      <li><a href={docHref('')}>Docs</a></li>
+      <li><a href={docHref('document')}>Document format</a></li>
       <li><a href={REPO}>GitHub</a></li>
-      <li><a href={repoFile('docs/document.md')}>Document format</a></li>
       <li><a href={repoFile('CHANGELOG.md')}>Changelog</a></li>
       <li><a href={repoFile('LICENSE')}>Apache-2.0</a></li>
     </ul>

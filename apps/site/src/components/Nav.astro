@@ -1,6 +1,8 @@
 ---
 import Brand from './Brand.astro';
 import RepoLink from './RepoLink.astro';
+import ThemeToggle from './ThemeToggle.astro';
+import { docHref } from '../lib/docs';
 ---
 
 <header class="nav">
@@ -8,12 +10,15 @@ import RepoLink from './RepoLink.astro';
     <a class="home" href="/" aria-label="tramme, home"><Brand /></a>
     <ul class="links" role="list">
       <li><a href="#made">Examples</a></li>
-      <li><a href="#inside">Document</a></li>
       <li><a href="#editor">Editor</a></li>
       <li><a href="#assistant">Assistant</a></li>
       <li><a href="#render">Export</a></li>
+      <li><a href={docHref('')}>Docs</a></li>
     </ul>
-    <RepoLink small />
+    <div class="end">
+      <ThemeToggle />
+      <RepoLink small />
+    </div>
   </nav>
 </header>
 
@@ -24,6 +29,7 @@ import RepoLink from './RepoLink.astro';
   .links { display: flex; gap: 28px; margin: 0 auto; padding: 0; list-style: none; }
   .links a { color: var(--ink-2); text-decoration: none; font-size: 0.875rem; transition: color 0.2s var(--ease); }
   .links a:hover { color: var(--ink); }
+  .end { display: flex; align-items: center; gap: 10px; }
   /* a hairline under the bar once the page moves under it */
   @supports (animation-timeline: scroll()) {
     .nav { animation: ruled linear both; animation-timeline: scroll(); animation-range: 0 64px; }
@@ -31,6 +37,6 @@ import RepoLink from './RepoLink.astro';
   }
   @media (max-width: 860px) {
     .links { display: none; }
-    .row > :global(.btn) { margin-left: auto; }
+    .end { margin-left: auto; }
   }
 </style>

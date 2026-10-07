@@ -1,0 +1,52 @@
+/* The docs (Starlight) in the site's colors and fonts: Starlight's scale of
+   grays and its accent, drawn from theme.css. Starlight's own styles sit in
+   cascade layers, so these win without fighting over specificity. */
+
+@import './theme.css';
+
+:root {
+  --sl-font: var(--font-sans);
+  --sl-font-mono: var(--font-mono);
+
+  --sl-color-accent-low: #0c3330;
+  --sl-color-accent: var(--accent);
+  --sl-color-accent-high: #8ae6dc;
+
+  --sl-color-white: #f6f9fa;
+  --sl-color-gray-1: var(--ink);
+  --sl-color-gray-2: #c4ced3;
+  --sl-color-gray-3: var(--ink-2);
+  --sl-color-gray-4: var(--ink-3);
+  --sl-color-gray-5: #263037;
+  --sl-color-gray-6: var(--panel-2);
+  --sl-color-black: var(--bg);
+
+  /* flat, like the landing page: the bars on the page's ground, hairlines between */
+  --sl-color-bg-nav: var(--bg);
+  --sl-color-bg-sidebar: var(--bg);
+}
+
+:root[data-theme='light'] {
+  --sl-color-accent-low: #cdeee9;
+  --sl-color-accent-high: #065a52;
+
+  --sl-color-white: var(--ink);
+  --sl-color-gray-1: #1f2a30;
+  --sl-color-gray-2: #34424a;
+  --sl-color-gray-3: var(--ink-2);
+  --sl-color-gray-4: #84929a;
+  --sl-color-gray-5: #c9d2d7;
+  --sl-color-gray-6: #e4e9ec;
+  --sl-color-gray-7: var(--panel-2);
+}
+
+::selection { background: var(--accent-soft); }
+
+/* the brand as on the landing page (Brand.astro): the icon and the name, in ink */
+.site-title { gap: 10px; font-size: 1.05rem; font-weight: 600; letter-spacing: -0.02em; color: var(--ink); }
+.site-title img { height: 1.6rem; }
+
+/* the page you are on: a quiet tint, not a solid block */
+.sidebar-content a[aria-current='page'],
+.sidebar-content a[aria-current='page']:hover,
+.sidebar-content a[aria-current='page']:focus { color: var(--accent-text); background-color: var(--accent-soft); }

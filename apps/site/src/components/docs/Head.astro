@@ -1,0 +1,10 @@
+---
+// Starlight's head (its own Head.astro, rendered the same way), with the
+// site's icon and fonts in place of its favicon
+import SiteHead from '../SiteHead.astro';
+
+const { head } = Astro.locals.starlightRoute;
+---
+
+{head.filter(({ attrs }) => attrs?.rel !== 'shortcut icon').map(({ tag: Tag, attrs, content }) => <Tag {...attrs} set:html={content} />)}
+<SiteHead />

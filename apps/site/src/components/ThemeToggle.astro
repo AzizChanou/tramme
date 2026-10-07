@@ -1,0 +1,44 @@
+---
+// Light or dark. The choice is the docs' own (Starlight's 'starlight-theme'
+// key), so the landing page and the docs always agree; until one is made,
+// the page follows the system. It shows the theme in use.
+import Sun from '@phosphor-icons/core/assets/regular/sun.svg';
+import Moon from '@phosphor-icons/core/assets/regular/moon.svg';
+---
+
+<button type="button" class="theme" data-theme-toggle aria-label="Switch to the light theme">
+  <Sun class="i-sun" aria-hidden="true" />
+  <Moon class="i-moon" aria-hidden="true" />
+</button>
+
+<script>
+  const KEY = 'starlight-theme';
+  const root = document.documentElement;
+  const button = document.querySelector<HTMLButtonElement>('[data-theme-toggle]')!;
+  const stored = () => { try { return localStorage.getItem(KEY); } catch { return null; } };
+  const show = (theme: string) => {
+    root.dataset.theme = theme;
+    button.setAttribute('aria-label', theme === 'light' ? 'Switch to the dark theme' : 'Switch to the light theme');
+  };
+  button.addEventListener('click', () => {
+    const next = root.dataset.theme === 'light' ? 'dark' : 'light';
+    show(next);
+    try { localStorage.setItem(KEY, next); } catch { /* remembered for this page only */ }
+  });
+  matchMedia('(prefers-color-scheme: light)').addEventListener('change', (e) => {
+    if (!stored()) show(e.matches ? 'light' : 'dark');
+  });
+  show(root.dataset.theme === 'light' ? 'light' : 'dark');
+</script>
+
+<style>
+  .theme {
+    display: grid; place-items: center; width: 36px; height: 36px; flex: none;
+    border: 1px solid var(--line-2); border-radius: 999px; background: transparent; color: var(--ink-2); cursor: pointer;
+    transition: background-color 0.2s var(--ease), color 0.2s var(--ease);
+  }
+  .theme:hover { background: var(--hover); color: var(--ink); }
+  .theme svg { width: 17px; height: 17px; }
+  .i-sun, :global([data-theme='light']) .i-moon { display: none; }
+  :global([data-theme='light']) .i-sun { display: block; }
+</style>
