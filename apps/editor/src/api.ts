@@ -1,12 +1,15 @@
 // Calls to the server (the Worker in production, `wrangler dev` locally):
 // projects and their files in storage, and the server side of the assistant.
 // In personal mode (mode.ts) the same calls are answered in the browser: the
-// storage by the service worker, the providers by the key vault.
+// storage by the service worker, the providers by the key vault. In the
+// desktop app the app answers the storage, and the page the providers, with
+// the keys of the system keychain put back by the app (tauri.ts).
 
 import type { TrammeDoc, Op } from '@tramme/core';
 import { isMedia, LIMITS, type Manifest } from '@tramme/project';
 import type { KeyedProvider, KeyStatus } from '@tramme/api';
 import { vaultOrigin } from './mode.ts';
+import { desktopFetch, tauri } from './tauri.ts';
 import { vaultFetch } from './vault/link.ts';
 
 export interface ChatItem {
@@ -74,8 +77,11 @@ export class ApiError extends Error {
   constructor(status: number, message: string, issues?: { path: string; message: string }[]) { super(message); this.status = status; this.issues = issues; }
 }
 
-/** a route that reaches a provider with the user's key: the server adds it, or in personal mode the key vault */
-export const reach = (path: string, init?: RequestInit): Promise<Response> => (vaultOrigin ? vaultFetch(path, init) : fetch(path, init));
+/** where the provider routes are answered away from the server: the key vault, or the desktop app's page */
+const away = vaultOrigin ? vaultFetch : tauri ? desktopFetch : undefined;
+
+/** a route that reaches a provider with the user's key: the server adds it, or the key vault, or the desktop app */
+export const reach = (path: string, init?: RequestInit): Promise<Response> => (away ?? fetch)(path, init);
 
 async function call<T>(path: string, init?: RequestInit, go: typeof reach = fetch): Promise<T> {
   const r = await go(path, init);
@@ -92,16 +98,16 @@ const P = (id: string) => `/api/projects/${encodeURIComponent(id)}`;
 const filePath = (path: string) => path.split('/').map(encodeURIComponent).join('/');
 
 export const api = {
-  /** what the server offers; in personal mode, what is connected comes from the key vault */
+  /** what the server offers; in personal mode and in the desktop app, what is connected comes from where the keys are */
   async config(): Promise<ServerConfig> {
-    if (!vaultOrigin) return call<ServerConfig>('/api/config');
+    if (!away) return call<ServerConfig>('/api/config');
     const [server, vault] = await Promise.all([call<ServerConfig>('/api/config'), call<Partial<ServerConfig>>('/api/config', undefined, reach)]);
     return { ...server, ...vault };
   },
   /** models of the providers with a key */
   models: () => call<Record<string, { id: string; label: string; effort?: true }[] | { error: string }>>('/api/models', undefined, reach),
 
-  // ── the providers' keys (private mode): sent once, kept by the server, never read back ──
+  // ── the providers' keys (private mode, desktop app): sent once, kept by the server or the system keychain, never read back ──
   setKey: (provider: KeyedProvider, key: string) => call<{ provider: string }>(`/api/keys/${provider}`, jsonInit('PUT', { key })),
   removeKey: (provider: KeyedProvider) => call<{ deleted: string }>(`/api/keys/${provider}`, { method: 'DELETE' }),
   /** a custom provider of the chat format; no key: the one it has is kept */

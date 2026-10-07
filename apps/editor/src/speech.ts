@@ -1,13 +1,14 @@
 // What a sound or a video says, word by word: its audio decoded here (never
 // the whole file at once), cut into chunks of 28 s overlapping by 2 s, each
-// chunk turned to words by the server (Whisper on Workers AI) or, when the
-// server has none, by the local companion. The transcript becomes a JSON
-// asset of the project, beside the media.
+// chunk turned to words by the server (Whisper on Workers AI, or with the
+// OpenAI key: api.reach) or, when it has none, by the local companion. The
+// transcript becomes a JSON asset of the project, beside the media.
 
 import { signal } from '@preact/signals';
 import { ALL_FORMATS, AudioBufferSink, Input, UrlSource } from 'mediabunny';
 import { mergeChunks, pointer, transcriptIdOf, type Transcript, type TranscriptWord } from '@tramme/core';
 import { aiStatus, companionLink, refreshStatus } from './ai/index.ts';
+import { reach } from './api.ts';
 import { safeName, takenPaths, upload } from './files.ts';
 import { commit, S, toast } from './state.ts';
 import { m, t } from './i18n/index.ts';
@@ -53,7 +54,7 @@ type Backend = 'server' | 'companion';
 /** one chunk to words, by the server, or by the companion when the server cannot */
 async function wordsOf(audio: string, language: string | undefined, prefer: Backend): Promise<{ words: TranscriptWord[]; language?: string; backend: Backend }> {
   const viaServer = async () => {
-    const r = await fetch('/api/transcribe', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ audio, language }) });
+    const r = await reach('/api/transcribe', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ audio, language }) });
     const j = await r.json().catch(() => ({}));
     if (!r.ok) throw new Error(j.error ?? `HTTP ${r.status}`);
     return { ...j, backend: 'server' as const };

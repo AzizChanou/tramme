@@ -696,6 +696,7 @@
     "defaultSettings": "Default settings",
     "providers": "Providers",
     "providersIntro": "A key is sent once to your server, which keeps it and adds it to each request: the editor never reads it back.",
+    "providersIntroDesktop": "A key is kept in this computer's keychain, and added to each request on its way to the provider: the editor never reads it back.",
     "connectedProviders": "Connected providers",
     "noProviderConnected": "No provider connected yet: add one below.",
     "addAProvider": "Add a provider",

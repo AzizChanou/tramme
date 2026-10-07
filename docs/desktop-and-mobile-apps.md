@@ -1,6 +1,6 @@
 # Desktop and mobile apps with Tauri
 
-Status: **steps 1 and 2 of the plan are done** (Windows, local mode complete). This note gathers what is needed to ship Tramme as a native app with [Tauri 2](https://v2.tauri.app/) (Windows, macOS, Linux, Android, iOS), so the work can start from here.
+Status: **steps 1 to 3 of the plan are done** (Windows: local mode complete, the assistant with the keys in the system keychain). This note gathers what is needed to ship Tramme as a native app with [Tauri 2](https://v2.tauri.app/) (Windows, macOS, Linux, Android, iOS), so the work can start from here.
 
 ## Summary
 
@@ -23,7 +23,7 @@ The web's personal mode ([deploy.md](deploy.md), section 8) built most of what t
 | Provider calls without a server | `providerRoute` with a `Reach` (keys and a fetch), direct from the browser | the same routes, the fetch done by Rust (no CORS: Z.AI and custom providers too) |
 | The editor's side | `api.reach`: the vault in personal mode, the server otherwise | a third case of `api.reach` |
 
-So the app's step 3 (assistant) is mostly a matter of answering `api.reach` from Rust.
+So the app's step 3 (assistant) was mostly a matter of answering `api.reach` in the desktop app (see the plan below).
 
 ## What the editor depends on today
 
@@ -32,7 +32,7 @@ So the app's step 3 (assistant) is mostly a matter of answering `api.reach` from
 | Projects and files (`/api/projects/...`), stored in R2 | `apps/worker/src/projects.ts`, called from `apps/editor/src/api.ts` | Must be replaced (see below) |
 | Large uploads in parts (R2 multipart) | `api.writeAny` | Not needed with local files: write in one go |
 | Assistant through the server (`/api/claude`, `/api/llm`, `/api/models`) | `apps/worker/src/claude.ts`, `llm.ts` | Call the providers directly, with keys stored on the device |
-| Speech to text (`/api/transcribe`, Workers AI Whisper) | `apps/worker/src/speech.ts` | Provider API, or local Whisper (desktop only) |
+| Speech to text (`/api/transcribe`, Workers AI Whisper) | `apps/worker/src/speech.ts` | The OpenAI key (`packages/api` transcribe.ts), or the companion's local Whisper |
 | Local companion (`tramme agent`, Node + Claude Agent SDK) | `packages/cli/src/companion.ts` | Desktop: can stay a separate program. Mobile: not possible |
 | Access control (Cloudflare Access) | `apps/worker/src/access.ts` | Not needed for a local app |
 | Video export (WebCodecs), compositor (WebGL2) | `apps/editor/src/webexport.ts`, `packages/render` | Depends on the webview (see the table below) |
@@ -72,7 +72,7 @@ Where the projects go: a `Tramme` folder in the user's documents by default, con
 - **Direct calls.** The editor already runs the tool loop in the page; only the transport changes, from the Worker relay to the provider's API. Check each provider's CORS rules for calls from a webview; if one refuses, route it through a Rust command.
 - **Local models** (Ollama, LM Studio) already work from the browser and keep working.
 - **Companion.** On desktop, `tramme agent` can keep running next to the app (it needs Node and a Claude Code login). Bundling it as a sidecar means shipping Node: decide later.
-- **Transcription.** A provider API (OpenAI Whisper, for example), or on desktop the companion's local Whisper.
+- **Transcription.** OpenAI Whisper with the user's key (done), or on desktop the companion's local Whisper.
 
 ## The webview per platform
 
@@ -100,7 +100,7 @@ Ways to cover the gaps:
 
 1. **Proof of concept (Windows) — done.** `apps/desktop` with Tauri 2, loading the built editor (`apps/editor/dist`). Projects served by the custom protocol from a local folder (`Documents/Tramme`, `TRAMME_HOME` to move it). One protocol handler (`tramme` scheme) answers the embedded assets, the editor's pages (`/p/<id>` → index.html) and the `/api` storage routes in Rust (`apps/desktop/src-tauri/src/{api,store,format}.rs`): projects CRUD, duplicate, export as a `.tramme` archive, file reads with ETag, `If-None-Match` and byte ranges, writes with `If-Match`, delete, the plugin and sound shelves, and `/api/config`. The editor of `apps/editor` is untouched.
 2. **Local mode complete — done.** Multipart uploads (a sound or video over 95 MB goes through `POST /uploads`, parts of 32 MB, `complete`; assembled in part-number order on disk). The storage contract suite of `packages/api` runs against the Rust store: a little HTTP mirror of it (`src/bin/tramme-storage-server.rs`) spawned by `apps/desktop/test/local-store.test.ts`, with an HTTP `Bucket` reusing the same `conditionsHold` and `rangeOf` helpers as the other buckets. The projects folder is a setting of the app (Storage section of the editor's settings, a native folder picker, kept in `%APPDATA%/tramme/desktop.json`). A `.tramme` double-clicked in the file explorer lands in the running window (file association declared in the bundle, `tauri-plugin-single-instance` hands the path over, the editor imports it and opens the project). The window's drag-and-drop stays the editor's own (`disable_drag_drop_handler`). Exports saved to the computer go through the webview's own `showSaveFilePicker` (present in WebView2, nothing to add). Consciously left out, still: the document's full schema is not re-checked on write (only JSON), the providers and the transcription answer 501.
-3. **Assistant.** Keys in the keychain, direct provider calls, transcription.
+3. **Assistant — done.** The keys live in the system keychain (`keyring`: Windows Credential Manager, macOS Keychain, Secret Service), one entry per provider (`tramme` / `openai`, `custom:<id>`); the custom providers' names and addresses in `desktop.json`. `/api/keys` is answered in Rust with the checks of `packages/api` keys.ts, and `/api/config` tells which providers are connected, never a key (`src-tauri/src/keys.rs`). The provider routes run in the page, like in the key vault (`providersAnswer` of `packages/api`, called by `api.reach` through `apps/editor/src/tauri.ts`), with a stand-in for each key (`tramme-key:openai`). Their requests leave through the `desktop_fetch` command (`src-tauri/src/fetch.rs`, `ureq`): the stand-ins of the headers become the keys, toward their own provider's origin only (anything else is refused, and a request with a key never follows a redirect), and the answer streams back over a Tauri channel. No CORS on that path, so Z.AI and the custom providers work too. Transcription is a provider route of `packages/api` with the OpenAI key (Whisper, word timing); the private Worker still prefers Workers AI when it has it. Plugins can still use the keys through `api.reach`, as with the vault, but never read them.
 4. **macOS.** Signing and notarization, WKWebView checks (export formats, saving files).
 5. **Linux.** Native encoding fallback or reduced export formats.
 6. **Mobile (optional).** Android first (Chromium webview), then iOS. Streamed export, store assets.

@@ -14,7 +14,7 @@
 import './params.ts';
 import { render } from 'preact';
 import { useEffect, useState } from 'preact/hooks';
-import { bucketKeyStore, failure, json, keysRoute, loadKeys, PROVIDER_ROUTES, providerRoute, providersConfig, recordBucket, relayed, type KeyStatus } from '@tramme/api';
+import { bucketKeyStore, failure, keysRoute, loadKeys, providersAnswer, recordBucket, relayed, type KeyStatus } from '@tramme/api';
 import { idbRecords } from '../local/idb.ts';
 import { Providers, type ProviderActions } from '../ui/Providers.tsx';
 import { t } from '../i18n/index.ts';
@@ -30,15 +30,10 @@ const keys = bucketKeyStore(recordBucket(idbRecords('tramme-vault')));
 
 const tell = (m: VaultMessage) => { if (APP && parent !== window) parent.postMessage(m, APP); };
 
-/** a provider route, answered with the keys kept here */
+/** a provider route, answered with the keys kept here; the keys are managed on /settings only: a page of the editor cannot change them */
 async function serve(req: Request): Promise<Response> {
-  const parts = new URL(req.url).pathname.slice('/api/'.length).split('/');
   try {
-    const reach = { keys: await loadKeys(keys), fetch: upstream };
-    if (parts[0] === 'config' && req.method === 'GET') return json(providersConfig(reach.keys));
-    // the keys are managed on /settings only: a page of the editor cannot change them
-    const res = PROVIDER_ROUTES.includes(parts[0]) ? await providerRoute(req, reach, parts) : null;
-    return res ?? json({ error: `not a route of the key vault: ${req.method} ${new URL(req.url).pathname}` }, 404);
+    return await providersAnswer(req, { keys: await loadKeys(keys), fetch: upstream });
   } catch (e) { return failure(e); }
 }
 

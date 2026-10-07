@@ -1,6 +1,7 @@
 // Settings of this machine: how much the preview may cost, how the
 // assistant reaches Claude, the providers connected (their keys kept by the
-// server, or in personal mode by the key vault, whose page shows here).
+// server, by the desktop app in the system keychain, or in personal mode by
+// the key vault, whose page shows here).
 // Opened from the top bar, the home screen or Ctrl+,.
 // A menu of sections on the left (the editor's, the assistant's), the one
 // chosen on the right; a search shows the settings matching it, whatever
@@ -21,6 +22,7 @@ import { Icon } from './icons.tsx';
 import { resetSeen, setAutoTours, toursState } from '../tours/index.ts';
 import { LOCALES, locale, m, t } from '../i18n/index.ts';
 import { vaultOrigin } from '../mode.ts';
+import { tauri } from '../tauri.ts';
 import { fromVault } from '../vault/link.ts';
 import { Providers as ProviderList, type ProviderActions } from './Providers.tsx';
 import { Confirm, norm, Row, Search, Section } from './SettingsRows.tsx';
@@ -277,7 +279,7 @@ function VaultKeys() {
 function Providers() {
   useEffect(() => { if (!vaultOrigin) ensureStatus(); }, []);
   if (vaultOrigin) return <VaultKeys />;
-  return <ProviderList keys={aiStatus.value.keys} actions={SERVER_KEYS} intro={t('settings.providersIntro')} />;
+  return <ProviderList keys={aiStatus.value.keys} actions={SERVER_KEYS} intro={tauri ? t('settings.providersIntroDesktop') : t('settings.providersIntro')} />;
 }
 
 function Behavior() {
@@ -329,17 +331,15 @@ function Connection() {
 }
 
 // ── the desktop app's storage: where the projects live ───────
-// Tauri injects its global in the native window; the web deployments have none of it.
-const TAURI = (window as unknown as { __TAURI__?: { core: { invoke: (cmd: string, args?: Record<string, unknown>) => Promise<unknown> } } }).__TAURI__;
 
 function Storage() {
   const [home, setHome] = useState('');
-  useEffect(() => { TAURI!.core.invoke('desktop_state').then((s) => setHome((s as { home: string }).home)); }, []);
+  useEffect(() => { tauri!.core.invoke('desktop_state').then((s) => setHome((s as { home: string }).home)); }, []);
   const pick = async () => {
     try {
-      const next = await TAURI!.core.invoke('desktop_pick_home') as string | null;
+      const next = await tauri!.core.invoke('desktop_pick_home') as string | null;
       if (!next) return;
-      const state = await TAURI!.core.invoke('desktop_set_home', { home: next }) as { home: string };
+      const state = await tauri!.core.invoke('desktop_set_home', { home: next }) as { home: string };
       setHome(state.home);
       // the lists answer from the new folder from now on: back to the projects
       if (location.pathname !== '/') location.assign('/');
@@ -370,7 +370,7 @@ const GROUPS: { title: () => string; panes: Pane[] }[] = [
       { id: 'sound', icon: 'audio', title: () => t('settings.sound'), body: Sound },
       { id: 'tours', icon: 'help', title: () => t('common.guidedTours'), body: Tours },
       // the native app only: the projects live in a folder of this computer
-      ...(TAURI ? [{ id: 'storage' as SettingsSection, icon: 'folder', title: () => t('settings.storage'), body: Storage }] : []),
+      ...(tauri ? [{ id: 'storage' as SettingsSection, icon: 'folder', title: () => t('settings.storage'), body: Storage }] : []),
     ],
   },
   {

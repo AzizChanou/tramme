@@ -85,7 +85,7 @@ Without any of these keys the assistant still has the sound library (recorded so
 
 ## 7. Transcription
 
-The Worker transcribes the speech of sounds and videos with Workers AI (`@cf/openai/whisper-large-v3-turbo`, the `AI` binding is already declared in `wrangler.jsonc`, about $0.0005 per minute of sound). Nothing more to configure. Without this binding, the editor goes through the local companion, which transcribes on the machine.
+The Worker transcribes the speech of sounds and videos with Workers AI (`@cf/openai/whisper-large-v3-turbo`, the `AI` binding is already declared in `wrangler.jsonc`, about $0.0005 per minute of sound). Nothing more to configure. Without this binding, an OpenAI key connected in the settings transcribes (Whisper); without either, the editor goes through the local companion, which transcribes on the machine.
 
 Locally, Workers AI still runs at Cloudflare (`wrangler dev` requires you to be logged in) and usage is billed.
 
@@ -98,7 +98,7 @@ Anyone opens the address and works at once: no account, nothing kept on the serv
 - **Projects in the browser.** A service worker (`apps/editor/src/sw.ts`) answers the editor's storage routes (`/api/projects`, `/api/library`, `/api/sounds`) from IndexedDB, with the same code the Worker runs on R2 (`packages/api`). The editor does not know the difference. A project is exported as a `.tramme` archive to back it up or move it to another device.
 - **Keys in a vault.** The keys live in a page of another origin of your site (`cles.<your domain>`), framed by the editor. The browser keeps the two origins apart: the editor and the projects' plugins cannot read the vault's storage. The keys are typed into the vault's own page (shown in Settings, Providers), never into the editor.
 - **Calls from the browser.** The editor asks the vault for a route (`/api/claude`, `/api/llm`, `/api/models`, `/api/generate`…); the vault adds the key and calls the provider itself, straight from the visitor's browser. Anthropic, OpenAI, Gemini, OpenRouter and ElevenLabs take calls from a page; the others (Z.AI, custom providers) go through the Worker's relay (`/relay` on the vault's address), which passes the request on and keeps nothing. The settings say which providers use the relay.
-- **What the Worker does.** It serves the editor and the vault's page (with a Content-Security-Policy: framed by the editor only, reaching only the providers above and the relay), and the relay. No R2, no Access, no Workers AI: transcription goes through each visitor's local companion.
+- **What the Worker does.** It serves the editor and the vault's page (with a Content-Security-Policy: framed by the editor only, reaching only the providers above and the relay), and the relay. No R2, no Access, no Workers AI: transcription goes through the vault with the visitor's OpenAI key, or their local companion.
 - **Costs.** The static files, and the relay's requests (Workers' free tier, then a few cents per million). Each visitor's provider bills them for their own use.
 
 ### Setting it up
@@ -140,7 +140,7 @@ What a malicious plugin of a shared project could still do: spend the visitor's 
 
 - Projects belong to one browser on one device: clearing the site's data, or private browsing, loses them. The home screen says so; the browser is asked to keep them (`navigator.storage.persist()`).
 - No service worker (some private windows): the editor says it cannot start.
-- No transcription from the server: through the local companion only.
+- No transcription from the server: with the visitor's OpenAI key (through the vault), or the local companion.
 
 ## Local development
 

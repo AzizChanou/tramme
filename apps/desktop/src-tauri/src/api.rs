@@ -1,8 +1,10 @@
 // The /api routes of the desktop app, answered in the custom protocol handler
 // on the same origin as the editor: the storage over the local folders
-// (store.rs), a static /api/config, and a clean refusal for what needs a
-// server (the providers, the transcription, multipart uploads).
+// (store.rs), the providers' keys (keys.rs) and /api/config. The provider
+// routes themselves are answered by the page (apps/editor/src/tauri.ts), which
+// reaches the providers through the desktop_fetch command (fetch.rs).
 
+use crate::keys::KeyStore;
 use crate::store::{self, Store};
 use serde_json::json;
 use tauri::http::header::{HeaderName, HeaderValue};
@@ -59,15 +61,17 @@ fn query(req: &Request<Vec<u8>>) -> Vec<(String, String)> {
         .unwrap_or_default()
 }
 
-/// the configuration of this server, like the Worker's /api/config
-fn config() -> serde_json::Value {
-    json!({
+/// the configuration of this server, like the Worker's /api/config; what the
+/// connected providers offer is added by the page, from `keys`
+fn config() -> Result<serde_json::Value, store::HttpError> {
+    Ok(json!({
         "mode": "private",
         "format": crate::format::PROJECT_FORMAT,
         "limits": crate::format::LIMITS,
         "claude": { "server": false },
         "transcribe": false,
-    })
+        "keys": KeyStore::system()?.status(),
+    }))
 }
 
 /// one /api request, answered or failed as JSON
@@ -92,15 +96,15 @@ fn route_inner(parts: &[String], req: Request<Vec<u8>>) -> Result<Body, store::H
     let store = Store::new();
     let p0 = parts.first().map(|s| s.as_str()).unwrap_or("");
     match (p0, method) {
-        ("config", "GET") => Ok(ok_json(config())),
+        ("config", "GET") => Ok(ok_json(config()?)),
         ("projects", _) => projects(&store, parts, req),
         ("library", _) => shelf(&store, "plugins", parts, req),
         ("sounds", _) => shelf(&store, "sounds", parts, req),
-        // everything the Worker served for the assistant and the providers:
-        // not available in the desktop proof of concept (a next step)
-        ("claude" | "llm" | "models" | "generate" | "generate-image" | "keys" | "transcribe", _) => Ok(json_response(
-            501,
-            &json!({ "error": "not available in the desktop app yet: the providers and the transcription come with the local keys" }),
+        ("keys", _) => Ok(ok_json(KeyStore::system()?.route(method, &decode_segments(&parts[1..]), req.body())?)),
+        // the provider routes are the page's (api.reach), never asked here
+        ("claude" | "llm" | "models" | "generate" | "generate-image" | "transcribe", _) => Ok(json_response(
+            404,
+            &json!({ "error": "the provider routes are answered by the page in the desktop app (api.reach)" }),
         )),
         _ => Ok(json_response(404, &json!({ "error": format!("unknown route: {method} /api/{}", parts.join("/")) }))),
     }

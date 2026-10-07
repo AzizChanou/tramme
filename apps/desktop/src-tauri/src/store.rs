@@ -41,24 +41,44 @@ pub fn home() -> PathBuf {
     p
 }
 
-/// the folder kept in the app's settings, if any
-pub fn configured_home() -> Option<PathBuf> {
+/// the app's settings, beside the other apps' (%APPDATA%/tramme/desktop.json)
+pub fn settings_path() -> Option<PathBuf> {
     let mut p = dirs::config_dir()?;
     p.push("tramme");
     p.push("desktop.json");
-    let data = fs::read(p).ok()?;
-    let v: serde_json::Value = serde_json::from_slice(&data).ok()?;
-    let home = v.get("home")?.as_str()?.to_string();
+    Some(p)
+}
+
+/// one setting of the file at `path`, if any
+pub fn read_setting(path: &Path, name: &str) -> Option<serde_json::Value> {
+    let data = fs::read(path).ok()?;
+    let mut v: serde_json::Value = serde_json::from_slice(&data).ok()?;
+    v.get_mut(name).map(serde_json::Value::take)
+}
+
+/// changes one setting of the file at `path`, keeping the others
+pub fn write_setting(path: &Path, name: &str, value: serde_json::Value) -> Res<()> {
+    let mut all = fs::read(path)
+        .ok()
+        .and_then(|d| serde_json::from_slice::<serde_json::Map<String, serde_json::Value>>(&d).ok())
+        .unwrap_or_default();
+    all.insert(name.to_string(), value);
+    if let Some(dir) = path.parent() {
+        fs::create_dir_all(dir).map_err(io_err)?;
+    }
+    fs::write(path, serde_json::Value::Object(all).to_string()).map_err(io_err)
+}
+
+/// the folder kept in the app's settings, if any
+pub fn configured_home() -> Option<PathBuf> {
+    let home = read_setting(&settings_path()?, "home")?.as_str()?.to_string();
     PathBuf::from(&home).is_absolute().then(|| PathBuf::from(home))
 }
 
 /// keeps the folder chosen in the app's settings
 pub fn set_configured_home(home: &str) -> Res<()> {
-    let Some(mut p) = dirs::config_dir() else { return http_err(500, "no settings folder on this machine") };
-    p.push("tramme");
-    p.push("desktop.json");
-    fs::create_dir_all(p.parent().unwrap()).map_err(io_err)?;
-    fs::write(p, serde_json::json!({ "home": home }).to_string()).map_err(io_err)
+    let Some(p) = settings_path() else { return http_err(500, "no settings folder on this machine") };
+    write_setting(&p, "home", json!(home))
 }
 
 pub struct Store {

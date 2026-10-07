@@ -4,7 +4,9 @@
 // local storage, so the editor runs unmodified, like behind its Worker.
 
 mod api;
+mod fetch;
 pub mod format;
+mod keys;
 pub mod store;
 
 use std::borrow::Cow;
@@ -60,6 +62,22 @@ fn desktop_set_home(home: String) -> Result<serde_json::Value, String> {
     Ok(serde_json::json!({ "home": store::home().to_string_lossy() }))
 }
 
+// ── the way out to the providers, keys put back on the way (fetch.rs) ──
+
+/// sends a request of the page; its answer comes back over `events`
+#[tauri::command]
+fn desktop_fetch(id: u32, request: fetch::Outbound, events: tauri::ipc::Channel<fetch::Event>) -> Result<(), String> {
+    let keys = keys::KeyStore::system().map_err(|e| e.message)?;
+    // the answer may stream for minutes: off the main thread
+    std::thread::spawn(move || fetch::run(id, request, &keys, |e| events.send(e).is_ok()));
+    Ok(())
+}
+
+#[tauri::command]
+fn desktop_fetch_abort(id: u32) {
+    fetch::abort(id);
+}
+
 // ── a .tramme opened from the system ─────────────────────────
 
 /// the name of the archive waiting to be imported, if any
@@ -88,7 +106,8 @@ pub fn run() {
         }))
         .plugin(tauri_plugin_dialog::init())
         .invoke_handler(tauri::generate_handler![
-            desktop_state, desktop_pick_home, desktop_set_home, desktop_pending_name, desktop_pending_bytes
+            desktop_state, desktop_pick_home, desktop_set_home, desktop_pending_name, desktop_pending_bytes,
+            desktop_fetch, desktop_fetch_abort
         ])
         .register_asynchronous_uri_scheme_protocol(SCHEME, |_ctx, request, responder| {
             // answered off the main thread: the storage does disk I/O

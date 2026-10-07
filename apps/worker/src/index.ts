@@ -9,7 +9,7 @@
 // Private routes, besides those of @tramme/api (storage.ts, providers.ts, keys.ts):
 //   GET    /api/config                          what this server offers, the providers connected
 //   PUT    /api/keys/:provider, /custom/:id     connect a provider from the settings (DELETE: disconnect)
-//   POST   /api/transcribe                      {audio: WAV base64, language?} -> words with their timing (Whisper)
+//   POST   /api/transcribe                      {audio: WAV base64, language?} -> words with their timing (Whisper on Workers AI, else the OpenAI key)
 
 import { failure, HttpError, json, keysRoute, PROVIDER_ROUTES, providerRoute, providersConfig, storageRoute } from '@tramme/api';
 import { LIMITS, PROJECT_FORMAT } from '@tramme/project';
@@ -23,14 +23,16 @@ async function route(req: Request, env: Env, url: URL): Promise<Response> {
   const parts = url.pathname.slice('/api/'.length).split('/');
   const m = req.method;
   if (parts[0] === 'config' && m === 'GET') {
-    return json({ mode: 'private', format: PROJECT_FORMAT, limits: LIMITS, ...providersConfig(await workerKeys(env)), transcribe: !!env.AI });
+    const providers = providersConfig(await workerKeys(env));
+    return json({ mode: 'private', format: PROJECT_FORMAT, limits: LIMITS, ...providers, transcribe: !!env.AI || providers.transcribe });
   }
   if (parts[0] === 'keys') return keysRoute(req, keyStore(env), parts.slice(1).map(decodeURIComponent));
+  // Whisper on Workers AI first; the OpenAI key (a provider route) when the server has none
+  if (parts[0] === 'transcribe' && m === 'POST' && env.AI) return transcribe(req, env);
   if (PROVIDER_ROUTES.includes(parts[0])) {
     const res = await providerRoute(req, { keys: await workerKeys(env), fetch: (input, init) => fetch(input, init) }, parts);
     if (res) return res;
   }
-  if (parts[0] === 'transcribe' && m === 'POST') return transcribe(req, env);
   const res = await storageRoute(req, bucket(env), url);
   if (res) return res;
   throw new HttpError(404, `unknown route: ${m} ${url.pathname}`);

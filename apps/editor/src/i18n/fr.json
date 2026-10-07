@@ -696,6 +696,7 @@
     "defaultSettings": "Réglages par défaut",
     "providers": "Fournisseurs",
     "providersIntro": "Une clé est envoyée une fois à votre serveur, qui la garde et l'ajoute à chaque requête : l'éditeur ne la relit jamais.",
+    "providersIntroDesktop": "Une clé est gardée dans le trousseau de cet ordinateur, et ajoutée à chaque requête en route vers le fournisseur : l'éditeur ne la relit jamais.",
     "connectedProviders": "Fournisseurs connectés",
     "noProviderConnected": "Aucun fournisseur connecté pour le moment : ajoutez-en un ci-dessous.",
     "addAProvider": "Ajouter un fournisseur",
