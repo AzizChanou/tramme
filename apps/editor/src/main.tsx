@@ -18,6 +18,7 @@ import { offerTours } from './tours/index.ts';
 import { startFromVideo } from './start.ts';
 import { t } from './i18n/index.ts';
 import { boot } from './mode.ts';
+import { initDesktop } from './desktop.ts';
 
 const root = document.getElementById('app')!;
 
@@ -61,6 +62,8 @@ async function openProject(id: string) {
 
 const m = location.pathname.match(/^\/p\/([a-z0-9][a-z0-9-]{2,63})\/?$/);
 boot().then(() => {
+  // the native app: a .tramme handed by the system imports like a dropped one
+  initDesktop();
   if (m) {
     openProject(m[1]).catch((e) => {
       S.loadError.value = (e as Error).message;

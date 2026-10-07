@@ -150,7 +150,7 @@ effect(() => {
 /** the settings dialog, opened from the top bar, the home screen or Ctrl+, */
 export const settingsOpen = signal(false);
 
-export type SettingsSection = 'appearance' | 'preview' | 'sound' | 'tours' | 'model' | 'providers' | 'behavior' | 'connection';
+export type SettingsSection = 'appearance' | 'preview' | 'sound' | 'tours' | 'storage' | 'model' | 'providers' | 'behavior' | 'connection';
 /** the section shown: the last one opened, or the one asked for */
 export const settingsSection = signal<SettingsSection>('appearance');
 export function openSettings(section?: SettingsSection) {

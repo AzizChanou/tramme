@@ -43,6 +43,22 @@ fn decode_segments(parts: &[String]) -> Vec<String> {
         .collect()
 }
 
+/// the request's query, percent-decoded
+fn query(req: &Request<Vec<u8>>) -> Vec<(String, String)> {
+    req.uri()
+        .query()
+        .map(|q| {
+            q.split('&')
+                .filter_map(|kv| {
+                    let (k, v) = kv.split_once('=')?;
+                    let decode = |s: &str| percent_encoding::percent_decode_str(s).decode_utf8_lossy().into_owned();
+                    Some((decode(k), decode(v)))
+                })
+                .collect()
+        })
+        .unwrap_or_default()
+}
+
 /// the configuration of this server, like the Worker's /api/config
 fn config() -> serde_json::Value {
     json!({
@@ -139,9 +155,66 @@ fn projects(store: &Store, parts: &[String], req: Request<Vec<u8>>) -> Result<Bo
                 .body(bytes)
                 .map_err(|_| store::HttpError { status: 500, message: "response error".into() })
         }
-        ("uploads", _) => Ok(json_response(501, &json!({ "error": "multipart uploads are not available in the desktop app yet" }))),
+        ("uploads", _) => upload(store, id, parts, req),
         ("files", _) if parts.len() > 3 => file(store, id, &parts[3..], req),
         _ => Ok(json_response(404, &json!({ "error": format!("unknown route: {method} /api/projects/{id}/{sub}") }))),
+    }
+}
+
+/// a sound or a video too large for one request, sent in parts of LIMITS.part
+fn upload(store: &Store, id: &str, parts: &[String], req: Request<Vec<u8>>) -> Result<Body, store::HttpError> {
+    let method = req.method().as_str();
+    let q = query(&req);
+    let qget = |name: &str| q.iter().find(|(k, _)| k == name).map(|(_, v)| v.clone()).unwrap_or_default();
+    match (parts.get(3).map(String::as_str), parts.get(4).map(String::as_str), method) {
+        (None, _, "POST") => {
+            let _ = store.read_manifest(id)?;
+            let body: store::UploadStartBody = request_json(&req)?;
+            let path = body.path.unwrap_or_default();
+            store.check_path(&path)?;
+            if !crate::format::is_media(&path) {
+                return Ok(json_response(400, &json!({ "error": "multipart upload: sounds and videos only" })));
+            }
+            match body.size {
+                Some(size) if size > 0 && size <= crate::format::LIMITS.media => {}
+                _ => return Ok(json_response(413, &json!({ "error": "file too large" }))),
+            }
+            let upload_id = store.upload_start(&format!("projects/{id}/{path}"))?;
+            Ok(json_response(201, &json!({ "uploadId": upload_id, "partSize": crate::format::LIMITS.part })))
+        }
+        (Some(upload_id), None, "PUT") => {
+            let path = qget("path");
+            store.check_id(id)?;
+            store.check_path(&path)?;
+            let n: u32 = qget("part").parse().unwrap_or(0);
+            let etag = store.upload_part(&format!("projects/{id}/{path}"), upload_id, n, req.body())?;
+            Ok(ok_json(json!({ "partNumber": n, "etag": etag })))
+        }
+        (Some(upload_id), Some("complete"), "POST") => {
+            let mut m = store.read_manifest(id)?;
+            let body: store::UploadCompleteBody = request_json(&req)?;
+            let path = body.path.unwrap_or_default();
+            store.check_path(&path)?;
+            if body.parts.is_empty() {
+                return Ok(json_response(400, &json!({ "error": "missing parts" })));
+            }
+            let refs: Vec<(u32, String)> = body.parts.into_iter().map(|p| (p.part_number, p.etag)).collect();
+            let done = store.upload_complete(&format!("projects/{id}/{path}"), upload_id, &refs)?;
+            let mut modified = done.modified.clone();
+            if !path.starts_with("renders/") {
+                store.touch(&mut m)?;
+                modified = m.modified.clone();
+            }
+            Ok(ok_json(json!({ "path": path, "size": done.size, "etag": done.etag, "modified": modified })))
+        }
+        (Some(upload_id), None, "DELETE") => {
+            store.check_id(id)?;
+            let path = qget("path");
+            store.check_path(&path)?;
+            store.upload_abort(&format!("projects/{id}/{path}"), upload_id)?;
+            Ok(ok_json(json!({ "aborted": upload_id })))
+        }
+        _ => Ok(json_response(404, &json!({ "error": format!("unknown route: {method} /api/projects/{id}/uploads") }))),
     }
 }
 

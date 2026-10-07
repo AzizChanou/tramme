@@ -4,17 +4,92 @@
 // local storage, so the editor runs unmodified, like behind its Worker.
 
 mod api;
-mod format;
-mod store;
+pub mod format;
+pub mod store;
 
 use std::borrow::Cow;
+use std::path::PathBuf;
+use std::sync::Mutex;
 use tauri::http::{Request, Response, StatusCode};
-use tauri::{WebviewUrl, WebviewWindowBuilder};
+use tauri::{Emitter, Manager, WebviewUrl, WebviewWindowBuilder};
 
 const SCHEME: &str = "tramme";
 
+/// a .tramme the system handed to the app (a double-click), waiting for the
+/// editor to import it
+static PENDING: Mutex<Option<(String, PathBuf)>> = Mutex::new(None);
+
+fn take_open_path(argv: &[String]) -> Option<(String, PathBuf)> {
+    let arg = argv.iter().skip(1).find(|a| a.to_lowercase().ends_with(".tramme"))?;
+    let p = PathBuf::from(arg);
+    let name = p.file_name()?.to_string_lossy().into_owned();
+    Some((name, p))
+}
+
+fn focus_main(app: &tauri::AppHandle) {
+    if let Some(w) = app.get_webview_window("main") {
+        let _ = w.show();
+        let _ = w.unminimize();
+        let _ = w.set_focus();
+    }
+}
+
+// ── the desktop app's commands, for the editor's settings ────
+
+#[tauri::command]
+fn desktop_state() -> serde_json::Value {
+    serde_json::json!({ "home": store::home().to_string_lossy() })
+}
+
+/// the folder for the projects, picked natively; None when cancelled
+#[tauri::command]
+async fn desktop_pick_home(app: tauri::AppHandle) -> Option<String> {
+    use tauri_plugin_dialog::DialogExt;
+    let picked = app.dialog().file().blocking_pick_folder()?;
+    picked.into_path().ok().map(|p| p.to_string_lossy().into_owned())
+}
+
+#[tauri::command]
+fn desktop_set_home(home: String) -> Result<serde_json::Value, String> {
+    let p = PathBuf::from(&home);
+    if !p.is_absolute() {
+        return Err("the folder must be an absolute path".into());
+    }
+    std::fs::create_dir_all(&p).map_err(|e| e.to_string())?;
+    store::set_configured_home(&home).map_err(|e| e.message)?;
+    Ok(serde_json::json!({ "home": store::home().to_string_lossy() }))
+}
+
+// ── a .tramme opened from the system ─────────────────────────
+
+/// the name of the archive waiting to be imported, if any
+#[tauri::command]
+fn desktop_pending_name() -> Option<String> {
+    PENDING.lock().unwrap().as_ref().map(|(name, _)| name.clone())
+}
+
+/// the archive's bytes; reading them consumes the pending open
+#[tauri::command]
+fn desktop_pending_bytes() -> tauri::ipc::Response {
+    let taken = PENDING.lock().unwrap().take();
+    let bytes = taken.and_then(|(_, p)| std::fs::read(p).ok()).unwrap_or_default();
+    tauri::ipc::Response::new(bytes)
+}
+
 pub fn run() {
     tauri::Builder::default()
+        // a second launch (a double-click on a .tramme) hands its file here
+        .plugin(tauri_plugin_single_instance::init(|app, argv, _cwd| {
+            if let Some((name, path)) = take_open_path(&argv) {
+                app.emit("desktop-open", &name).ok();
+                *PENDING.lock().unwrap() = Some((name, path));
+                focus_main(app);
+            }
+        }))
+        .plugin(tauri_plugin_dialog::init())
+        .invoke_handler(tauri::generate_handler![
+            desktop_state, desktop_pick_home, desktop_set_home, desktop_pending_name, desktop_pending_bytes
+        ])
         .register_asynchronous_uri_scheme_protocol(SCHEME, |_ctx, request, responder| {
             // answered off the main thread: the storage does disk I/O
             let app = _ctx.app_handle().clone();
@@ -23,11 +98,18 @@ pub fn run() {
             });
         })
         .setup(|app| {
+            // a first launch started from a double-click on a .tramme
+            let argv: Vec<String> = std::env::args().collect();
+            if let Some((name, path)) = take_open_path(&argv) {
+                *PENDING.lock().unwrap() = Some((name, path));
+            }
             let url = format!("{SCHEME}://localhost/").parse().unwrap();
             let mut window = WebviewWindowBuilder::new(app, "main", WebviewUrl::CustomProtocol(url))
                 .title("tramme")
                 .inner_size(1400.0, 880.0)
-                .min_inner_size(640.0, 480.0);
+                .min_inner_size(640.0, 480.0)
+                // the editor drops files itself (the home screen imports them)
+                .disable_drag_drop_handler();
             // a test harness (TRAMME_CDP_PORT=9223) can drive the webview over CDP
             if let Ok(port) = std::env::var("TRAMME_CDP_PORT") {
                 window = window.additional_browser_args(&format!("--remote-debugging-port={port}"));

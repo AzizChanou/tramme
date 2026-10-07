@@ -25,17 +25,40 @@ pub fn http_err<T>(status: u16, message: impl Into<String>) -> Res<T> {
     Err(HttpError { status, message: message.into() })
 }
 
-/// where the projects live: a Tramme folder in the user's documents, or
-/// TRAMME_HOME (a custom place, the tests)
+/// where the projects live: TRAMME_HOME (a custom place, the tests), the
+/// folder chosen in the app's settings, or a Tramme folder in the documents
 pub fn home() -> PathBuf {
     if let Ok(h) = std::env::var("TRAMME_HOME") {
         if !h.trim().is_empty() {
             return PathBuf::from(h);
         }
     }
+    if let Some(h) = configured_home() {
+        return h;
+    }
     let mut p = dirs::document_dir().expect("no documents folder on this machine");
     p.push("Tramme");
     p
+}
+
+/// the folder kept in the app's settings, if any
+pub fn configured_home() -> Option<PathBuf> {
+    let mut p = dirs::config_dir()?;
+    p.push("tramme");
+    p.push("desktop.json");
+    let data = fs::read(p).ok()?;
+    let v: serde_json::Value = serde_json::from_slice(&data).ok()?;
+    let home = v.get("home")?.as_str()?.to_string();
+    PathBuf::from(&home).is_absolute().then(|| PathBuf::from(home))
+}
+
+/// keeps the folder chosen in the app's settings
+pub fn set_configured_home(home: &str) -> Res<()> {
+    let Some(mut p) = dirs::config_dir() else { return http_err(500, "no settings folder on this machine") };
+    p.push("tramme");
+    p.push("desktop.json");
+    fs::create_dir_all(p.parent().unwrap()).map_err(io_err)?;
+    fs::write(p, serde_json::json!({ "home": home }).to_string()).map_err(io_err)
 }
 
 pub struct Store {
@@ -75,6 +98,26 @@ pub struct UpdateBody {
 pub struct DuplicateBody {
     #[serde(default)]
     pub name: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct UploadStartBody {
+    pub path: Option<String>,
+    pub size: Option<u64>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct UploadCompleteBody {
+    pub path: Option<String>,
+    #[serde(default)]
+    pub parts: Vec<UploadPartRef>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct UploadPartRef {
+    #[serde(rename = "partNumber")]
+    pub part_number: u32,
+    pub etag: String,
 }
 
 /// the files of a project, for the export archive
@@ -309,7 +352,8 @@ impl Store {
         }
     }
 
-    fn touch(&self, m: &mut Manifest) -> Res<()> {
+    /// the manifest's date, as a write of the project would set it
+    pub fn touch(&self, m: &mut Manifest) -> Res<()> {
         m.modified = format::now_iso();
         self.write_manifest(m)
     }
@@ -619,6 +663,287 @@ impl Store {
         }
         Ok(())
     }
+
+    // ── the raw bucket: keys as the API addresses them ───────────
+    //
+    // `projects/<id>/<path>` and `library/plugins|sounds/<name>`, with the R2
+    // semantics the editor relies on (etags, conditions, listings, uploads in
+    // parts). The /api routes of this app answer from the project methods
+    // above; the storage contract suite answers from these, so the folder
+    // layout proves itself where R2 and IndexedDB prove themselves.
+
+    /// where a bucket key lives on disk, or None when it addresses nothing
+    fn key_path(&self, key: &str) -> Option<PathBuf> {
+        let (mut p, rest) = if let Some(rest) = key.strip_prefix("projects/") {
+            let (id, path) = rest.split_once('/')?;
+            if !format::valid_id(id) || path.is_empty() {
+                return None;
+            }
+            (self.project_dir(id), path)
+        } else if let Some(rest) = key.strip_prefix("library/") {
+            let (shelf, name) = rest.split_once('/')?;
+            if shelf != "plugins" && shelf != "sounds" {
+                return None;
+            }
+            (self.home.join("library").join(shelf), name)
+        } else {
+            return None;
+        };
+        if rest.is_empty() || rest.split('/').any(|part| part.is_empty() || part == "." || part == "..") {
+            return None;
+        }
+        for part in rest.split('/') {
+            p.push(part);
+        }
+        Some(p)
+    }
+
+    /// the custom metadata of a key, kept beside the listed trees
+    fn meta_path(&self, key: &str) -> PathBuf {
+        let hex: String = Sha256::digest(key.as_bytes()).iter().map(|b| format!("{b:02x}")).collect();
+        self.home.join(".tmp-meta").join(format!("{hex}.json"))
+    }
+
+    fn read_custom(&self, key: &str) -> Option<serde_json::Map<String, serde_json::Value>> {
+        fs::read(self.meta_path(key)).ok().and_then(|d| serde_json::from_slice(&d).ok())
+    }
+
+    fn write_custom(&self, key: &str, custom: &serde_json::Map<String, serde_json::Value>) -> Res<()> {
+        if custom.is_empty() {
+            fs::remove_file(self.meta_path(key)).ok();
+            return Ok(());
+        }
+        let p = self.meta_path(key);
+        fs::create_dir_all(p.parent().unwrap()).map_err(io_err)?;
+        fs::write(p, serde_json::to_vec(custom).unwrap()).map_err(io_err)
+    }
+
+    pub fn raw_head(&self, key: &str) -> Option<Stored> {
+        let p = self.key_path(key)?;
+        let meta = fs::metadata(&p).ok()?;
+        if !meta.is_file() {
+            return None;
+        }
+        Some(Stored {
+            path: key.into(),
+            size: meta.len(),
+            etag: etag_of(&fs::read(&p).ok()?),
+            modified: format::iso_of(meta.modified().ok()?),
+        })
+    }
+
+    pub fn raw_get(&self, key: &str) -> Res<(Vec<u8>, Stored)> {
+        match self.raw_head(key) {
+            Some(s) => {
+                let data = fs::read(self.key_path(key).unwrap()).map_err(io_err)?;
+                Ok((data, s))
+            }
+            None => http_err(404, format!("not found: {key}")),
+        }
+    }
+
+    /// writes a key, refused (None) when `if_match` does not hold for the one there now
+    pub fn raw_put(&self, key: &str, data: &[u8], if_match: Option<&str>, custom: Option<&serde_json::Map<String, serde_json::Value>>) -> Res<Option<Stored>> {
+        let Some(p) = self.key_path(key) else { return http_err(400, format!("invalid key: {key}")) };
+        if let Some(header) = if_match {
+            let fresh = self.raw_head(key).map(|s| s.etag).unwrap_or_default();
+            if !etag_matches(header, &fresh) {
+                return Ok(None);
+            }
+        }
+        if let Some(parent) = p.parent() {
+            fs::create_dir_all(parent).map_err(io_err)?;
+        }
+        let name = p.file_name().unwrap_or_default().to_string_lossy().into_owned();
+        let tmp = p.with_file_name(format!(".tmp-{name}"));
+        {
+            let mut f = fs::File::create(&tmp).map_err(io_err)?;
+            f.write_all(data).map_err(io_err)?;
+        }
+        fs::rename(&tmp, &p).map_err(|e| {
+            fs::remove_file(&tmp).ok();
+            io_err(e)
+        })?;
+        match custom {
+            Some(c) => self.write_custom(key, c)?,
+            None => self.write_custom(key, &Default::default())?,
+        }
+        Ok(Some(Stored {
+            path: key.into(),
+            size: data.len() as u64,
+            etag: etag_of(data),
+            modified: format::now_iso(),
+        }))
+    }
+
+    pub fn raw_delete(&self, keys: &[String]) -> Res<()> {
+        for key in keys {
+            if let Some(p) = self.key_path(key) {
+                if p.is_file() {
+                    fs::remove_file(p).map_err(io_err)?;
+                }
+                fs::remove_file(self.meta_path(key)).ok();
+            }
+        }
+        Ok(())
+    }
+
+    /// the keys under a prefix, in key order; with a delimiter, the keys
+    /// sharing one are rolled up into `delimited_prefixes`, as R2 lists them
+    pub fn raw_list(&self, prefix: &str, delimiter: Option<&str>) -> Res<RawListing> {
+        fn walk(dir: &Path, rel: &str, out: &mut Vec<(String, Vec<u8>, String)>) {
+            let Ok(entries) = fs::read_dir(dir) else { return };
+            for e in entries.flatten() {
+                let name = e.file_name().to_string_lossy().into_owned();
+                if name.starts_with(".tmp-") {
+                    continue;
+                }
+                let child_rel = if rel.is_empty() { name } else { format!("{rel}/{name}") };
+                let child = e.path();
+                if child.is_dir() {
+                    walk(&child, &child_rel, out);
+                } else if child.is_file() {
+                    if let Ok(data) = fs::read(&child) {
+                        let modified = e
+                            .metadata()
+                            .ok()
+                            .and_then(|m| m.modified().ok())
+                            .map(format::iso_of)
+                            .unwrap_or_default();
+                        out.push((child_rel, data, modified));
+                    }
+                }
+            }
+        }
+        let mut all: Vec<(String, Vec<u8>, String)> = Vec::new();
+        for root in ["projects", "library"] {
+            walk(&self.home.join(root), root, &mut all);
+        }
+        all.sort_by(|a, b| a.0.cmp(&b.0));
+        let mut out = RawListing { objects: Vec::new(), delimited_prefixes: Vec::new() };
+        for (key, data, modified) in all {
+            if !key.starts_with(prefix) {
+                continue;
+            }
+            if let Some(d) = delimiter {
+                let rest = &key[prefix.len()..];
+                if let Some(i) = rest.find(d) {
+                    let rolled = format!("{}{}", &key[..prefix.len()], &rest[..i + d.len()]);
+                    if !out.delimited_prefixes.contains(&rolled) {
+                        out.delimited_prefixes.push(rolled);
+                    }
+                    continue;
+                }
+            }
+            out.objects.push(self.raw_stored(&key, &data, &modified));
+        }
+        Ok(out)
+    }
+
+    fn raw_stored(&self, key: &str, data: &[u8], modified: &str) -> RawObject {
+        RawObject {
+            key: key.into(),
+            size: data.len() as u64,
+            etag: etag_of(data),
+            modified: modified.into(),
+            custom: self.read_custom(key),
+        }
+    }
+
+    // ── uploads in parts, kept apart from every listing ──────────
+
+    fn upload_dir(&self, upload_id: &str) -> PathBuf {
+        self.home.join(".tmp-uploads").join(upload_id)
+    }
+
+    /// starts an upload of a key; the id is new and unused
+    pub fn upload_start(&self, key: &str) -> Res<String> {
+        if self.key_path(key).is_none() {
+            return http_err(400, format!("invalid key: {key}"));
+        }
+        let id: String = {
+            use rand::Rng as _;
+            const DIGITS: &[u8] = b"0123456789abcdefghijklmnopqrstuvwxyz";
+            let mut rng = rand::thread_rng();
+            (0..20).map(|_| DIGITS[rng.gen_range(0..36)] as char).collect()
+        };
+        let dir = self.upload_dir(&id);
+        if dir.exists() {
+            return self.upload_start(key);
+        }
+        fs::create_dir_all(&dir).map_err(io_err)?;
+        fs::write(dir.join("meta.json"), serde_json::to_vec(&json!({ "key": key })).unwrap()).map_err(io_err)?;
+        Ok(id)
+    }
+
+    fn upload_meta(&self, upload_id: &str, key: &str) -> Res<()> {
+        let p = self.upload_dir(upload_id).join("meta.json");
+        let Ok(data) = fs::read(&p) else { return http_err(404, format!("no upload {upload_id}")) };
+        let Ok(meta) = serde_json::from_slice::<serde_json::Value>(&data)
+            else { return http_err(500, "unreadable upload") };
+        if meta.get("key").and_then(|k| k.as_str()) != Some(key) {
+            return http_err(404, format!("no upload {upload_id} for {key}"));
+        }
+        Ok(())
+    }
+
+    /// one part (numbered from 1); its etag is checked again at the complete
+    pub fn upload_part(&self, key: &str, upload_id: &str, part_number: u32, data: &[u8]) -> Res<String> {
+        self.upload_meta(upload_id, key)?;
+        if !(1..=10000).contains(&part_number) {
+            return http_err(400, "invalid part number");
+        }
+        if data.len() as u64 > LIMITS.part {
+            return http_err(413, "part too large");
+        }
+        let p = self.upload_dir(upload_id).join(format!("{part_number:05}.part"));
+        fs::write(p, data).map_err(io_err)?;
+        Ok(etag_of(data).trim_matches('"').to_string())
+    }
+
+    /// the parts put together in part-number order; the file exists from now on
+    pub fn upload_complete(&self, key: &str, upload_id: &str, parts: &[(u32, String)]) -> Res<Stored> {
+        self.upload_meta(upload_id, key)?;
+        if parts.is_empty() {
+            return http_err(400, "missing parts");
+        }
+        let dir = self.upload_dir(upload_id);
+        let mut whole: Vec<u8> = Vec::new();
+        let mut sorted: Vec<(u32, String)> = parts.to_vec();
+        sorted.sort_by_key(|(n, _)| *n);
+        for (n, etag) in sorted {
+            let p = dir.join(format!("{n:05}.part"));
+            let data = fs::read(&p).map_err(|_| HttpError { status: 409, message: format!("part {n} of upload {upload_id} is missing") })?;
+            if etag_of(&data).trim_matches('"') != etag.trim_matches('"') {
+                return http_err(409, format!("part {n} of upload {upload_id} does not match"));
+            }
+            whole.extend_from_slice(&data);
+        }
+        let stored = self.raw_put(key, &whole, None, None)?.ok_or(HttpError { status: 500, message: "write failed".into() })?;
+        fs::remove_dir_all(&dir).ok();
+        Ok(stored)
+    }
+
+    pub fn upload_abort(&self, key: &str, upload_id: &str) -> Res<()> {
+        self.upload_meta(upload_id, key)?;
+        fs::remove_dir_all(self.upload_dir(upload_id)).map_err(io_err)
+    }
+}
+
+/// one object of a raw listing, its custom metadata included
+#[derive(Debug, Clone, Serialize)]
+pub struct RawObject {
+    pub key: String,
+    pub size: u64,
+    pub etag: String,
+    pub modified: String,
+    pub custom: Option<serde_json::Map<String, serde_json::Value>>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct RawListing {
+    pub objects: Vec<RawObject>,
+    pub delimited_prefixes: Vec<String>,
 }
 
 fn shelf_item(shelf: &str) -> &'static str {
@@ -801,5 +1126,94 @@ mod tests {
         assert_eq!(store.update_project(&m.id, UpdateBody { name: None, thumbnail: Some(Some("other.webp".into())) }).unwrap_err().status, 400);
         let m3 = store.update_project(&m.id, UpdateBody { name: None, thumbnail: Some(None) }).unwrap();
         assert_eq!(m3.thumbnail, None);
+    }
+
+    // ── the raw bucket ───────────────────────────────────────────
+
+    #[test]
+    fn raw_keys_head_get_put_delete() {
+        let (store, _dir) = store();
+        assert!(store.raw_head("projects/abc-12/document.tramme.json").is_none());
+        let written = store.raw_put("projects/abc-12/assets/images/a.png", b"img", None, None).unwrap().unwrap();
+        assert_eq!(written.etag, store.raw_head("projects/abc-12/assets/images/a.png").unwrap().etag);
+        let (data, stored) = store.raw_get("projects/abc-12/assets/images/a.png").unwrap();
+        assert_eq!(data, b"img");
+        assert_eq!(stored.path, "projects/abc-12/assets/images/a.png");
+        // a key that addresses nothing
+        assert!(store.raw_put("elsewhere/x.png", b"no", None, None).unwrap_err().status == 400);
+        assert!(store.raw_put("projects/BAD/x.png", b"no", None, None).unwrap_err().status == 400);
+        store.raw_delete(&["projects/abc-12/assets/images/a.png".into()]).unwrap();
+        assert!(store.raw_head("projects/abc-12/assets/images/a.png").is_none());
+    }
+
+    #[test]
+    fn raw_list_rolls_up_directories() {
+        let (store, _dir) = store();
+        store.raw_put("projects/abc-12/document.tramme.json", b"{}", None, None).unwrap();
+        store.raw_put("projects/abc-12/assets/images/a.png", b"a", None, None).unwrap();
+        store.raw_put("projects/abc-12/assets/images/b.png", b"b", None, None).unwrap();
+        store.raw_put("library/plugins/stars.js", b"code", None, None).unwrap();
+        let flat = store.raw_list("projects/abc-12/", None).unwrap();
+        assert_eq!(flat.objects.len(), 3);
+        assert!(flat.delimited_prefixes.is_empty());
+        let rolled = store.raw_list("projects/", Some("/")).unwrap();
+        assert_eq!(rolled.delimited_prefixes, vec!["projects/abc-12/".to_string()]);
+        assert!(rolled.objects.is_empty());
+        let by_two = store.raw_list("projects/abc-12/assets/", Some("/")).unwrap();
+        assert_eq!(by_two.delimited_prefixes, vec!["projects/abc-12/assets/images/".to_string()]);
+        let libs = store.raw_list("library/", None).unwrap();
+        assert_eq!(libs.objects.len(), 1);
+        assert_eq!(libs.objects[0].key, "library/plugins/stars.js");
+    }
+
+    #[test]
+    fn raw_put_keeps_custom_metadata() {
+        let (store, _dir) = store();
+        let custom = serde_json::from_str::<serde_json::Map<String, serde_json::Value>>(r#"{"entry":{"kind":"sfx"}}"#).unwrap();
+        store.raw_put("library/sounds/whoosh.wav", b"audio", None, Some(&custom)).unwrap();
+        let listed = store.raw_list("library/sounds/", None).unwrap();
+        assert_eq!(listed.objects[0].custom.as_ref().unwrap()["entry"]["kind"], "sfx");
+        // a put without metadata clears it, as a record replaces another
+        store.raw_put("library/sounds/whoosh.wav", b"audio2", None, None).unwrap();
+        assert!(store.raw_list("library/sounds/", None).unwrap().objects[0].custom.is_none());
+    }
+
+    // ── uploads in parts ─────────────────────────────────────────
+
+    #[test]
+    fn multipart_assembles_the_parts_in_order() {
+        let (store, _dir) = store();
+        let key = "projects/abc-12/assets/video/clip.mp4";
+        let id = store.upload_start(key).unwrap();
+        let p2 = store.upload_part(key, &id, 2, &[4, 5, 6]).unwrap();
+        let p1 = store.upload_part(key, &id, 1, &[1, 2, 3]).unwrap();
+        let done = store.upload_complete(key, &id, &[(2, p2), (1, p1)]).unwrap();
+        assert_eq!(done.size, 6);
+        assert_eq!(store.raw_get(key).unwrap().0, vec![1, 2, 3, 4, 5, 6]);
+        // nothing of the upload is left among the listed files
+        assert!(store.raw_list("projects/", None).unwrap().objects.iter().all(|o| !o.key.contains("upload")));
+        // the upload itself is gone
+        assert!(store.upload_part(key, &id, 3, &[7]).is_err());
+    }
+
+    #[test]
+    fn multipart_checks_key_parts_and_etags() {
+        let (store, _dir) = store();
+        let key = "projects/abc-12/assets/sounds/a.wav";
+        let id = store.upload_start(key).unwrap();
+        // a key that is not this upload's
+        assert!(store.upload_part("projects/abc-12/assets/sounds/b.wav", &id, 1, &[1]).is_err());
+        assert!(store.upload_part(key, "nope", 1, &[1]).is_err());
+        assert!(store.upload_part(key, &id, 0, &[1]).is_err());
+        let etag = store.upload_part(key, &id, 1, &[1, 2]).unwrap();
+        assert!(store.upload_complete(key, &id, &[(1, "deadbeef".into())]).is_err());
+        let done = store.upload_complete(key, &id, &[(1, etag.clone())]).unwrap();
+        assert_eq!(done.size, 2);
+        // aborted uploads leave nothing
+        let id2 = store.upload_start(key).unwrap();
+        store.upload_part(key, &id2, 1, &[9]).unwrap();
+        store.upload_abort(key, &id2).unwrap();
+        assert!(store.upload_complete(key, &id2, &[(1, etag)]).is_err());
+        assert!(store.raw_head(key).unwrap().size == 2);
     }
 }

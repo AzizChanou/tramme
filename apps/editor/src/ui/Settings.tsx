@@ -328,6 +328,37 @@ function Connection() {
   );
 }
 
+// ── the desktop app's storage: where the projects live ───────
+// Tauri injects its global in the native window; the web deployments have none of it.
+const TAURI = (window as unknown as { __TAURI__?: { core: { invoke: (cmd: string, args?: Record<string, unknown>) => Promise<unknown> } } }).__TAURI__;
+
+function Storage() {
+  const [home, setHome] = useState('');
+  useEffect(() => { TAURI!.core.invoke('desktop_state').then((s) => setHome((s as { home: string }).home)); }, []);
+  const pick = async () => {
+    try {
+      const next = await TAURI!.core.invoke('desktop_pick_home') as string | null;
+      if (!next) return;
+      const state = await TAURI!.core.invoke('desktop_set_home', { home: next }) as { home: string };
+      setHome(state.home);
+      // the lists answer from the new folder from now on: back to the projects
+      if (location.pathname !== '/') location.assign('/');
+    } catch (e) {
+      toast((e as Error).message, 'error');
+    }
+  };
+  return (
+    <Section title={t('settings.storage')}>
+      <Row label={t('settings.projectsFolder')} hint={t('settings.projectsFolderHint')}>
+        <div style={{ display: 'flex', gap: 6, alignItems: 'center', minWidth: 0 }}>
+          <span class="faint mono" style={{ maxWidth: 280, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={home}>{home}</span>
+          <button class="btn sm" onClick={pick}><Icon name="folder" />{t('settings.changeFolder')}</button>
+        </div>
+      </Row>
+    </Section>
+  );
+}
+
 // ── the menu ─────────────────────────────────────────────────
 interface Pane { id: SettingsSection; icon: string; title: () => string; body: FunctionComponent }
 const GROUPS: { title: () => string; panes: Pane[] }[] = [
@@ -338,6 +369,8 @@ const GROUPS: { title: () => string; panes: Pane[] }[] = [
       { id: 'preview', icon: 'eye', title: () => t('common.preview'), body: Preview },
       { id: 'sound', icon: 'audio', title: () => t('settings.sound'), body: Sound },
       { id: 'tours', icon: 'help', title: () => t('common.guidedTours'), body: Tours },
+      // the native app only: the projects live in a folder of this computer
+      ...(TAURI ? [{ id: 'storage' as SettingsSection, icon: 'folder', title: () => t('settings.storage'), body: Storage }] : []),
     ],
   },
   {

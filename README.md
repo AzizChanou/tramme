@@ -37,7 +37,7 @@ then paste the token it prints in the editor (Assistant, settings). See [The ass
 
 ## The desktop app
 
-The same editor in a native window ([Tauri 2](https://v2.tauri.app/), proof of concept on Windows): `npm run desktop:dev`. A custom protocol serves the built editor and its `/api` routes from Rust, so the editor runs unmodified and its projects live in folders (`Documents/Tramme`), without a server. The assistant's providers and the large-file uploads are not wired yet; the whole picture, and what comes next, in [docs/desktop-and-mobile-apps.md](docs/desktop-and-mobile-apps.md).
+The same editor in a native window ([Tauri 2](https://v2.tauri.app/), Windows): `npm run desktop:dev`. A custom protocol serves the built editor and its `/api` routes from Rust, so the editor runs unmodified and its projects live in folders (`Documents/Tramme` by default, changed in the settings), without a server. Videos over 95 MB are sent in parts like on the web, a `.tramme` double-clicked in the file explorer opens in the running window, and the storage passes the same contract suite as R2 and the browser. The assistant's providers are not wired yet (the companion `tramme agent` already works from the app, with its origin: `npm run tramme -- agent --origin http://tramme.localhost`); the whole picture, and what comes next, in [docs/desktop-and-mobile-apps.md](docs/desktop-and-mobile-apps.md).
 
 ## Deploying
 
