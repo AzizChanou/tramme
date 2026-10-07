@@ -1,0 +1,116 @@
+---
+// A video slot. Once src/videos/<id>.webm or <id>.mp4 is there (and <id>.webp
+// or <id>.jpg for its poster), the clip plays muted, in a loop, only while it
+// is on screen; nothing of it loads before it comes near. Until then, a
+// placeholder of the same shape, lit with the colors of what it will show:
+// plain CSS, no request.
+import Play from '@phosphor-icons/core/assets/fill/play-fill.svg';
+import Pause from '@phosphor-icons/core/assets/fill/pause-fill.svg';
+
+interface Props {
+  id: string;
+  /** the clip's size, for its proportions */
+  width: number;
+  height: number;
+  /** what it shows, for screen readers */
+  label: string;
+  /** its length in seconds, written on the placeholder */
+  duration?: number;
+  /** the placeholder's ground and light, from the clip's own colors */
+  tint?: [string, string];
+  class?: string;
+}
+
+const { id, width, height, label, duration, tint = ['#11171b', '#2ec4b6'], class: cls } = Astro.props;
+
+const files = import.meta.glob<string>('../videos/*.{webm,mp4,webp,jpg}', { eager: true, query: '?url', import: 'default' });
+const file = (ext: string): string | undefined => files[`../videos/${id}.${ext}`];
+const webm = file('webm');
+const mp4 = file('mp4');
+const poster = file('webp') ?? file('jpg');
+
+const gcd = (a: number, b: number): number => (b ? gcd(b, a % b) : a);
+const reduced = `${width / gcd(width, height)}:${height / gcd(width, height)}`;
+// written as people say it
+const ratio = reduced === '8:5' ? '16:10' : reduced;
+---
+
+<div class:list={['media', cls]} style={`--ratio: ${width} / ${height}; --base: ${tint[0]}; --glow: ${tint[1]}`}>
+  {webm || mp4 ? (
+    <>
+      <video data-video muted loop playsinline preload="none" poster={poster} aria-label={label}>
+        {webm && <source src={webm} type="video/webm" />}
+        {mp4 && <source src={mp4} type="video/mp4" />}
+      </video>
+      <button type="button" class="toggle" data-video-toggle aria-label="Play">
+        <Play class="i-play" aria-hidden="true" />
+        <Pause class="i-pause" aria-hidden="true" />
+      </button>
+    </>
+  ) : (
+    <div class="ph" role="img" aria-label={label}>
+      <span class="safe" aria-hidden="true"></span>
+      <span class="mark" aria-hidden="true"><Play /></span>
+      <span class="spec" aria-hidden="true">{duration ? `${ratio} · ${duration} s` : ratio}</span>
+    </div>
+  )}
+</div>
+
+<script>
+  // plays while on screen (unless motion is reduced, or it was paused by hand)
+  const reduced = matchMedia('(prefers-reduced-motion: reduce)');
+  const io = new IntersectionObserver((entries) => {
+    for (const { target, isIntersecting } of entries) {
+      const v = target as HTMLVideoElement;
+      const wanted = v.dataset.want ? v.dataset.want === 'on' : !reduced.matches;
+      if (isIntersecting && wanted) v.play().catch(() => {});
+      else v.pause();
+    }
+  }, { rootMargin: '160px 0px' });
+
+  for (const v of document.querySelectorAll<HTMLVideoElement>('[data-video]')) {
+    const b = v.parentElement!.querySelector<HTMLButtonElement>('[data-video-toggle]')!;
+    v.addEventListener('play', () => { b.dataset.playing = ''; b.setAttribute('aria-label', 'Pause'); });
+    v.addEventListener('pause', () => { delete b.dataset.playing; b.setAttribute('aria-label', 'Play'); });
+    b.addEventListener('click', () => {
+      v.dataset.want = v.paused ? 'on' : 'off';
+      if (v.paused) v.play().catch(() => {});
+      else v.pause();
+    });
+    io.observe(v);
+  }
+</script>
+
+<style>
+  .media { position: relative; aspect-ratio: var(--ratio); overflow: hidden; border-radius: var(--r); background: var(--base); isolation: isolate; }
+  /* a hairline edge, over the picture, so a dark clip still has a shape */
+  .media::after { content: ''; position: absolute; inset: 0; z-index: 1; border-radius: inherit; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.07); pointer-events: none; }
+  video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+
+  .ph {
+    position: absolute; inset: 0; display: grid; place-items: center;
+    background:
+      radial-gradient(80% 90% at 78% 12%, color-mix(in oklab, var(--glow) 30%, transparent), transparent 65%),
+      radial-gradient(60% 70% at 8% 100%, color-mix(in oklab, var(--glow) 12%, transparent), transparent 70%);
+  }
+  /* the title-safe frame, as in the editor's viewport */
+  .safe { position: absolute; inset: 10% 8%; border: 1px dashed rgba(255, 255, 255, 0.12); border-radius: 4px; }
+  .mark {
+    display: grid; place-items: center; width: 56px; height: 56px; border-radius: 999px;
+    background: rgba(255, 255, 255, 0.07); border: 1px solid rgba(255, 255, 255, 0.16); color: rgba(255, 255, 255, 0.82);
+  }
+  .mark svg { width: 18px; height: 18px; margin-left: 2px; }
+  .spec { position: absolute; left: calc(8% + 14px); bottom: calc(10% + 12px); font: 400 0.75rem/1 var(--font-mono), monospace; color: rgba(255, 255, 255, 0.5); }
+
+  .toggle {
+    position: absolute; right: 14px; bottom: 14px; z-index: 2; display: grid; place-items: center;
+    width: 36px; height: 36px; border-radius: 999px; border: 0; cursor: pointer;
+    background: rgba(8, 11, 13, 0.6); color: #eef2f3;
+    opacity: 0; transition: opacity 0.25s var(--ease), background-color 0.2s var(--ease);
+  }
+  .toggle svg { width: 14px; height: 14px; }
+  .media:hover .toggle, .toggle:focus-visible, .toggle:not([data-playing]) { opacity: 1; }
+  .toggle:hover { background: rgba(8, 11, 13, 0.85); }
+  .i-pause, [data-playing] .i-play { display: none; }
+  [data-playing] .i-pause { display: block; }
+</style>

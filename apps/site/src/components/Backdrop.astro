@@ -1,0 +1,14 @@
+---
+// The light behind the page: a tramme document (public/light), played by the
+// engine at a small size, since it is all soft gradients.
+import Player from './Player.astro';
+---
+
+<div class="backdrop" aria-hidden="true">
+  <Player src="/light/document.tramme.json" width={1600} height={1000} label="" cover toggle={false} maxScale={0.3} fps={30} />
+</div>
+
+<style>
+  .backdrop { position: fixed; inset: 0; z-index: -1; pointer-events: none; }
+  .backdrop :global(.player) { position: absolute; inset: 0; background: var(--bg); }
+</style>

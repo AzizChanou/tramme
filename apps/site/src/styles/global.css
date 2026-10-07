@@ -1,0 +1,77 @@
+/* The landing page: the editor's themes (theme.css, from
+   apps/editor/src/styles.css), so the page and the product look like one
+   thing. One family in two cuts (Geist, Geist Mono), the editor's teal as the
+   only accent.
+   Shapes: media and panels 14px, small chips 8px, every button a full pill.
+   No script for the look: reveals are scroll-driven CSS, still without it. */
+
+@import './theme.css';
+
+:root {
+  --r: 14px;
+  --r-sm: 8px;
+  --gutter: clamp(16px, 4.5vw, 56px);
+  --max: 1280px;
+  --nav: 64px;
+  --section: clamp(88px, 11vw, 168px);
+  --ease: cubic-bezier(0.16, 1, 0.3, 1);
+}
+@media (max-width: 820px) { :root { --r: 10px; } }
+
+*, *::before, *::after { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; scroll-behavior: smooth; scroll-padding-top: var(--nav); }
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--font-sans), system-ui, sans-serif;
+  font-size: 16px;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  overflow-x: clip;
+}
+
+h1, h2, h3 { margin: 0; font-weight: 600; letter-spacing: -0.035em; line-height: 1.05; text-wrap: balance; }
+p { margin: 0; text-wrap: pretty; }
+a { color: inherit; }
+code, pre, .mono { font-family: var(--font-mono), ui-monospace, monospace; }
+img, svg, video { display: block; max-width: 100%; }
+::selection { background: rgba(46, 196, 182, 0.32); }
+:focus-visible { outline: 2px solid var(--accent-text); outline-offset: 3px; border-radius: 6px; }
+
+.wrap { width: 100%; max-width: var(--max); margin-inline: auto; padding-inline: var(--gutter); }
+/* wider than the text, for pictures */
+.wrap-wide { width: 100%; max-width: calc(var(--max) + 160px); margin-inline: auto; padding-inline: var(--gutter); }
+.section { padding-block: var(--section) 0; }
+
+/* under a picture: its name, then what it shows */
+.caption { font-size: 0.9375rem; color: var(--ink-3); }
+.caption strong { font-weight: 500; color: var(--ink); }
+
+/* buttons */
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 0.55em;
+  height: 44px; padding: 0 20px; border-radius: 999px; border: 1px solid transparent;
+  font: 500 0.95rem/1 var(--font-sans), sans-serif; letter-spacing: -0.01em;
+  white-space: nowrap; text-decoration: none; cursor: pointer;
+  transition: background-color 0.2s var(--ease), border-color 0.2s var(--ease), transform 0.2s var(--ease);
+}
+.btn:active { transform: scale(0.97); }
+.btn svg { width: 18px; height: 18px; flex: none; }
+.btn-accent { background: var(--accent); color: var(--accent-ink); }
+.btn-accent:hover { background: var(--accent-2); }
+.btn-ghost { border-color: var(--line-2); color: var(--ink); }
+.btn-ghost:hover { background: var(--hover); border-color: var(--line-2); }
+.btn-sm { height: 36px; padding: 0 14px; font-size: 0.875rem; }
+.btn-sm svg { width: 16px; height: 16px; }
+
+/* reveal as it comes up the screen; where scroll timelines are missing, or
+   motion is reduced, everything simply stands there */
+@supports (animation-timeline: view()) {
+  @media (prefers-reduced-motion: no-preference) {
+    [data-reveal] { animation: reveal linear both; animation-timeline: view(); animation-range: entry 0% entry 45%; }
+  }
+}
+@keyframes reveal { from { opacity: 0; transform: translateY(32px); } }

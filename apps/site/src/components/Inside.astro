@@ -1,0 +1,58 @@
+---
+import { BUILTIN_MODIFIERS } from '@tramme/core';
+import hello from '../../../../examples/hello/document.tramme.json';
+import Code from './Code.astro';
+import Head from './Head.astro';
+import { formatJson } from '../lib/code';
+
+// a layer of the Hello example, as it is in the repository: hovering a row
+// lights its keys in the code
+const pill = hello.compositions.main.layers.pill;
+const ROWS = [
+  { key: '$k', name: 'Keyframes', what: 'An ease per key, shaped in the curve editor.' },
+  { key: '$expr', name: 'Expressions', what: 'Pure JavaScript of time, frames and the other layers.' },
+  { key: '$mod', name: 'Modifiers', what: `${BUILTIN_MODIFIERS.map((m) => m.type).join(', ')}.` },
+  { key: '@', name: 'Tokens', what: 'Colors, curves and values named once, used everywhere.' },
+];
+---
+
+<section class="section inside" id="inside">
+  <div class="wrap">
+    <Head title="Every property can move." more="Fixed, keyframed, an expression of time or a link, with modifiers on top." />
+    <div class="grid">
+      <dl data-reveal>
+        {ROWS.map(({ key, name, what }) => (
+          <div class="row" data-row={key}>
+            <dt><code>{key}</code>{name}</dt>
+            <dd>{what}</dd>
+          </div>
+        ))}
+      </dl>
+      <div data-reveal>
+        <Code lang="json" title="examples/hello/document.tramme.json" code={`"pill": ${formatJson(pill)}`} />
+      </div>
+    </div>
+  </div>
+</section>
+
+<style>
+  .grid { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); gap: 40px clamp(40px, 6vw, 96px); align-items: center; margin-top: clamp(40px, 5vw, 64px); }
+  dl { margin: 0; }
+  .row { display: grid; gap: 4px; padding: 18px 0; }
+  .row + .row { border-top: 1px solid var(--line); }
+  dt { display: flex; align-items: center; gap: 12px; font-weight: 500; }
+  dt code {
+    min-width: 3.4rem; padding: 3px 7px; border-radius: var(--r-sm); text-align: center;
+    font-size: 0.75rem; color: var(--accent-text); background: var(--accent-soft);
+    transition: background-color 0.2s var(--ease), color 0.2s var(--ease);
+  }
+  dd { margin: 0; color: var(--ink-3); font-size: 0.9375rem; }
+  .row:hover dt code { background: var(--accent); color: var(--accent-ink); }
+
+  .inside:has([data-row='$k']:hover) :global([data-key='$k']),
+  .inside:has([data-row='$expr']:hover) :global([data-key='$expr']),
+  .inside:has([data-row='$mod']:hover) :global([data-key='$mod']),
+  .inside:has([data-row='@']:hover) :global([data-key='@']) { background: var(--accent-soft); box-shadow: 0 0 0 3px var(--accent-soft); }
+
+  @media (max-width: 960px) { .grid { grid-template-columns: minmax(0, 1fr); } }
+</style>

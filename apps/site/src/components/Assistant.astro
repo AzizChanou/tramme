@@ -1,0 +1,40 @@
+---
+import Scissors from '@phosphor-icons/core/assets/regular/scissors.svg';
+import Waveform from '@phosphor-icons/core/assets/regular/waveform.svg';
+import PuzzlePiece from '@phosphor-icons/core/assets/regular/puzzle-piece.svg';
+import Key from '@phosphor-icons/core/assets/regular/key.svg';
+import Head from './Head.astro';
+import Media from './Media.astro';
+
+const POINTS = [
+  { Icon: Scissors, text: "Dresses a video: cuts the silences, then adds captions, keywords and titles in the project's colors." },
+  { Icon: Waveform, text: 'Places sounds on the cuts and the entrances, from the library or written as code.' },
+  { Icon: PuzzlePiece, text: 'Writes a node as a plugin when the vocabulary falls short.' },
+  { Icon: Key, text: 'Runs Claude with your Claude Code login, or other models with your own keys.' },
+];
+---
+
+<section class="section" id="assistant">
+  <div class="wrap">
+    <Head title="The AI edits with your tools." more="It reads the document, checks its work on rendered frames, then proposes changes you apply or reject." />
+    <div class="grid">
+      <div data-reveal>
+        <Media id="assistant" width={1600} height={1000} tint={['#0b0f12', '#2ec4b6']} label="The assistant proposing a change in the tramme editor, previewed before it is applied." />
+      </div>
+      <ul role="list" data-reveal>
+        {POINTS.map(({ Icon, text }) => (
+          <li><Icon aria-hidden="true" /><span>{text}</span></li>
+        ))}
+      </ul>
+    </div>
+  </div>
+</section>
+
+<style>
+  .grid { display: grid; grid-template-columns: minmax(0, 7fr) minmax(0, 4fr); gap: 36px clamp(40px, 6vw, 88px); align-items: center; margin-top: clamp(40px, 5vw, 64px); }
+  ul { display: grid; margin: 0; padding: 0; list-style: none; }
+  li { display: grid; grid-template-columns: 20px minmax(0, 1fr); gap: 14px; align-items: start; padding: 18px 0; color: var(--ink-2); font-size: 0.9375rem; }
+  li + li { border-top: 1px solid var(--line); }
+  li svg { width: 20px; height: 20px; margin-top: 2px; color: var(--accent-text); }
+  @media (max-width: 960px) { .grid { grid-template-columns: minmax(0, 1fr); } }
+</style>

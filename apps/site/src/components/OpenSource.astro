@@ -1,0 +1,84 @@
+---
+import { BUILTIN_MODIFIERS } from '@tramme/core';
+import { EFFECTS, NODES } from '@tramme/nodes';
+import Copy from '@phosphor-icons/core/assets/regular/copy.svg';
+import Check from '@phosphor-icons/core/assets/regular/check.svg';
+import Head from './Head.astro';
+import RepoLink from './RepoLink.astro';
+import { FORMATS } from '../lib/formats';
+import { REPO } from '../lib/links';
+
+// counted from the code, at build time
+const STATS = [
+  [NODES.length, 'layer types'],
+  [EFFECTS.length, 'effects'],
+  [BUILTIN_MODIFIERS.length, 'modifiers'],
+  [FORMATS.length, 'export formats'],
+] as const;
+const CLONE = `git clone ${REPO}`;
+---
+
+<section class="section" id="open">
+  <div class="wrap">
+    <div class="panel">
+      <Head center title="Open source, Apache-2.0." more="Run it on your machine, or deploy it to your own Cloudflare account." />
+      <dl class="stats" data-reveal>
+        {STATS.map(([n, label]) => (
+          <div><dt>{label}</dt><dd>{n}</dd></div>
+        ))}
+      </dl>
+      <div class="actions" data-reveal>
+        <div class="clone">
+          <code>{CLONE}</code>
+          <button type="button" class="copy" data-copy={CLONE} aria-label="Copy the command">
+            <Copy class="i-copy" aria-hidden="true" />
+            <Check class="i-check" aria-hidden="true" />
+          </button>
+        </div>
+        <RepoLink />
+      </div>
+    </div>
+  </div>
+</section>
+
+<script>
+  for (const b of document.querySelectorAll<HTMLButtonElement>('[data-copy]')) {
+    b.addEventListener('click', async () => {
+      try {
+        await navigator.clipboard.writeText(b.dataset.copy!);
+        b.dataset.done = '';
+        b.setAttribute('aria-label', 'Copied');
+        setTimeout(() => { delete b.dataset.done; b.setAttribute('aria-label', 'Copy the command'); }, 1600);
+      } catch {
+        b.setAttribute('aria-label', 'Copy failed: select the text instead');
+      }
+    });
+  }
+</script>
+
+<style>
+  .panel {
+    padding: clamp(48px, 7vw, 104px) clamp(20px, 5vw, 72px);
+    border: 1px solid var(--line); border-radius: var(--r);
+    background: radial-gradient(60% 70% at 50% 0%, var(--accent-soft), transparent 70%), var(--panel);
+  }
+  .stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); max-width: 880px; margin: clamp(40px, 5vw, 64px) auto 0; }
+  .stats div { display: flex; flex-direction: column-reverse; align-items: center; gap: 4px; padding: 4px 12px; }
+  .stats div + div { border-left: 1px solid var(--line); }
+  dd { margin: 0; font-size: clamp(2.5rem, 5vw, 4rem); font-weight: 500; letter-spacing: -0.045em; line-height: 1; font-variant-numeric: tabular-nums; }
+  dt { font-size: 0.875rem; color: var(--ink-3); }
+
+  .actions { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; margin-top: clamp(40px, 5vw, 56px); }
+  .clone { display: flex; align-items: center; gap: 12px; height: 44px; min-width: 0; max-width: 100%; padding: 0 6px 0 18px; border: 1px solid var(--line-2); border-radius: 999px; background: var(--bg); }
+  .clone code { overflow: hidden; font-size: 0.8125rem; color: var(--ink-2); white-space: nowrap; text-overflow: ellipsis; }
+  .copy { flex: none; display: grid; place-items: center; width: 32px; height: 32px; border: 0; border-radius: 999px; background: transparent; color: var(--ink-3); cursor: pointer; }
+  .copy:hover { background: var(--hover); color: var(--ink); }
+  .copy svg { width: 16px; height: 16px; }
+  .i-check, [data-done] .i-copy { display: none; }
+  [data-done] .i-check { display: block; color: var(--accent); }
+
+  @media (max-width: 720px) {
+    .stats { grid-template-columns: repeat(2, minmax(0, 1fr)); row-gap: 28px; }
+    .stats div + div:nth-child(odd) { border-left: 0; }
+  }
+</style>

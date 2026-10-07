@@ -21,7 +21,8 @@ const DIST = process.env.TRAMME_DIST ? path.resolve(process.env.TRAMME_DIST) : p
 const dev = process.argv.includes('--dev');
 const personal = process.argv.includes('--personal');
 
-const ICON = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><rect width="24" height="24" rx="6" fill="#0E1215"/><g transform="translate(2.4 2.3) scale(.8)" fill="#2EC4B6"><rect x="2.5" y="2.6" width="19" height="5" rx="1.8"/><rect x="8.8" y="8.7" width="6.4" height="3.9" rx="1.2"/><rect x="9.9" y="13.7" width="6.4" height="3.9" rx="1.2" opacity=".66"/><rect x="11" y="18.7" width="6.4" height="3.9" rx="1.2" opacity=".36"/></g></svg>`;
+// the app's icon, shared with the site (apps/site)
+const ICON = fs.readFileSync(path.join(HERE, 'icon.svg'), 'utf8').trim();
 
 /** a page of the build: its bundle and stylesheet, and what its head adds */
 const page = (js: string, css: string | undefined, head: string) => `<!doctype html>

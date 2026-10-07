@@ -1,0 +1,10 @@
+---
+// The page's call to action, the same wherever it shows: the repository
+import GithubLogo from '@phosphor-icons/core/assets/fill/github-logo-fill.svg';
+import { REPO } from '../lib/links';
+
+interface Props { small?: boolean }
+const { small = false } = Astro.props;
+---
+
+<a class:list={['btn btn-accent', { 'btn-sm': small }]} href={REPO}><GithubLogo aria-hidden="true" />View on GitHub</a>

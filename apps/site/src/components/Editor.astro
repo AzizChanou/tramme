@@ -1,0 +1,21 @@
+---
+import { Image } from 'astro:assets';
+import Head from './Head.astro';
+import shot from '../assets/editor.png';
+---
+
+<section class="section" id="editor">
+  <div class="wrap">
+    <Head title="An editor built around the document." more="Layers, a timeline with curves, and an inspector generated from each node." />
+  </div>
+  <div class="wrap-wide">
+    <div class="shot" data-reveal>
+      <Image src={shot} alt="The tramme editor: layers on the left, the Showcase composition in the viewport, the title's properties and a wiggle modifier in the inspector, keyframes on the timeline." widths={[800, 1280, 1760, 2560]} sizes="(max-width: 1440px) 100vw, 1440px" loading="lazy" decoding="async" />
+    </div>
+  </div>
+</section>
+
+<style>
+  .shot { margin-top: clamp(40px, 5vw, 64px); border-radius: var(--r); overflow: hidden; box-shadow: var(--lift); }
+  .shot :global(img) { width: 100%; height: auto; }
+</style>

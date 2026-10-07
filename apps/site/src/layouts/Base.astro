@@ -1,0 +1,31 @@
+---
+import { Font, getImage } from 'astro:assets';
+import icon from '../../../editor/icon.svg?url';
+import shot from '../assets/editor.png';
+import '../styles/global.css';
+
+interface Props { title: string; description: string }
+const { title, description } = Astro.props;
+const preview = await getImage({ src: shot, width: 1200, format: 'jpeg' });
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{title}</title>
+    <meta name="description" content={description} />
+    <meta name="theme-color" content="#0b0f12" />
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    <meta property="og:type" content="website" />
+    {Astro.site && <meta property="og:image" content={new URL(preview.src, Astro.site)} />}
+    <link rel="icon" href={icon} type="image/svg+xml" />
+    <Font cssVariable="--font-sans" preload />
+    <Font cssVariable="--font-mono" />
+  </head>
+  <body>
+    <slot />
+  </body>
+</html>

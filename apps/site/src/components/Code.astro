@@ -1,0 +1,25 @@
+---
+// A block of code under its title, colored at build time (lib/code.ts)
+import { highlightJson, highlightShell } from '../lib/code';
+
+interface Props { code: string; lang: 'json' | 'sh'; title: string; class?: string }
+const { code, lang, title, class: cls } = Astro.props;
+const html = lang === 'json' ? highlightJson(code) : highlightShell(code);
+---
+
+<figure class:list={['code', cls]}>
+  <figcaption>{title}</figcaption>
+  <pre><code set:html={html} /></pre>
+</figure>
+
+<style>
+  .code { margin: 0; min-width: 0; border: 1px solid var(--line); border-radius: var(--r); background: var(--panel); overflow: hidden; }
+  figcaption { padding: 12px 18px; border-bottom: 1px solid var(--line); font: 400 0.75rem/1.3 var(--font-mono), monospace; color: var(--ink-3); }
+  pre { margin: 0; padding: 18px 20px 22px; overflow-x: auto; font-size: 0.8125rem; line-height: 1.75; color: var(--ink-3); }
+  pre :global(.c-key), pre :global(.c-flag) { color: var(--ink-2); }
+  pre :global(.c-str), pre :global(.c-num), pre :global(.c-cmd) { color: var(--ink); }
+  pre :global(.c-move), pre :global(.c-prompt) { color: var(--accent-text); }
+  pre :global(.c-cmd .c-flag) { color: var(--ink-2); }
+  pre :global([data-key]) { border-radius: 4px; transition: background-color 0.2s var(--ease), box-shadow 0.2s var(--ease); }
+  @media (max-width: 640px) { pre { padding: 14px 16px 18px; font-size: 0.75rem; } }
+</style>

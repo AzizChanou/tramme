@@ -1,0 +1,4 @@
+.astro/
+# copied from examples/ and apps/editor/ at each build (astro.config.mjs)
+public/examples/
+public/icon.svg

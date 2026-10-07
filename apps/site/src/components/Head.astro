@@ -1,0 +1,14 @@
+---
+// A section's heading: a short title, carried on by a quieter sentence in
+// the same line of type
+interface Props { title: string; more?: string; center?: boolean }
+const { title, more, center = false } = Astro.props;
+---
+
+<h2 class:list={['head', { center }]} data-reveal>{title}{more && <span> {more}</span>}</h2>
+
+<style>
+  .head { max-width: 32ch; font-size: clamp(1.625rem, 3vw, 2.5rem); line-height: 1.14; letter-spacing: -0.03em; }
+  .head span { color: var(--ink-3); }
+  .center { margin-inline: auto; text-align: center; }
+</style>

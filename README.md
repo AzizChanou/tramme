@@ -21,6 +21,7 @@ npm test                      # 72 tests (core, sequences, modifiers, operations
 npm run typecheck
 
 npm run dev                   # the editor on http://localhost:8787/ (local Worker, projects in .wrangler/state)
+npm run site                  # the landing page (Astro) on http://localhost:4321/
 ```
 
 `npm run dev` rebuilds the editor on every change and runs the Worker locally (`wrangler dev`): R2 storage simulated on disk, no Cloudflare Access. It also starts the assistant's companion, which pairs with this editor by itself (`TRAMME_NO_COMPANION=1` to go without it). The home screen offers to create a project, open a `.tramme` file or a Lottie animation, or start from an example.
@@ -70,6 +71,7 @@ tramme schema                                         regenerates the JSON schem
 apps/
   editor/    the editor (Preact): projects home, viewport, timeline, curves, inspector, assistant, exports
   worker/    the Cloudflare Worker: serves the editor; private mode: projects in R2, assistant relay, Cloudflare Access check; personal mode: the key vault's page and its relay
+  site/      the project's landing page (Astro, static, no engine on the page): the examples as videos in src/videos (placeholders until they are there), the editor, the document format
 packages/
   core/      document, properties, keyframes, expressions, modifiers, evaluation, operations, validation
   nodes/     built-in nodes: shapes, path, image, text, counter, event tag and receipt, callout, group, composition, particles, shader, code, sound; effects

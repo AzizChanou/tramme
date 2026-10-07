@@ -1,0 +1,21 @@
+{
+  "name": "@tramme/site",
+  "version": "0.1.0",
+  "license": "Apache-2.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "astro dev",
+    "build": "astro build",
+    "preview": "astro preview"
+  },
+  "dependencies": {
+    "@astrojs/starlight": "^0.42.5",
+    "@phosphor-icons/core": "^2.1.1",
+    "@tramme/core": "*",
+    "@tramme/nodes": "*",
+    "@tramme/render": "*",
+    "astro": "^7.3.6",
+    "cookie": "^2.0.1"
+  }
+}

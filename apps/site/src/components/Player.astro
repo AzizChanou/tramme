@@ -1,0 +1,76 @@
+---
+// A tramme document played live by the engine (lib/player.ts). The poster
+// shows until the first frame, and stays if the browser cannot run it.
+import Play from '@phosphor-icons/core/assets/fill/play-fill.svg';
+import Pause from '@phosphor-icons/core/assets/fill/pause-fill.svg';
+
+interface Props {
+  src: string;
+  width: number;
+  height: number;
+  label: string;
+  poster?: string;
+  /** fill the frame, cropping (the frame's shape then comes from the parent) */
+  cover?: boolean;
+  /** a play / pause button in the corner */
+  toggle?: boolean;
+  maxScale?: number;
+  /** where playback starts, in seconds */
+  start?: number;
+  fps?: number;
+  class?: string;
+}
+const { src, width, height, label, poster, cover = false, toggle = true, maxScale, start, fps, class: cls } = Astro.props;
+---
+
+<div
+  class:list={['player', cls, { cover }]}
+  data-player
+  data-src={src}
+  data-max-scale={maxScale}
+  data-fps={fps}
+  data-start={start}
+  style={`--ratio: ${width} / ${height}`}
+>
+  {poster && <img class="poster" src={poster} alt="" width={width} height={height} decoding="async" />}
+  <canvas role="img" aria-label={label}></canvas>
+  {toggle && (
+    <button type="button" class="toggle" data-toggle aria-label="Play">
+      <Play class="i-play" aria-hidden="true" />
+      <Pause class="i-pause" aria-hidden="true" />
+    </button>
+  )}
+</div>
+
+<script>
+  // the engine loads once a player comes near the screen
+  const io = new IntersectionObserver((entries) => {
+    for (const e of entries) {
+      if (!e.isIntersecting) continue;
+      io.unobserve(e.target);
+      void import('../lib/player').then(({ playerOf }) => playerOf(e.target as HTMLElement));
+    }
+  }, { rootMargin: '300px' });
+  for (const el of document.querySelectorAll<HTMLElement>('[data-player]')) io.observe(el);
+</script>
+
+<style>
+  .player { position: relative; aspect-ratio: var(--ratio); overflow: hidden; background: #0e1312; }
+  .cover { aspect-ratio: auto; }
+  .poster, canvas { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+  canvas { opacity: 0; transition: opacity 0.6s var(--ease); }
+  [data-drawn] canvas { opacity: 1; }
+
+  .toggle {
+    position: absolute; top: 16px; right: 16px; display: grid; place-items: center;
+    width: 40px; height: 40px; border-radius: 999px; border: 0; cursor: pointer;
+    background: rgba(12, 16, 15, 0.55); color: #f4f7f5; backdrop-filter: blur(10px);
+    opacity: 0; transition: opacity 0.3s var(--ease), transform 0.2s var(--ease), background-color 0.2s var(--ease);
+  }
+  .toggle svg { width: 15px; height: 15px; }
+  .toggle:hover { background: rgba(12, 16, 15, 0.75); }
+  .toggle:active { transform: scale(0.92); }
+  [data-state='ready'] .toggle { opacity: 1; }
+  .i-pause, [data-playing] .i-play { display: none; }
+  [data-playing] .i-pause { display: block; }
+</style>

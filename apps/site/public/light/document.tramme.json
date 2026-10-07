@@ -1,0 +1,55 @@
+{
+  "schema": "tramme/1",
+  "meta": {
+    "title": "Light",
+    "description": "The site's backdrop: a shader layer, looped."
+  },
+  "tokens": {
+    "mist": {
+      "type": "color",
+      "value": "#E4E8E5"
+    },
+    "shade": {
+      "type": "color",
+      "value": "#CFE3DE"
+    }
+  },
+  "assets": {},
+  "root": "main",
+  "compositions": {
+    "main": {
+      "name": "Light",
+      "width": 1600,
+      "height": 1000,
+      "fps": 30,
+      "duration": 40,
+      "background": "@mist",
+      "layers": {
+        "light": {
+          "type": "shader",
+          "name": "Light",
+          "transform": {
+            "position": [
+              800,
+              500
+            ]
+          },
+          "props": {
+            "size": [
+              1600,
+              1000
+            ],
+            "resolution": 0.35,
+            "colorA": "@mist",
+            "colorB": "@shade",
+            "p1": 40,
+            "code": "// The light behind the site: two iridescent ribbons drifting over a pale\n// ground, a loop of uParams.x seconds (every motion is a whole number of turns)\nvec3 spectrum(float x) { return clamp(0.5 + 0.5 * cos(6.28318 * (x + vec3(0.0, 0.33, 0.67))), 0.0, 1.0); }\n\nvec4 shade(vec2 uv) {\n  float a = 6.28318 * uTime / uParams.x;\n  vec2 p = vec2(uv.x * uSize.x / uSize.y, uv.y);\n  vec3 col = uColorA.rgb;\n\n  // the wide ribbon, from the lower left to the upper right\n  float y1 = 1.12 - 0.66 * p.x + 0.11 * sin(p.x * 2.1 + a) + 0.04 * sin(p.x * 4.3 - 2.0 * a);\n  float d1 = (p.y - y1) / (0.19 + 0.05 * sin(p.x * 1.7 - a));\n  float m1 = exp(-d1 * d1 * 1.5);\n  vec3 s1 = mix(vec3(1.0), spectrum(0.55 * d1 + 0.1 * sin(a) + 0.12), 0.46);\n  col = mix(col, s1, m1 * 0.7);\n  col += 0.12 * exp(-d1 * d1 * 14.0);\n\n  // a fainter one across the upper left, fading before it meets the first\n  float y2 = 0.16 - 0.06 * p.x + 0.06 * sin(p.x * 1.6 - a + 1.0);\n  float d2 = (p.y - y2) / (0.17 + 0.04 * cos(p.x * 2.3 + a));\n  float m2 = exp(-d2 * d2 * 1.8) * smoothstep(1.15, 0.1, p.x);\n  col = mix(col, mix(vec3(1.0), spectrum(0.55 * d2 + 0.55 + 0.1 * cos(a)), 0.36), m2 * 0.5);\n\n  // a tint of the second colour where the ribbons are not\n  col = mix(col, uColorB.rgb, 0.18 * (1.0 - max(m1, m2)) * smoothstep(0.2, 1.4, p.x));\n  return vec4(col, 1.0);\n}"
+          }
+        }
+      },
+      "order": [
+        "light"
+      ]
+    }
+  }
+}
