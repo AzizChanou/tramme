@@ -129,12 +129,19 @@ pub fn run() {
                 .min_inner_size(640.0, 480.0)
                 // the editor drops files itself (the home screen imports them)
                 .disable_drag_drop_handler();
-            // no system title bar: the editor's top bar moves the window and
-            // carries its buttons, in the theme's colours (ui/WindowControls.tsx);
-            // macOS keeps its own
+            // the editor's top bar is the title bar (apps/editor/src/ui/WindowControls.tsx):
+            // no system bar on Windows and Linux, the bar carries the buttons; on
+            // macOS the traffic lights sit over it, centred in its 46 px
             #[cfg(not(target_os = "macos"))]
             {
                 window = window.decorations(false);
+            }
+            #[cfg(target_os = "macos")]
+            {
+                window = window
+                    .title_bar_style(tauri::TitleBarStyle::Overlay)
+                    .hidden_title(true)
+                    .traffic_light_position(tauri::LogicalPosition::new(16.0, 23.0));
             }
             // a test harness (TRAMME_CDP_PORT=9223) can drive the webview over CDP
             if let Ok(port) = std::env::var("TRAMME_CDP_PORT") {

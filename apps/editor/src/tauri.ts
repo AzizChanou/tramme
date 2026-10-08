@@ -21,19 +21,21 @@ interface Tauri {
 }
 
 export interface NativeWindow {
-  startDragging: () => Promise<void>;
   minimize: () => Promise<void>;
   toggleMaximize: () => Promise<void>;
   close: () => Promise<void>;
   isMaximized: () => Promise<boolean>;
+  isFullscreen: () => Promise<boolean>;
   onResized: (handler: () => void) => Promise<() => void>;
 }
 
 export const tauri: Tauri | undefined = typeof window !== 'undefined' ? (window as unknown as { __TAURI__?: Tauri }).__TAURI__ : undefined;
 
-/** the window without the system's title bar (Windows, Linux): the editor's own bar
- *  moves it and carries its buttons (ui/WindowControls.tsx); macOS keeps its own */
-export const ownFrame = !!tauri && !/Mac/.test(navigator.userAgent);
+/** how the desktop app's window is framed (apps/desktop/src-tauri/src/lib.rs): the
+ *  editor's top bar is its title bar, which moves it, and carries its buttons
+ *  ('own': Windows, Linux) or makes room for the system's traffic lights ('mac');
+ *  none on the web */
+export const frame: 'own' | 'mac' | undefined = tauri ? (/Mac/.test(navigator.userAgent) ? 'mac' : 'own') : undefined;
 
 /** what the app tells of a request, in this order: head, chunks, then end or error */
 type Heard =

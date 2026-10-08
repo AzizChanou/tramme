@@ -1,25 +1,17 @@
-// The desktop app's window, without the system's title bar (tauri.ts,
-// ownFrame): the editor's top bars (the home's, a project's) move it, a
-// double-click maximizes it, and its three buttons sit at their right end, in
-// the theme's colours. On the web, none of it: no buttons, no handlers.
+// The desktop app's window, framed by the editor (tauri.ts, frame): its top
+// bars (the home's, a project's) move it and a double-click maximizes it, as
+// Tauri's drag regions do on each system (what can be pressed in them stays
+// pressable); on Windows and Linux its three buttons sit at their right end,
+// in the theme's colours. On the web, none of it.
 
 import { useEffect, useState } from 'preact/hooks';
-import { ownFrame, tauri } from '../tauri.ts';
+import { frame, tauri } from '../tauri.ts';
 import { t } from '../i18n/index.ts';
 
 const win = () => tauri!.window.getCurrentWindow();
 
-/** what can be pressed in a bar; anywhere else, the bar holds the window */
-const CONTROL = 'button, a, input, select, textarea, label, [role=button], [tabindex]';
-
-/** the handlers of a bar that moves the window */
-export const windowBar = ownFrame ? {
-  onMouseDown: (e: MouseEvent) => {
-    if (e.button !== 0 || (e.target as Element).closest(CONTROL)) return;
-    if (e.detail === 2) win().toggleMaximize();
-    else win().startDragging();
-  },
-} : {};
+/** the attributes of a bar that moves the window */
+export const windowBar = frame ? { 'data-tauri-drag-region': 'deep' } : {};
 
 // the system's own caption glyphs (10 px, a 1 px line), drawn rather than taken from the icon set
 const GLYPHS = {
@@ -36,13 +28,13 @@ function Glyph({ d }: { d: string }) {
 export function WindowControls() {
   const [maximized, setMaximized] = useState(false);
   useEffect(() => {
-    if (!ownFrame) return;
+    if (frame !== 'own') return;
     const check = () => { win().isMaximized().then(setMaximized, () => {}); };
     check();
     const off = win().onResized(check);
     return () => { off.then((f) => f(), () => {}); };
   }, []);
-  if (!ownFrame) return null;
+  if (frame !== 'own') return null;
   return (
     <div class="window-controls">
       <button title={t('window.minimize')} aria-label={t('window.minimize')} onClick={() => win().minimize()}><Glyph d={GLYPHS.minimize} /></button>

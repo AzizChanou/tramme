@@ -1002,9 +1002,13 @@ a.brand:hover { background: var(--field); }
 .home-top .brand { font-size: 13.5px; }
 .home-top .grow { flex: 1; }
 
-/* the desktop app's window buttons, at the right end of the top bars (ui/WindowControls.tsx) */
+/* the desktop app's window (ui/WindowControls.tsx): the top bars are its title bar, one
+   height on every screen; its buttons at their right end (Windows, Linux), room for the
+   traffic lights at their left (macOS, apps/desktop/src-tauri/src/lib.rs) but in full screen */
+:root[data-frame] .home-top { height: 46px; }
+:root[data-frame="own"] .topbar, :root[data-frame="own"] .home-top { padding-right: 0; }
+:root[data-frame="mac"]:not([data-fullscreen]) .topbar, :root[data-frame="mac"]:not([data-fullscreen]) .home-top { padding-left: 80px; }
 .window-controls { display: flex; align-self: stretch; flex: none; margin-left: 4px; }
-.topbar:has(.window-controls), .home-top:has(.window-controls) { padding-right: 0; }
 .window-controls button {
   display: grid; place-items: center; width: 46px; padding: 0; border: 0; border-radius: 0;
   background: transparent; color: var(--text-2); cursor: default;

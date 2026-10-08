@@ -4,11 +4,21 @@
 // deployments have none of Tauri, so everything here is a no-op there.
 
 import { importFile } from './importer.ts';
-import { tauri } from './tauri.ts';
+import { frame, tauri } from './tauri.ts';
 
 export function initDesktop(): void {
   const app = tauri;
   if (!app) return;
+  // the window's frame, for the top bars' room (styles.css); in full screen
+  // the traffic lights of macOS leave
+  const root = document.documentElement;
+  root.dataset.frame = frame;
+  if (frame === 'mac') {
+    const win = app.window.getCurrentWindow();
+    const check = () => { win.isFullscreen().then((f) => { root.toggleAttribute('data-fullscreen', f); }, () => {}); };
+    check();
+    win.onResized(check);
+  }
   const pending = async () => {
     const name = (await app.core.invoke('desktop_pending_name')) as string | null;
     if (!name) return;
