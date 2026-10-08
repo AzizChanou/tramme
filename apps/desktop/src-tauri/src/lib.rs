@@ -129,6 +129,13 @@ pub fn run() {
                 .min_inner_size(640.0, 480.0)
                 // the editor drops files itself (the home screen imports them)
                 .disable_drag_drop_handler();
+            // no system title bar: the editor's top bar moves the window and
+            // carries its buttons, in the theme's colours (ui/WindowControls.tsx);
+            // macOS keeps its own
+            #[cfg(not(target_os = "macos"))]
+            {
+                window = window.decorations(false);
+            }
             // a test harness (TRAMME_CDP_PORT=9223) can drive the webview over CDP
             if let Ok(port) = std::env::var("TRAMME_CDP_PORT") {
                 window = window.additional_browser_args(&format!("--remote-debugging-port={port}"));

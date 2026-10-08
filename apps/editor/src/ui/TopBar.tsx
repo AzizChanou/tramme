@@ -13,6 +13,7 @@ import { Icon } from './icons.tsx';
 import { LogoMark } from './Logo.tsx';
 import { settingsOpen, setPrefs, prefs, DISPLAYS } from '../settings.ts';
 import { HelpButton, helpMenu } from './Help.tsx';
+import { WindowControls, windowBar } from './WindowControls.tsx';
 import { t } from '../i18n/index.ts';
 
 const FORMATS: [string, string, number, number][] = [
@@ -143,7 +144,7 @@ export function TopBar() {
   };
   const comps = Object.entries(doc.compositions);
   return (
-    <header class="topbar">
+    <header class="topbar" {...windowBar}>
       <a class="brand" href="/" title={t('topbar.allProjects')} onClick={leave}><LogoMark /><span>tramme</span></a>
       <span class="sep" />
       <div class="project" data-tour="project">
@@ -179,6 +180,7 @@ export function TopBar() {
       <button class="btn primary" data-tour="export" onClick={(e) => setExp(exp ? null : (e.currentTarget as HTMLElement))}><Icon name="download" /><span class="label">{t('common.export')}</span></button>
       {/* narrow screens: what no longer fits in the bar moves here */}
       <button class="icon-btn more-btn" title={t('topbar.moreOptions')} aria-label={t('topbar.moreOptions')} onClick={(e) => moreMenu(e as unknown as MouseEvent, { fmt, fps: c.fps, setFormat, setFps: (n) => commit(t('common.frameRate'), [{ op: 'replace', path: `${cp}/fps`, value: n }]), comps: comps.length > 1 ? comps.map(([id, x]) => [id, x.name] as [string, string]) : [] })}><Icon name="more" /></button>
+      <WindowControls />
       {exp && <ExportPop anchor={exp} onClose={() => setExp(null)} />}
     </header>
   );

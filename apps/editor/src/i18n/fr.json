@@ -1519,5 +1519,11 @@
     "forgetKeysConfirm": "Toutes les clés et les fournisseurs personnalisés sont retirés de ce navigateur. Continuer ?",
     "vaultAlone": "Cette page garde vos clés tramme. Ouvrez tramme pour vous en servir.",
     "storedHere": "Vos projets sont gardés dans ce navigateur, sur cet appareil seulement : tramme ne garde rien. Exportez-les (.tramme) pour les sauvegarder ou les ouvrir ailleurs."
+  },
+  "window": {
+    "minimize": "Réduire",
+    "maximize": "Agrandir",
+    "restore": "Niveau inférieur",
+    "close": "Fermer"
   }
 }

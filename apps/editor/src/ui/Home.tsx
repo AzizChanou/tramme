@@ -18,6 +18,7 @@ import { LogoMark } from './Logo.tsx';
 import { Toasts } from './App.tsx';
 import { SettingsDialog } from './Settings.tsx';
 import { HelpButton } from './Help.tsx';
+import { WindowControls, windowBar } from './WindowControls.tsx';
 import { personal } from '../mode.ts';
 import { offerTours } from '../tours/index.ts';
 import { settingsOpen } from '../settings.ts';
@@ -239,7 +240,7 @@ export function Home() {
       onDragOver={(e) => { if (e.dataTransfer?.types.includes('Files')) { e.preventDefault(); setDrag(true); } }}
       onDragLeave={(e) => { if (e.target === e.currentTarget) setDrag(false); }}
       onDrop={(e) => { e.preventDefault(); setDrag(false); openFiles(e.dataTransfer?.files ?? null); }}>
-      <header class="home-top">
+      <header class="home-top" {...windowBar}>
         <div class="brand"><LogoMark /><span>tramme</span></div>
         <span class="grow" />
         <HelpButton page="home" />
@@ -249,6 +250,7 @@ export function Home() {
         <button class="btn primary" data-tour="home-new" onClick={() => setDialog({ kind: 'new' })}><Icon name="plus" /><span class="label">{t('common.newProject')}</span></button>
         <input ref={input} type="file" accept=".tramme,.trame,.emotion,.zip,.json,application/json" hidden onChange={(e) => { openFiles((e.target as HTMLInputElement).files); (e.target as HTMLInputElement).value = ''; }} />
         <input ref={video} type="file" accept="video/*,.mp4,.mov,.webm,.mkv" hidden onChange={(e) => { openFiles((e.target as HTMLInputElement).files); (e.target as HTMLInputElement).value = ''; }} />
+        <WindowControls />
       </header>
       <main class="home-main">
         <section data-tour="home-projects">

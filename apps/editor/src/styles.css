@@ -1001,6 +1001,16 @@ a.brand:hover { background: var(--field); }
 }
 .home-top .brand { font-size: 13.5px; }
 .home-top .grow { flex: 1; }
+
+/* the desktop app's window buttons, at the right end of the top bars (ui/WindowControls.tsx) */
+.window-controls { display: flex; align-self: stretch; flex: none; margin-left: 4px; }
+.topbar:has(.window-controls), .home-top:has(.window-controls) { padding-right: 0; }
+.window-controls button {
+  display: grid; place-items: center; width: 46px; padding: 0; border: 0; border-radius: 0;
+  background: transparent; color: var(--text-2); cursor: default;
+}
+.window-controls button:hover { background: var(--field-hover); color: var(--text); }
+.window-controls button.close:hover { background: #c42b1c; color: #ffffff; }
 .home-main { max-width: 1280px; margin: 0 auto; padding: 28px 24px 64px; display: flex; flex-direction: column; gap: 36px; }
 .home-h { display: flex; align-items: baseline; gap: 10px; margin-bottom: 14px; }
 .home-h h2 { margin: 0; font-size: 15px; font-weight: 600; letter-spacing: -0.01em; }

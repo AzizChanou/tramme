@@ -877,5 +877,11 @@
     "forgetKeysConfirm": "Every key and custom provider is removed from this browser. Continue?",
     "vaultAlone": "This page keeps your tramme keys. Open tramme to use them.",
     "storedHere": "Your projects are kept in this browser, on this device only: tramme keeps nothing. Export them (.tramme) to back them up or open them elsewhere."
+  },
+  "window": {
+    "minimize": "Minimize",
+    "maximize": "Maximize",
+    "restore": "Restore",
+    "close": "Close"
   }
 }
