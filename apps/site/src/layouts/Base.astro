@@ -1,6 +1,8 @@
 ---
 // light or dark before the first paint, as in the docs
 import ThemeProvider from '../components/ThemeProvider.astro';
+// the visitor's system, for the download buttons
+import Platform from '../components/Platform.astro';
 import SiteHead from '../components/SiteHead.astro';
 import SocialImage from '../components/SocialImage.astro';
 import { SITE } from '../lib/site';
@@ -31,6 +33,7 @@ const canonical = new URL(Astro.url.pathname, Astro.site).href;
     <meta name="twitter:description" content={description} />
     <SocialImage />
     <ThemeProvider />
+    <Platform />
     <SiteHead />
     <slot name="head" />
   </head>

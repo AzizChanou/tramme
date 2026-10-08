@@ -1,0 +1,16 @@
+---
+// The visitor's system, before the first paint: data-os on <html> (windows,
+// mac, linux), read by the download button (DownloadLink.astro) and the
+// download page. A phone, a tablet or a system it cannot tell sets nothing:
+// the button then leads to the download page, where one is chosen.
+---
+
+<script is:inline>
+  (() => {
+    const n = navigator, ua = n.userAgent, p = (n.userAgentData && n.userAgentData.platform) || n.platform || '';
+    // an iPad says it is a Mac, but has a touch screen
+    if (/android|iphone|ipad|ipod|cros/i.test(ua) || (/mac/i.test(p) && n.maxTouchPoints > 1)) return;
+    const os = /win/i.test(p) ? 'windows' : /mac/i.test(p) ? 'mac' : /linux|x11/i.test(p) ? 'linux' : '';
+    if (os) document.documentElement.dataset.os = os;
+  })();
+</script>

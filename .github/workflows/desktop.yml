@@ -1,0 +1,83 @@
+# The desktop app (apps/desktop) for Windows, macOS and Linux, each built on
+# its own system. A tag vX.Y.Z (the version in tauri.conf.json) publishes the
+# three as one GitHub release, under the stable names of
+# apps/desktop/downloads.ts that the site links to; a manual run only builds
+# them, kept as the run's artifacts.
+
+name: Desktop app
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: desktop-${{ github.ref }}
+
+jobs:
+  build:
+    name: Build (${{ matrix.name }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: Windows
+            runner: windows-latest
+            args: --bundles nsis
+          - name: macOS
+            runner: macos-latest
+            # one app for Apple silicon and Intel
+            args: --target universal-apple-darwin --bundles dmg
+            rust-targets: aarch64-apple-darwin,x86_64-apple-darwin
+          - name: Linux
+            # the oldest supported Ubuntu: the AppImage runs on its glibc and newer
+            runner: ubuntu-22.04
+            args: --bundles appimage,deb
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.rust-targets }}
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: apps/desktop/src-tauri
+      - name: Linux libraries (WebKitGTK, the keychain over D-Bus)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf xdg-utils libdbus-1-dev pkg-config
+      - run: npm ci
+      - name: Build the editor and the app
+        run: npm run desktop:build -- ${{ matrix.args }}
+      - name: Name the installers for the release
+        run: node scripts/desktop-release.ts out ${{ github.ref_type == 'tag' && github.ref_name || '' }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: desktop-${{ matrix.name }}
+          path: out/
+          if-no-files-found: error
+
+  release:
+    name: Release
+    if: github.ref_type == 'tag'
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: out
+          merge-multiple: true
+      - name: Publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "$GITHUB_REF_NAME" out/* --repo "$GITHUB_REPOSITORY" --title "tramme $GITHUB_REF_NAME" --generate-notes

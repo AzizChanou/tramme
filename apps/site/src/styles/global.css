@@ -31,7 +31,13 @@ body {
   line-height: 1.6;
   -webkit-font-smoothing: antialiased;
   overflow-x: clip;
+  /* a short page still ends on its footer, at the bottom of the screen */
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  min-height: 100dvh;
 }
+main { flex: 1; }
 
 h1, h2, h3 { margin: 0; font-weight: 600; letter-spacing: -0.035em; line-height: 1.05; text-wrap: balance; }
 p { margin: 0; text-wrap: pretty; }

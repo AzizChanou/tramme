@@ -1,14 +1,35 @@
 ---
-// The desktop app for Windows, when the site serves its installer
-// (lib/download.ts); nothing otherwise
-import WindowsLogo from '@phosphor-icons/core/assets/fill/windows-logo-fill.svg';
+// The desktop app for the visitor's system (Platform.astro), from the latest
+// release on GitHub (lib/download.ts): its first installer. Another system,
+// or one that cannot be told, gets the download page instead. Nothing without
+// a release.
+import DownloadSimple from '@phosphor-icons/core/assets/regular/download-simple.svg';
+import SystemIcon from './SystemIcon.astro';
+import { SYSTEMS, type Os } from '../../../desktop/downloads.ts';
 
-const d = __DOWNLOAD__;
-const size = d && `${Math.round(d.size / 1e6)} MB`;
+const release = __RELEASE__;
+const firsts = release ? (Object.keys(SYSTEMS) as Os[]).flatMap((os) => release.installers.find((i) => i.os === os) ?? []) : [];
 ---
 
-{d && (
-  <a class="btn btn-ghost" href={d.href} download title={`tramme ${d.version} for Windows 10 and 11 (x64), ${size}`}>
-    <WindowsLogo aria-hidden="true" />Download for Windows
-  </a>
+{release && (
+  <span class="download">
+    {firsts.map((i) => (
+      <a class="btn btn-ghost" data-for={i.os} href={i.href} title={`tramme ${release.version}, ${i.kind.toLowerCase()} for ${i.runs}, ${Math.round(i.size / 1e6)} MB`}>
+        <SystemIcon os={i.os} />Download for {SYSTEMS[i.os]}
+      </a>
+    ))}
+    <a class="btn btn-ghost any" href="/download/"><DownloadSimple aria-hidden="true" />Download the app</a>
+  </span>
 )}
+
+<style>
+  /* the buttons sit in their row as if this wrapper were not there */
+  .download { display: contents; }
+  .download [data-for] { display: none; }
+  :global(:root[data-os='windows']) [data-for='windows'],
+  :global(:root[data-os='mac']) [data-for='mac'],
+  :global(:root[data-os='linux']) [data-for='linux'] { display: inline-flex; }
+  :global(:root[data-os='windows']) .download:has([data-for='windows']) .any,
+  :global(:root[data-os='mac']) .download:has([data-for='mac']) .any,
+  :global(:root[data-os='linux']) .download:has([data-for='linux']) .any { display: none; }
+</style>

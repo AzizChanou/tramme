@@ -1,0 +1,108 @@
+---
+// The desktop app, every system's installers side by side, from the latest
+// release on GitHub (lib/download.ts): where the download button leads when
+// the visitor's system cannot be told (Platform.astro), and where another
+// system's app is chosen. The visitor's system, when known, comes first.
+import DownloadSimple from '@phosphor-icons/core/assets/regular/download-simple.svg';
+import ArrowUpRight from '@phosphor-icons/core/assets/regular/arrow-up-right.svg';
+import Base from '../layouts/Base.astro';
+import Nav from '../components/Nav.astro';
+import Footer from '../components/Footer.astro';
+import SystemIcon from '../components/SystemIcon.astro';
+import { SYSTEMS, type Os } from '../../../desktop/downloads.ts';
+import { APP, REPO } from '../lib/links';
+
+const release = __RELEASE__;
+const RELEASES = `${REPO}/releases`;
+
+// the first launch of an app that is not signed by a known publisher yet
+const FIRST: Record<Os, string> = {
+  windows: 'Windows may warn about an unknown publisher the first time: choose More info, then Run anyway.',
+  mac: 'The app is not notarized by Apple yet. If macOS will not open it, go to System Settings, Privacy & Security, and choose Open Anyway.',
+  linux: 'Make the AppImage executable (chmod +x), then run it. The .deb installs with your package manager.',
+};
+const mb = (bytes: number) => `${Math.round(bytes / 1e6)} MB`;
+---
+
+<Base title="Download tramme" description="The tramme desktop app for Windows, macOS and Linux: projects in a folder of your computer, keys in its keychain.">
+  <Nav />
+  <main class="wrap page">
+    <h1>Download tramme.</h1>
+    <p class="lead">
+      The editor as a desktop app: your projects in a folder of your computer, your keys in its keychain.{' '}
+      {release && <>Version {release.version}, <a href={release.page}>what is new</a>.{' '}</>}
+      Or <a href={APP}>open it in the browser</a>, with nothing to install.
+    </p>
+
+    {release ? (
+      <ul class="systems" role="list">
+        {(Object.keys(SYSTEMS) as Os[]).map((os) => {
+          const files = release.installers.filter((i) => i.os === os);
+          return (
+            <li class="system" data-for={os}>
+              <div class="name"><SystemIcon os={os} /><h2>{SYSTEMS[os]}</h2><span class="yours">Your system</span></div>
+              {files.length ? (
+                <ul class="files" role="list">
+                  {files.map((f, n) => (
+                    <li>
+                      <a class:list={['btn', n === 0 ? 'btn-accent' : 'btn-ghost']} href={f.href}><DownloadSimple aria-hidden="true" />{f.kind}</a>
+                      <span class="meta">{f.runs} · {mb(f.size)}</span>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p class="meta">Not in this release yet: <a href={RELEASES}>see the releases</a>.</p>
+              )}
+              <p class="first">{FIRST[os]}</p>
+            </li>
+          );
+        })}
+      </ul>
+    ) : (
+      <p class="none">
+        There is no release of the desktop app yet. Until then, <a href={APP}>open tramme in the browser</a>, or follow
+        its <a href={RELEASES}>releases on GitHub</a>.
+      </p>
+    )}
+
+    <p class="all"><a href={RELEASES}>All releases on GitHub<ArrowUpRight aria-hidden="true" /></a></p>
+  </main>
+  <Footer />
+</Base>
+
+<style>
+  .page { padding-top: clamp(48px, 8vw, 104px); }
+  h1 { font-size: clamp(2.5rem, 5.5vw, 4.5rem); line-height: 1; letter-spacing: -0.045em; }
+  .lead { max-width: 40rem; margin-top: 24px; font-size: 1.125rem; line-height: 1.55; color: var(--ink-2); }
+  .lead a, .none a, .meta a { color: var(--accent-text); }
+
+  .systems { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 20px; margin: clamp(40px, 5vw, 64px) 0 0; padding: 0; list-style: none; }
+  .system {
+    display: grid; grid-template-rows: auto 1fr auto; gap: 24px; padding: clamp(20px, 2.4vw, 32px);
+    border: 1px solid var(--line); border-radius: var(--r); background: var(--panel);
+  }
+  .name { display: flex; align-items: center; gap: 12px; }
+  .name :global(svg) { width: 26px; height: 26px; flex: none; }
+  h2 { font-size: 1.5rem; letter-spacing: -0.03em; }
+  .yours { display: none; margin-left: auto; white-space: nowrap; padding: 3px 10px; border-radius: 999px; font-size: 0.75rem; font-weight: 500; color: var(--accent-text); background: var(--accent-soft); }
+  .files { display: grid; gap: 16px; margin: 0; padding: 0; list-style: none; align-content: start; }
+  .files li { display: grid; gap: 8px; justify-items: start; }
+  .meta { font-size: 0.875rem; color: var(--ink-3); }
+  .first { padding-top: 18px; border-top: 1px solid var(--line); font-size: 0.875rem; color: var(--ink-3); }
+
+  /* the visitor's system first, and marked */
+  :global(:root[data-os='windows']) [data-for='windows'],
+  :global(:root[data-os='mac']) [data-for='mac'],
+  :global(:root[data-os='linux']) [data-for='linux'] { order: -1; border-color: var(--accent); }
+  :global(:root[data-os='windows']) [data-for='windows'] .yours,
+  :global(:root[data-os='mac']) [data-for='mac'] .yours,
+  :global(:root[data-os='linux']) [data-for='linux'] .yours { display: inline-block; }
+
+  .none { max-width: 40rem; margin-top: clamp(40px, 5vw, 64px); padding: 24px; border: 1px solid var(--line); border-radius: var(--r); background: var(--panel); color: var(--ink-2); }
+  .all { margin-top: 32px; font-size: 0.9375rem; }
+  .all a { display: inline-flex; align-items: center; gap: 6px; color: var(--ink-2); text-decoration: none; }
+  .all a:hover { color: var(--ink); }
+  .all svg { width: 16px; height: 16px; }
+
+  @media (max-width: 960px) { .systems { grid-template-columns: minmax(0, 1fr); } }
+</style>
