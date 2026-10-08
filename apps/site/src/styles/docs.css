@@ -42,9 +42,8 @@
 
 ::selection { background: var(--accent-soft); }
 
-/* the brand as on the landing page (Brand.astro): the icon and the name, in ink */
-.site-title { gap: 10px; font-size: 1.05rem; font-weight: 600; letter-spacing: -0.02em; color: var(--ink); }
-.site-title img { height: 1.6rem; }
+/* the brand as on the landing page (Brand.astro, in components/docs/SiteTitle.astro) */
+.site-title { display: flex; align-items: center; font-size: 1.05rem; color: var(--ink); text-decoration: none; }
 
 /* the page you are on: a quiet tint, not a solid block */
 .sidebar-content a[aria-current='page'],

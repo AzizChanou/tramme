@@ -137,7 +137,7 @@ let lastDisplay = '';
 effect(() => {
   if (typeof document === 'undefined') return;
   const p = prefs.value;
-  const theme = p.theme === 'system' ? (systemLight.value ? 'studio' : 'paper') : p.theme;
+  const theme = p.theme === 'system' ? (systemLight.value ? 'paper' : 'studio') : p.theme;
   document.documentElement.dataset.theme = theme;
   document.documentElement.dataset.display = p.display;
   document.querySelector('meta[name="theme-color"]')?.setAttribute('content', BAR[theme] ?? BAR.studio);

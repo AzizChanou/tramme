@@ -1,7 +1,14 @@
 ---
+// The editor in the page's theme: its light theme (paper) on the light page,
+// its dark one (studio) on the dark page. Both are lazy, so only the one shown
+// loads.
 import { Image } from 'astro:assets';
 import Head from './Head.astro';
-import shot from '../assets/editor.png';
+import light from '../assets/editor-light.png';
+import dark from '../assets/editor-dark.png';
+
+const SHOTS = [['light', light], ['dark', dark]] as const;
+const alt = "The tramme editor: layers on the left, the Showcase composition in the viewport, the title's properties and a wiggle modifier in the inspector, keyframes on the timeline.";
 ---
 
 <section class="section" id="editor">
@@ -10,7 +17,9 @@ import shot from '../assets/editor.png';
   </div>
   <div class="wrap-wide">
     <div class="shot" data-reveal>
-      <Image src={shot} alt="The tramme editor: layers on the left, the Showcase composition in the viewport, the title's properties and a wiggle modifier in the inspector, keyframes on the timeline." widths={[800, 1280, 1760, 2560]} sizes="(max-width: 1440px) 100vw, 1440px" loading="lazy" decoding="async" />
+      {SHOTS.map(([theme, src]) => (
+        <Image class={theme} src={src} alt={alt} widths={[800, 1280, 1760, 2560]} sizes="(max-width: 1440px) 100vw, 1440px" loading="lazy" decoding="async" />
+      ))}
     </div>
   </div>
 </section>
@@ -18,4 +27,6 @@ import shot from '../assets/editor.png';
 <style>
   .shot { margin-top: clamp(40px, 5vw, 64px); border-radius: var(--r); overflow: hidden; box-shadow: var(--lift); }
   .shot :global(img) { width: 100%; height: auto; }
+  .shot :global(.dark), :global([data-theme='dark']) .shot :global(.light) { display: none; }
+  :global([data-theme='dark']) .shot :global(.dark) { display: block; }
 </style>

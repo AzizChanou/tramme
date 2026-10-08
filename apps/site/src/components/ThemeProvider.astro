@@ -1,0 +1,11 @@
+---
+// Light or dark, before the first paint: the landing page's (layouts/Base.astro)
+// and the docs' (Starlight's ThemeProvider, replaced; Starlight writes
+// data-theme="dark" on <html>, so it is always set here). Light until the
+// visitor picks dark with the toggle (ThemeToggle.astro), remembered under
+// Starlight's own key, so a choice made on one side holds on the other.
+---
+
+<script is:inline>
+  document.documentElement.dataset.theme = (() => { try { return localStorage.getItem('starlight-theme'); } catch { return null; } })() === 'dark' ? 'dark' : 'light';
+</script>

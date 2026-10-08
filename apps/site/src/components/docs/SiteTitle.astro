@@ -1,0 +1,9 @@
+---
+// The docs' title, the landing page's brand (Brand.astro), in place of
+// Starlight's logo image
+import Brand from '../Brand.astro';
+
+const { siteTitleHref } = Astro.locals.starlightRoute;
+---
+
+<a href={siteTitleHref} class="site-title" aria-label="tramme, docs home"><Brand /></a>

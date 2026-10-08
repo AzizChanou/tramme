@@ -1,31 +1,10 @@
 /* The site's two themes, shared by the landing page (global.css) and the
-   docs (docs.css): the editor's dark theme by default, a light one beside it.
-   The choice is Starlight's: data-theme on <html>, set before the first paint
-   from localStorage 'starlight-theme' or the system's preference, so the
-   landing page and the docs always agree. */
+   docs (docs.css): a light one by default, the editor's dark theme beside it.
+   The choice is the visitor's: data-theme on <html>, set before the first
+   paint from localStorage 'starlight-theme' (components/ThemeProvider.astro),
+   so the landing page and the docs always agree. */
 
 :root {
-  color-scheme: dark;
-  --bg: #0b0f12;
-  --panel: #11171b;
-  --panel-2: #161d22;
-  --line: rgba(228, 234, 237, 0.08);
-  --line-2: rgba(228, 234, 237, 0.14);
-  --hover: rgba(228, 234, 237, 0.06);
-  --ink: #e8edef;
-  --ink-2: #9eabb3;
-  --ink-3: #7a8890;
-  /* the accent as a fill (buttons), the text on it, and the accent as text */
-  --accent: #2ec4b6;
-  --accent-2: #5dd6cb;
-  --accent-ink: #03211e;
-  --accent-text: #2ec4b6;
-  --accent-soft: rgba(46, 196, 182, 0.14);
-  /* a large picture lifted off the page */
-  --lift: 0 0 0 1px var(--line-2), 0 60px 140px -60px rgba(0, 0, 0, 0.9);
-}
-
-:root[data-theme='light'] {
   color-scheme: light;
   --bg: #f5f7f8;
   --panel: #ffffff;
@@ -36,10 +15,31 @@
   --ink: #11181c;
   --ink-2: #46545b;
   --ink-3: #5f6d75;
+  /* the accent as a fill (buttons), the text on it, and the accent as text */
   --accent: #0b8075;
   --accent-2: #096b62;
   --accent-ink: #ffffff;
   --accent-text: #0b7d73;
   --accent-soft: rgba(11, 128, 117, 0.12);
+  /* a large picture lifted off the page */
   --lift: 0 0 0 1px var(--line), 0 40px 100px -50px rgba(17, 24, 28, 0.4);
+}
+
+:root[data-theme='dark'] {
+  color-scheme: dark;
+  --bg: #0b0f12;
+  --panel: #11171b;
+  --panel-2: #161d22;
+  --line: rgba(228, 234, 237, 0.08);
+  --line-2: rgba(228, 234, 237, 0.14);
+  --hover: rgba(228, 234, 237, 0.06);
+  --ink: #e8edef;
+  --ink-2: #9eabb3;
+  --ink-3: #7a8890;
+  --accent: #2ec4b6;
+  --accent-2: #5dd6cb;
+  --accent-ink: #03211e;
+  --accent-text: #2ec4b6;
+  --accent-soft: rgba(46, 196, 182, 0.14);
+  --lift: 0 0 0 1px var(--line-2), 0 60px 140px -60px rgba(0, 0, 0, 0.9);
 }

@@ -1,5 +1,7 @@
 ---
-// the app's icon (apps/editor/icon.svg) and its name
+// the app's icon (apps/editor/icon.svg) and its name, on the landing page and
+// in the docs: the marks alone, in the theme's accent. The plate is the app
+// icon's (native apps, favicon), not the site's
 import Logo from '../../../editor/icon.svg';
 ---
 
@@ -7,5 +9,8 @@ import Logo from '../../../editor/icon.svg';
 
 <style>
   .brand { display: inline-flex; align-items: center; gap: 10px; font-weight: 600; letter-spacing: -0.02em; }
-  .brand svg { width: 1.5em; height: 1.5em; }
+  .brand :global(svg) { width: 1.5em; height: 1.5em; }
+  /* without the plate, the marks take its room */
+  .brand :global(svg > rect) { display: none; }
+  .brand :global(svg > g) { fill: var(--accent); transform: none; }
 </style>

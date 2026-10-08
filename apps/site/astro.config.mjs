@@ -27,11 +27,16 @@ export default defineConfig({
     starlight({
       title: 'tramme',
       description: SITE.docs,
-      logo: { src: '../editor/icon.svg' },
       social: [{ icon: 'github', label: 'GitHub', href: REPO }],
       sidebar,
       customCss: ['./src/styles/docs.css'],
-      components: { Head: './src/components/docs/Head.astro' },
+      // the landing page's brand, theme script and toggle, so both sides look and choose alike
+      components: {
+        Head: './src/components/docs/Head.astro',
+        SiteTitle: './src/components/docs/SiteTitle.astro',
+        ThemeProvider: './src/components/ThemeProvider.astro',
+        ThemeSelect: './src/components/ThemeToggle.astro',
+      },
       // the pages come from the repository's root (docs/, README.md): Starlight's
       // Markdown transforms (heading anchors, asides) apply there too
       markdown: { processedDirs: ['../..'] },
