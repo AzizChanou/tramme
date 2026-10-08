@@ -1,25 +1,61 @@
 # The desktop app (apps/desktop) for Windows, macOS and Linux, each built on
-# its own system. A tag vX.Y.Z (the version in tauri.conf.json) publishes the
-# three as one GitHub release, under the stable names of
-# apps/desktop/downloads.ts that the site links to; a manual run only builds
-# them, kept as the run's artifacts.
+# its own system, and its releases. main's version (scripts/version.ts) is
+# released as soon as it has no tag: the three are published as one GitHub
+# release vX.Y.Z, under the stable names of apps/desktop/downloads.ts that the
+# site links to, with the changelog's section as notes, and the site is
+# deployed again so its version and sizes follow. A manual run on main does the
+# same if the version is still unreleased; elsewhere it only builds, kept as the
+# run's artifacts.
 
 name: Desktop app
 
 on:
   push:
-    tags: ['v*']
+    branches: [main]
+    # a new version always changes it
+    paths: [apps/desktop/src-tauri/tauri.conf.json]
   workflow_dispatch:
 
 permissions:
   contents: read
 
+# one at a time: a run sees the tags of the one before
 concurrency:
   group: desktop-${{ github.ref }}
 
 jobs:
+  plan:
+    name: Plan
+    runs-on: ubuntu-latest
+    outputs:
+      build: ${{ steps.plan.outputs.build }}
+      tag: ${{ steps.plan.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - id: plan
+        name: Is there a version to release?
+        run: |
+          version=$(node -p "require('./apps/desktop/src-tauri/tauri.conf.json').version")
+          if [ "$GITHUB_REF" != refs/heads/main ]; then
+            echo "a build of $GITHUB_REF_NAME, not released"
+            echo build=true >> "$GITHUB_OUTPUT"
+          elif git ls-remote --exit-code --tags origin "refs/tags/v$version" > /dev/null; then
+            echo "v$version is already released"
+            echo build=${{ github.event_name == 'workflow_dispatch' }} >> "$GITHUB_OUTPUT"
+          else
+            node scripts/version.ts --notes "$version" > /dev/null
+            echo "v$version will be released"
+            echo build=true >> "$GITHUB_OUTPUT"
+            echo tag=v$version >> "$GITHUB_OUTPUT"
+          fi
+
   build:
     name: Build (${{ matrix.name }})
+    needs: plan
+    if: needs.plan.outputs.build == 'true'
     strategy:
       fail-fast: false
       matrix:
@@ -58,7 +94,7 @@ jobs:
       - name: Build the editor and the app
         run: npm run desktop:build -- ${{ matrix.args }}
       - name: Name the installers for the release
-        run: node scripts/desktop-release.ts out ${{ github.ref_type == 'tag' && github.ref_name || '' }}
+        run: node scripts/desktop-release.ts out ${{ needs.plan.outputs.tag }}
       - uses: actions/upload-artifact@v4
         with:
           name: desktop-${{ matrix.name }}
@@ -67,12 +103,18 @@ jobs:
 
   release:
     name: Release
-    if: github.ref_type == 'tag'
-    needs: build
+    needs: [plan, build]
+    if: needs.plan.outputs.tag != ''
     runs-on: ubuntu-latest
     permissions:
       contents: write
+    env:
+      TAG: ${{ needs.plan.outputs.tag }}
     steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
       - uses: actions/download-artifact@v4
         with:
           path: out
@@ -80,4 +122,31 @@ jobs:
       - name: Publish
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release create "$GITHUB_REF_NAME" out/* --repo "$GITHUB_REPOSITORY" --title "tramme $GITHUB_REF_NAME" --generate-notes
+        # the tag is made on the commit that was built
+        run: |
+          node scripts/version.ts --notes "${TAG#v}" > notes.md
+          gh release create "$TAG" out/* --target "$GITHUB_SHA" --title "tramme $TAG" --notes-file notes.md
+
+  site:
+    name: Deploy the site
+    needs: release
+    runs-on: ubuntu-latest
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      # the site reads the latest release (apps/site/src/lib/download.ts)
+      GITHUB_TOKEN: ${{ github.token }}
+    steps:
+      - name: Cloudflare's secrets
+        run: |
+          if [ -z "$CLOUDFLARE_API_TOKEN" ] || [ -z "$CLOUDFLARE_ACCOUNT_ID" ]; then
+            echo "::error::the repository's secrets CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID are missing (Settings, Secrets and variables, Actions): the release is out, the site was not deployed"
+            exit 1
+          fi
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run site:deploy

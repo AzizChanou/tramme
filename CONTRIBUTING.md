@@ -57,6 +57,10 @@ The document format is described in [docs/document.md](docs/document.md), the pr
 5. Add a line to the `Unreleased` section of [CHANGELOG.md](CHANGELOG.md) when the change is visible to users.
 6. Describe what changed and why, and how you tested it. Add a screenshot for interface changes.
 
+## Releases
+
+A new version on `main` is released by itself. `node scripts/version.ts 0.2.0` sets the version of every package and of the desktop app, and dates the changelog's `Unreleased` section as `0.2.0`; commit and push it to `main`. The desktop workflow (`.github/workflows/desktop.yml`) then builds the app on Windows, macOS and Linux, publishes the GitHub release `v0.2.0` with that changelog section as its notes, and deploys the site again. No tag to push by hand: the workflow makes it.
+
 ## License
 
 By contributing, you agree that your contributions are licensed under the project's [Apache License 2.0](LICENSE).
