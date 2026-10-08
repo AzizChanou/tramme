@@ -1,6 +1,7 @@
 // The storage of the desktop app over HTTP, for the storage contract suite
 // (apps/desktop/test): the same raw bucket the /api routes answer from, as a
-// little server a test can spawn. Not part of the app; test harness only.
+// little server a test can spawn. Not part of the app: an example of the
+// crate, so the app's bundles never carry it; test harness only.
 //
 // Parameters travel in the query (percent-encoded), file bytes in the body,
 // object metadata back in the X-Tramme-Meta header.

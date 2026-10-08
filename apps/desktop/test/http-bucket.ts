@@ -1,5 +1,5 @@
 // The desktop storage over HTTP: a Bucket that forwards every operation to
-// the little server (src-tauri/src/bin/tramme-storage-server.rs) backed by
+// the little server (src-tauri/examples/tramme-storage-server.rs) backed by
 // the same folders the app writes to. The conditions and the ranges follow
 // the exact helpers the other buckets use (conditions.ts).
 

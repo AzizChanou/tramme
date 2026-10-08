@@ -12,7 +12,7 @@ import { storageContract } from '../../../packages/api/test/contract.ts';
 import { httpBucket } from './http-bucket.ts';
 
 const TAURI = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'src-tauri');
-const EXE = path.join(TAURI, 'target', 'debug', process.platform === 'win32' ? 'tramme-storage-server.exe' : 'tramme-storage-server');
+const EXE = path.join(TAURI, 'target', 'debug', 'examples', process.platform === 'win32' ? 'tramme-storage-server.exe' : 'tramme-storage-server');
 
 let server: ChildProcess | undefined;
 let base = '';
@@ -28,7 +28,7 @@ beforeAll(async () => {
       return execFileSync(fallback, args, { cwd: TAURI, stdio: 'pipe' });
     }
   };
-  cargo('build', '--bin', 'tramme-storage-server');
+  cargo('build', '--example', 'tramme-storage-server');
 
   home = mkdtempSync(path.join(tmpdir(), 'tramme-contract-'));
   server = spawn(EXE, { stdio: ['ignore', 'pipe', 'inherit'] });
