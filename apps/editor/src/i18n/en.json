@@ -213,7 +213,8 @@
     "sourcesReadAll": "- I read **everything**: the documents page by page, the pictures, the videos and sounds with what is said;",
     "sourcesBrief": "- what I learn goes into the project's **brief**: subject, audience, key messages, figures, brand colours;",
     "sourcesDirections": "- then I propose **two or three directions** for the video (format, length, scene by scene), and make the one you choose.",
-    "sourcesSend": "The analysis is ready below: send it as it is, or add what the video is for (where it will be shown, for whom, how long)."
+    "sourcesSend": "The analysis is ready below: send it as it is, or add what the video is for (where it will be shown, for whom, how long).",
+    "kitApplied": "The project's kit (brief.json) is in: its colours and fonts are the project's, and its brief is the one I follow."
   },
   "templates": {
     "captions": "Captions",
@@ -322,7 +323,7 @@
       "replayATour": "Replay a tour",
       "allGuidedToursAre": "All guided tours are here, at any time. Another one awaits you the first time you open a project.",
       "startFromSources": "Start from your sources",
-      "yourDocumentsPicturesAnd": "Your documents (PDF), pictures, videos and sounds, several at once: the assistant reads them all, says what the video should be, then makes it with you."
+      "yourDocumentsPicturesAnd": "Your documents (PDF), pictures, videos and sounds, several at once or a whole folder: the assistant reads them all, says what the video should be, then makes it with you."
     }
   },
   "assistant": {
@@ -450,12 +451,14 @@
     "createAProjectStart": "Create a project, start from an example or a video, or drop a .tramme file, a Lottie animation or a video here.",
     "examples": "Examples",
     "aCopyBecomesYour": "a copy becomes your own project",
-    "dropATrammeProject": "Drop a .tramme project, a Lottie animation, a video, or the sources of a video (documents, pictures, footage)",
+    "dropATrammeProject": "Drop a .tramme project, a Lottie animation, a video, or the sources of a video (documents, pictures, footage, a whole folder)",
     "doneTotalMb": "{done} / {total} MB",
     "doneTotalFileS": "{done} / {total} file(s)",
     "fromSources": "From sources",
-    "fromSourcesAbout": "Documents (PDF), pictures, videos and sounds: the assistant reads them all and proposes the video to make",
-    "uploadingSources": "Uploading the sources ({n})"
+    "fromSourcesAbout": "Documents (PDF), pictures, videos and sounds, or a whole folder: the assistant reads them all and proposes the video to make",
+    "uploadingSources": "Uploading the sources ({n})",
+    "sourcesFiles": "Files…",
+    "sourcesFolder": "A folder…"
   },
   "inspector": {
     "animateName": "Animate {name}",

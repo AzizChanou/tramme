@@ -1,8 +1,8 @@
 // Bringing files into storage as new projects: a .tramme archive (checked
 // for structure, then for meaning with its plugins loaded), a Lottie
 // animation, an example, a video, or the sources of a video to make
-// (pictures, footage, sounds, documents). Nothing reaches storage before the
-// checks pass.
+// (pictures, footage, sounds, documents, a whole folder with its kit).
+// Nothing reaches storage before the checks pass.
 
 import { stringifyDoc, validate, type TrammeDoc, type Registry } from '@tramme/core';
 import { fromLottie } from '@tramme/interop';
@@ -11,6 +11,8 @@ import { checkProject, DOCUMENT, MANIFEST, newProject, pathIssue, srcPath, unpac
 import { probeVideo } from '@tramme/render';
 import { api } from './api.ts';
 import { freePath, safeName } from './files.ts';
+import { BRIEF_PATH } from './brief.ts';
+import { applyKit, briefOfKit, FONT_FILE, KIT_PATH, namesOf, readKit, relink, type Kit } from './kit.ts';
 import { kindOf, SOURCES_DIR } from './sources.ts';
 import { freshId, slug } from './model.ts';
 import { t } from './i18n/index.ts';
@@ -146,42 +148,99 @@ export const isVideoFile = (f: File) => f.type.startsWith('video/') || /\.(mp4|m
 /** a file a video can be made from: a picture, a video, a sound, a document (PDF) */
 export const isSourceFile = (f: File) => kindOf(f) !== 'file';
 
+/** a file brought in with its path in the folder chosen or dropped (its name alone when it came by itself) */
+export interface Picked { file: File; path: string }
+
+/** files chosen in a file input, with their path when a folder was chosen */
+export const pickedOf = (list: FileList | File[]): Picked[] => Array.from(list).map((file) => ({ file, path: file.webkitRelativePath || file.name }));
+
+/** what was dropped, folders walked through; hidden files (.DS_Store, .git) left out */
+export async function droppedOf(dt: DataTransfer): Promise<Picked[]> {
+  const entries = Array.from(dt.items ?? []).map((i) => i.webkitGetAsEntry?.()).filter((e): e is FileSystemEntry => !!e);
+  if (!entries.length) return pickedOf(dt.files);
+  const out: Picked[] = [];
+  const walk = async (entry: FileSystemEntry): Promise<void> => {
+    if (entry.name.startsWith('.')) return;
+    if (entry.isFile) {
+      const file = await new Promise<File>((resolve, reject) => (entry as FileSystemFileEntry).file(resolve, reject));
+      out.push({ file, path: entry.fullPath.replace(/^\/+/, '') });
+    } else if (entry.isDirectory) {
+      const reader = (entry as FileSystemDirectoryEntry).createReader();
+      // a directory is read in batches, until one comes back empty
+      for (;;) {
+        const batch = await new Promise<FileSystemEntry[]>((resolve, reject) => reader.readEntries(resolve, reject));
+        if (!batch.length) break;
+        for (const e of batch) await walk(e);
+      }
+    }
+  };
+  for (const e of entries) await walk(e);
+  return out;
+}
+
 /** a project made from sources starts landscape; the assistant sets the format once it knows the video */
 const SOURCES_FORMAT = { width: 1920, height: 1080, fps: 30, duration: 30 };
 
+/** the kit among the files, when one of their JSON files is one */
+async function kitAmong(items: Picked[]): Promise<{ kit: Kit; from: Picked } | null> {
+  for (const it of items) {
+    if (!/\.json$/i.test(it.file.name) || it.file.size > 2 * 1024 * 1024) continue;
+    try {
+      const kit = readKit(JSON.parse(await it.file.text()));
+      if (kit) return { kit, from: it };
+    } catch { /* not JSON, or not a kit */ }
+  }
+  return null;
+}
+
 /**
- * Sources as a new project: every file in assets/sources/, the pictures,
- * videos and sounds also assets of the document, so the assistant reads them
- * all (the sources tool), tells what the video should be, then makes it.
+ * Sources as a new project: files or a whole folder (the one the kit prompt
+ * writes, say), every file kept in assets/sources/, the pictures, videos and
+ * sounds also assets of the document, so the assistant reads them all (the
+ * sources tool), tells what the video should be, then makes it. A kit among
+ * them (brief.json) gives the tokens, the fonts it names and the brief.
  * Progress counts bytes sent.
  */
-export async function importSources(files: File[], progress?: Progress): Promise<Manifest> {
-  const usable = files.filter(isSourceFile);
+export async function importSources(items: Picked[], progress?: Progress): Promise<Manifest> {
+  const visible = items.filter((it) => !it.path.split('/').some((part) => part.startsWith('.')));
+  const found = await kitAmong(visible);
+  const fonts = new Set(found?.kit.fonts.map((f) => f.file?.split('/').pop()?.toLowerCase()).filter(Boolean));
+  const usable = visible.filter((it) => isSourceFile(it.file) || (FONT_FILE.test(it.file.name) && fonts.has(it.file.name.toLowerCase())));
   if (!usable.length) throw new ImportError(t('importer.noSources'));
-  for (const f of usable) {
-    const bad = pathIssue(`${SOURCES_DIR}${safeName(f.name)}`);
-    if (bad) throw new ImportError(`${f.name} : ${bad}`);
+  for (const it of usable) {
+    const bad = pathIssue(`${SOURCES_DIR}${safeName(it.file.name)}`);
+    if (bad) throw new ImportError(`${it.file.name} : ${bad}`);
   }
-  // named after the first document, otherwise after the first file
-  const lead = usable.find((f) => kindOf(f) === 'document') ?? usable[0];
-  const name = lead.name.replace(/\.[^.]+$/, '').trim() || t('importer.sources');
+  // named by the kit, otherwise after the first document, otherwise after the first file
+  const lead = (usable.find((it) => kindOf(it.file) === 'document') ?? usable[0]).file;
+  const name = found?.kit.name ?? (lead.name.replace(/\.[^.]+$/, '').trim() || t('importer.sources'));
   const project = await api.create({ name, ...SOURCES_FORMAT, empty: true });
   try {
     const { doc } = newProject({ name, ...SOURCES_FORMAT, id: project.id });
-    const taken = new Set<string>(), total = usable.reduce((n, f) => n + f.size, 0);
+    const taken = new Set<string>(), total = usable.reduce((n, it) => n + it.file.size, 0);
+    /** the folder's paths, to the project's: the kit's paths are rewritten with it */
+    const moved = new Map<string, string>();
     let sent = 0;
-    for (const f of usable) {
-      const path = freePath(taken, `${SOURCES_DIR}${safeName(f.name)}`);
+    for (const { file, path: from } of usable) {
+      const path = freePath(taken, `${SOURCES_DIR}${safeName(file.name)}`);
       taken.add(path);
-      await api.writeAny(project.id, path, f, (done) => progress?.(sent + done, total, path));
-      sent += f.size;
-      const kind = kindOf(f), base = f.name.replace(/\.[^.]+$/, '');
+      await api.writeAny(project.id, path, file, (done) => progress?.(sent + done, total, path));
+      sent += file.size;
+      for (const n of namesOf(from)) if (!moved.has(n)) moved.set(n, path);
+      const kind = kindOf(file), base = file.name.replace(/\.[^.]+$/, '');
       if (kind === 'image' || kind === 'video' || kind === 'audio') doc.assets[freshId(doc.assets, slug(base).slice(0, 40) || kind)] = { type: kind, src: path, name: base };
+    }
+    if (found) {
+      applyKit(doc, found.kit, moved);
+      // the kit whole, for the assistant; the brief it gives, that the assistant follows from the first message
+      await api.write(project.id, KIT_PATH, JSON.stringify(relink(found.kit.raw, moved), null, 1), { type: 'application/json' });
+      await api.write(project.id, BRIEF_PATH, JSON.stringify(briefOfKit(doc, found.kit, moved), null, 1), { type: 'application/json' });
+      doc.assets.brief = { type: 'json', src: BRIEF_PATH };
     }
     const issues = validate(doc, builtinRegistry());
     if (issues.length) throw new ImportError(t('importer.invalidSourcesProject'), issues);
     await api.write(project.id, DOCUMENT, stringifyDoc(doc), { type: 'application/json' });
-    try { sessionStorage.setItem(startKey(project.id), JSON.stringify({ sources: usable.length })); } catch { /* the editor opens without the greeting */ }
+    try { sessionStorage.setItem(startKey(project.id), JSON.stringify({ sources: usable.length, kit: !!found })); } catch { /* the editor opens without the greeting */ }
     return project;
   } catch (e) {
     await api.remove(project.id).catch(() => {});

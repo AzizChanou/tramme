@@ -5,6 +5,34 @@
 import type { Asset, TrammeDoc } from '@tramme/core';
 import { VideoFrames } from './video.ts';
 
+/** the longest side, in pixels, of an SVG drawn without a size of its own */
+const SVG_RASTER = 2048;
+
+/** the proportions of an SVG from its viewBox (1:1 when it has none) */
+export function viewBoxSize(svg: string): [number, number] {
+  const m = /<svg\b[^>]*\bviewBox\s*=\s*["']\s*[-\d.e]+[\s,]+[-\d.e]+[\s,]+([\d.e]+)[\s,]+([\d.e]+)/i.exec(svg);
+  const w = m ? Number(m[1]) : NaN, h = m ? Number(m[2]) : NaN;
+  return w > 0 && h > 0 ? [w, h] : [1, 1];
+}
+
+/** the SVG with a size of its own (width and height on its root), so it decodes as any picture */
+export function withSize(svg: string, width: number, height: number): string {
+  return svg.replace(/<svg\b([^>]*)>/i, (_, attrs: string) => `<svg${attrs.replace(/\s(width|height)\s*=\s*("[^"]*"|'[^']*')/gi, '')} width="${width}" height="${height}">`);
+}
+
+/** an SVG without a size of its own (most logos), which Chrome will not turn into a bitmap as it is: drawn in its viewBox's proportions, large enough to stay sharp */
+async function svgBitmap(url: string): Promise<ImageBitmap> {
+  const text = await (await fetch(url)).text();
+  const [vw, vh] = viewBoxSize(text), k = SVG_RASTER / Math.max(vw, vh);
+  const blob = URL.createObjectURL(new Blob([withSize(text, Math.round(vw * k), Math.round(vh * k))], { type: 'image/svg+xml' }));
+  try {
+    const img = new Image();
+    img.src = blob;
+    await img.decode();
+    return await createImageBitmap(img);
+  } finally { URL.revokeObjectURL(blob); }
+}
+
 export class AssetStore {
   private loaded = new Map<string, { key: string; entry: Asset; value: unknown }>();
   private doc: TrammeDoc;
@@ -66,7 +94,8 @@ export class AssetStore {
         const img = new Image();
         img.src = url;
         await img.decode();
-        return createImageBitmap(img);
+        try { return await createImageBitmap(img); } catch (e) { if (!/svg/i.test((e as Error).message)) throw e; }
+        return svgBitmap(url);
       }
       case 'font': {
         const r = await fetch(url);

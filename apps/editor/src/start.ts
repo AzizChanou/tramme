@@ -26,8 +26,9 @@ const VIDEO_GREETING = () => [
   t('start.iWillShowYou'),
 ].join('\n');
 
-const SOURCES_GREETING = (n: number) => [
+const SOURCES_GREETING = (n: number, kit: boolean) => [
   t('start.sourcesAreIn', { n }),
+  ...(kit ? ['', t('start.kitApplied')] : []),
   '',
   t('start.sourcesReadAll'),
   t('start.sourcesBrief'),
@@ -46,7 +47,7 @@ function greet(text: string) {
 
 export function startProject() {
   const id = S.project.peek().id;
-  let start: { asset?: string; path?: string; name?: string; size?: number; sources?: number } | null = null;
+  let start: { asset?: string; path?: string; name?: string; size?: number; sources?: number; kit?: boolean } | null = null;
   try {
     start = JSON.parse(sessionStorage.getItem(startKey(id)) ?? 'null');
     sessionStorage.removeItem(startKey(id));
@@ -59,7 +60,7 @@ export function startProject() {
       if ((a.type === 'audio' || a.type === 'video') && srcPath(a.src)?.startsWith(SOURCES_DIR)) transcribe(asset);
     }
     draft.value = '/analyze ';
-    greet(SOURCES_GREETING(start.sources));
+    greet(SOURCES_GREETING(start.sources, !!start.kit));
     return;
   }
   const asset = start.asset;

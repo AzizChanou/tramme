@@ -15,6 +15,7 @@ import { clip } from './model.ts';
 import { openPdf, pageImage, pageRange, pageText, pdfTitle, type PDFDocumentProxy } from './pdf.ts';
 import { canvas, jpegOf, loadImage } from './perception.ts';
 import { sheetOf } from './review.ts';
+import { KIT_PATH } from './kit.ts';
 import { t } from './i18n/index.ts';
 
 /** where the sources a project was made from are kept (pictures, videos, sounds, documents) */
@@ -126,8 +127,12 @@ async function glance(s: Source, ctx: ToolContext): Promise<Look> {
   return { line: `${doc.numPages} page${doc.numPages > 1 ? 's' : ''}${title ? `, titled "${clip(title, 80)}"` : ''} (${where})`, cell: fitted(first, first.width, first.height, CELL_W, CELL_H) };
 }
 
+/** what the kit adds to the list, when the project has one */
+const KIT_NOTE = `A kit written from the project's repository is at ${KIT_PATH}: read it first (read_file). It lists the features, the facts with their sources, the brand and ideas of videos; its about, sources, tone and rules are already the project's brief, its colours and fonts the document's. Check what it says against the sources, and ask about what it marks to confirm.`;
+
 /** every source in one list, the visual ones on a contact sheet numbered like the list */
-async function inventory(list: Source[], ctx: ToolContext) {
+async function inventory(list: Source[], ctx: ToolContext, kit: boolean) {
+  if (!list.length && kit) return { text: KIT_NOTE, notice: t('sources.listed', { n: 0 }) };
   if (!list.length) {
     return { text: 'The project has no sources yet: no picture, video, sound or document brought in. Ask the user for theirs (they can join files to a message), or work from what they say.', notice: t('sources.none') };
   }
@@ -143,7 +148,7 @@ async function inventory(list: Source[], ctx: ToolContext) {
   }
   const summary = (['document', 'image', 'video', 'audio'] as SourceKind[]).filter(count).map((k) => `${count(k)} ${KIND_WORD[k]}${count(k) > 1 ? 's' : ''}`).join(', ');
   return {
-    text: [`${list.length} source${list.length > 1 ? 's' : ''} (${summary})${cells.length ? ', the visual ones on the contact sheet, numbered as below' : ''}:`, ...lines, '',
+    text: [...(kit ? [KIT_NOTE, ''] : []), `${list.length} source${list.length > 1 ? 's' : ''} (${summary})${cells.length ? ', the visual ones on the contact sheet, numbered as below' : ''}:`, ...lines, '',
       'Read each one with source (its "source" above): documents page by page, videos and sounds with what is said. Then write what you learned in the brief (use_tool "brief" with about and sources).'].join('\n'),
     images: cells.length ? [{ url: sheetOf(cells, CELL_W, CELL_H, Math.min(4, cells.length)), caption: t('sources.sheet', { n: list.length }) }] : [],
     notice: t('sources.listed', { n: list.length }),
@@ -228,8 +233,8 @@ const sources: ToolType<{ source?: string; pages?: string; text?: boolean }> = {
     avoid: 'deciding the story from the file names or the first page alone; reading the same pages twice',
   },
   async run({ source, pages, text: textOnly = false }, ctx) {
-    const list = sourcesOf(ctx.doc, await ctx.files());
-    if (!source) return inventory(list, ctx);
+    const files = await ctx.files(), list = sourcesOf(ctx.doc, files);
+    if (!source) return inventory(list, ctx, files.some((f) => f.path === KIT_PATH));
     const s = list.find((x) => x.ref === source || x.path === source || x.asset === source)
       ?? (ctx.doc.assets[source] && ['image', 'video', 'audio'].includes(ctx.doc.assets[source].type) ? { ref: source, kind: ctx.doc.assets[source].type as SourceKind, name: ctx.doc.assets[source].name ?? source, path: srcPath(ctx.doc.assets[source].src) ?? '', size: 0, asset: source } : null);
     if (!s) throw new Error(`unknown source "${source}"; the sources are: ${list.map((x) => x.ref).join(', ') || 'none'}`);

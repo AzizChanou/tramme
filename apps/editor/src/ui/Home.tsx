@@ -10,7 +10,7 @@ import { api, ApiError } from '../api.ts';
 import { saveBlob } from '../download.ts';
 import { safeName } from '../files.ts';
 import { ago } from '../model.ts';
-import { importArchive, ImportError, importFile, importSources, isSourceFile, isVideoFile, type Progress } from '../importer.ts';
+import { droppedOf, importArchive, ImportError, importFile, importSources, isSourceFile, isVideoFile, pickedOf, type Picked, type Progress } from '../importer.ts';
 import { toast } from '../state.ts';
 import { MenuHost, Modal, openMenu } from './controls.tsx';
 import { Icon } from './icons.tsx';
@@ -186,6 +186,7 @@ export function Home() {
   const input = useRef<HTMLInputElement>(null);
   const video = useRef<HTMLInputElement>(null);
   const sources = useRef<HTMLInputElement>(null);
+  const folder = useRef<HTMLInputElement>(null);
 
   const refresh = () => api.list().then(setProjects).catch((e) => setLoadError((e as Error).message));
   // the home tour, the first time, once the page has its content
@@ -212,15 +213,17 @@ export function Home() {
       setDialog({ kind: 'failure', error: e as Error });
     }
   };
-  const fromSources = (list: File[]) => run(t('home.uploadingSources', { n: list.length }), (p) => importSources(list, p), true);
-  const openFiles = (files: FileList | File[] | null) => {
-    const all = Array.from(files ?? []), f = all[0];
+  const fromSources = (list: Picked[]) => run(t('home.uploadingSources', { n: list.length }), (p) => importSources(list, p), true);
+  const openFiles = (picked: Picked[]) => {
+    const f = picked[0]?.file;
     if (!f) return;
-    // several pictures, videos, sounds or documents, or one picture, sound or document: the sources of a video to make
-    const material = all.filter(isSourceFile);
-    if ((all.length > 1 && material.length) || (isSourceFile(f) && !isVideoFile(f))) { fromSources(material); return; }
+    // a folder, several pictures, videos, sounds or documents, or one picture, sound or document: the sources of a video to make
+    const folder = picked.some((it) => it.path.includes('/'));
+    if (folder || (picked.length > 1 && picked.some((it) => isSourceFile(it.file))) || (isSourceFile(f) && !isVideoFile(f))) { fromSources(picked); return; }
     run(isVideoFile(f) ? t('home.uploadingTheVideoName', { name: f.name }) : t('home.importingName', { name: f.name }), (p) => importFile(f, p), isVideoFile(f));
   };
+  /** the chosen files, the input emptied so the same choice can be made again */
+  const chosen = (e: Event) => { const input = e.target as HTMLInputElement, list = pickedOf(input.files ?? []); input.value = ''; return list; };
   const useExample = (x: Example) => run(t('home.copyingTheExampleName', { name: t(x.name) }), async (p) => {
     const r = await fetch(`/examples/${x.file}`);
     if (!r.ok) throw new Error(t('home.exampleNotFoundHttp', { status: r.status }));
@@ -245,7 +248,7 @@ export function Home() {
     <div class={`home${drag ? ' dragging' : ''}`}
       onDragOver={(e) => { if (e.dataTransfer?.types.includes('Files')) { e.preventDefault(); setDrag(true); } }}
       onDragLeave={(e) => { if (e.target === e.currentTarget) setDrag(false); }}
-      onDrop={(e) => { e.preventDefault(); setDrag(false); openFiles(e.dataTransfer?.files ?? null); }}>
+      onDrop={(e) => { e.preventDefault(); setDrag(false); if (e.dataTransfer) droppedOf(e.dataTransfer).then(openFiles).catch((x) => setDialog({ kind: 'failure', error: x as Error })); }}>
       <header class="home-top" {...windowBar}>
         <div class="brand"><LogoMark /><span>tramme</span></div>
         <span class="grow" />
@@ -253,11 +256,16 @@ export function Home() {
         <button class="icon-btn" data-tour="settings" title={t('common.settingsCtrl')} onClick={() => { settingsOpen.value = true; }}><Icon name="gear" /></button>
         <button class="btn" data-tour="home-open" onClick={() => input.current?.click()}><Icon name="upload" /><span class="label">{t('common.openAFile')}</span></button>
         <button class="btn" data-tour="home-video" title={t('home.aProjectAtThe')} onClick={() => video.current?.click()}><Icon name="film" /><span class="label">{t('home.fromAVideo')}</span></button>
-        <button class="btn" data-tour="home-sources" title={t('home.fromSourcesAbout')} onClick={() => sources.current?.click()}><Icon name="doc" /><span class="label">{t('home.fromSources')}</span></button>
+        <button class="btn" data-tour="home-sources" title={t('home.fromSourcesAbout')} onClick={(e) => openMenu((e.currentTarget as HTMLElement).getBoundingClientRect(), [
+          { label: t('home.sourcesFiles'), icon: 'doc', onClick: () => sources.current?.click() },
+          { label: t('home.sourcesFolder'), icon: 'folder', onClick: () => folder.current?.click() },
+        ])}><Icon name="doc" /><span class="label">{t('home.fromSources')}</span></button>
         <button class="btn primary" data-tour="home-new" onClick={() => setDialog({ kind: 'new' })}><Icon name="plus" /><span class="label">{t('common.newProject')}</span></button>
-        <input ref={input} type="file" accept=".tramme,.trame,.emotion,.zip,.json,application/json" hidden onChange={(e) => { openFiles((e.target as HTMLInputElement).files); (e.target as HTMLInputElement).value = ''; }} />
-        <input ref={video} type="file" accept="video/*,.mp4,.mov,.webm,.mkv" hidden onChange={(e) => { openFiles((e.target as HTMLInputElement).files); (e.target as HTMLInputElement).value = ''; }} />
-        <input ref={sources} type="file" multiple accept="image/*,video/*,audio/*,.pdf,application/pdf" hidden onChange={(e) => { const list = Array.from((e.target as HTMLInputElement).files ?? []); (e.target as HTMLInputElement).value = ''; if (list.length) fromSources(list); }} />
+        <input ref={input} type="file" accept=".tramme,.trame,.emotion,.zip,.json,application/json" hidden onChange={(e) => openFiles(chosen(e))} />
+        <input ref={video} type="file" accept="video/*,.mp4,.mov,.webm,.mkv" hidden onChange={(e) => openFiles(chosen(e))} />
+        <input ref={sources} type="file" multiple accept="image/*,video/*,audio/*,.pdf,application/pdf,.json,.ttf,.otf,.woff,.woff2" hidden onChange={(e) => { const list = chosen(e); if (list.length) fromSources(list); }} />
+        {/* a whole folder (the kit prompt's tramme/, say): its files and its kit */}
+        <input ref={folder} type="file" multiple hidden {...{ webkitdirectory: true }} onChange={(e) => { const list = chosen(e); if (list.length) fromSources(list); }} />
         <WindowControls />
       </header>
       <main class="home-main">

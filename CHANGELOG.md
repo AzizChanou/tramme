@@ -8,6 +8,14 @@ Until 1.0.0, the document format and the APIs may still change between minor ver
 
 ## [Unreleased]
 
+### Added
+
+- "From sources" takes a whole folder, chosen or dropped, its subfolders walked through. A kit among the files (a `brief.json` of kind `tramme-kit`, as an agent writes it from a project's repository) sets the project up: its name, its colours and curves as tokens, the fonts it names as font assets, its brief; the whole kit stays at `assets/sources/kit.json`, its paths pointing at the files as imported, and the assistant reads it first.
+
+### Fixed
+
+- An SVG with a viewBox and no size of its own (most logos) no longer stops the preview and the renders: it is drawn in its viewBox's proportions, 2048 px on its longest side.
+
 ## [0.2.0] - 2026-10-09
 
 ### Added

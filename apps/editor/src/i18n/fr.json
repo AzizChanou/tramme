@@ -213,7 +213,8 @@
     "sourcesReadAll": "- je lis **tout** : les documents page par page, les images, les vidéos et les sons avec ce qui s'y dit ;",
     "sourcesBrief": "- ce que j'apprends va dans le **brief** du projet : sujet, public, messages clés, chiffres, couleurs de la marque ;",
     "sourcesDirections": "- puis je propose **deux ou trois pistes** de vidéo (format, durée, scène par scène) et je réalise celle que vous choisissez.",
-    "sourcesSend": "L'analyse est prête ci-dessous : envoyez-la telle quelle, ou précisez à quoi sert la vidéo (où elle sera diffusée, pour qui, quelle durée)."
+    "sourcesSend": "L'analyse est prête ci-dessous : envoyez-la telle quelle, ou précisez à quoi sert la vidéo (où elle sera diffusée, pour qui, quelle durée).",
+    "kitApplied": "Le kit du projet (brief.json) est repris : ses couleurs et ses polices sont celles du projet, et son brief est celui que je suis."
   },
   "templates": {
     "captions": "Sous-titres",
@@ -322,7 +323,7 @@
       "replayATour": "Revoir une visite",
       "allGuidedToursAre": "Toutes les visites guidées sont ici, à tout moment. Une autre vous attend à la première ouverture d'un projet.",
       "startFromSources": "Partir de vos ressources",
-      "yourDocumentsPicturesAnd": "Vos documents (PDF), images, vidéos et sons, plusieurs à la fois : l'assistant les lit tous, dit ce que la vidéo devrait être, puis la réalise avec vous."
+      "yourDocumentsPicturesAnd": "Vos documents (PDF), images, vidéos et sons, plusieurs à la fois ou un dossier entier : l'assistant les lit tous, dit ce que la vidéo devrait être, puis la réalise avec vous."
     }
   },
   "assistant": {
@@ -450,12 +451,14 @@
     "createAProjectStart": "Créez un projet, partez d'un exemple ou d'une vidéo, ou déposez ici un fichier .tramme, une animation Lottie ou une vidéo.",
     "examples": "Exemples",
     "aCopyBecomesYour": "une copie devient un projet à vous",
-    "dropATrammeProject": "Déposer un projet .tramme, une animation Lottie, une vidéo, ou les ressources d'une vidéo (documents, images, rushes)",
+    "dropATrammeProject": "Déposer un projet .tramme, une animation Lottie, une vidéo, ou les ressources d'une vidéo (documents, images, rushes, un dossier entier)",
     "doneTotalMb": "{done} / {total} Mo",
     "doneTotalFileS": "{done} / {total} fichier(s)",
     "fromSources": "Depuis des ressources",
-    "fromSourcesAbout": "Documents (PDF), images, vidéos et sons : l'assistant les lit tous et propose la vidéo à faire",
-    "uploadingSources": "Envoi des ressources ({n})"
+    "fromSourcesAbout": "Documents (PDF), images, vidéos et sons, ou un dossier entier : l'assistant les lit tous et propose la vidéo à faire",
+    "uploadingSources": "Envoi des ressources ({n})",
+    "sourcesFiles": "Des fichiers…",
+    "sourcesFolder": "Un dossier…"
   },
   "inspector": {
     "animateName": "Animer {name}",
