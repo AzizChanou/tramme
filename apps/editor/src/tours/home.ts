@@ -26,6 +26,11 @@ registerTour({
       body: m('tours.home.aVideoWhereYou'),
     },
     {
+      target: 'home-sources', side: 'bottom', align: 'end',
+      title: m('tours.home.startFromSources'),
+      body: m('tours.home.yourDocumentsPicturesAnd'),
+    },
+    {
       target: 'home-open', side: 'bottom', align: 'end',
       title: m('common.openAFile'),
       body: m('tours.home.aTrammeProjectSaved'),

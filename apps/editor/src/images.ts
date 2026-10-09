@@ -9,6 +9,7 @@ import { pointer, type Op, type ToolContext, type ToolType } from '@tramme/core'
 import { api } from './api.ts';
 import { confirmWith } from './confirm.ts';
 import { clip, freshId } from './model.ts';
+import { jpegOf } from './perception.ts';
 import { prefs } from './settings.ts';
 import { t } from './i18n/index.ts';
 
@@ -43,11 +44,7 @@ async function keepImage(ctx: ToolContext, name: string, blob: Blob, made: unkno
 /** what the model and the user see of the picture: a small JPEG, the size of a still */
 async function preview(blob: Blob): Promise<string> {
   const img = await createImageBitmap(blob);
-  const k = Math.min(1, 768 / img.width), c = document.createElement('canvas');
-  c.width = Math.max(1, Math.round(img.width * k)); c.height = Math.max(1, Math.round(img.height * k));
-  c.getContext('2d')!.drawImage(img, 0, 0, c.width, c.height);
-  img.close();
-  return c.toDataURL('image/jpeg', 0.86);
+  try { return jpegOf(img, img.width, img.height, Math.min(1, 768 / img.width)); } finally { img.close(); }
 }
 
 /**

@@ -60,6 +60,18 @@ describe('the brief of the project', () => {
     expect(second.rules).toEqual(['one idea at a time']);
   });
 
+  it('keeps what the sources taught, beside the tone', async () => {
+    const d = doc(), written = new Map<string, string>(), read = new Map<string, string>();
+    const ctx = ctxOf(d, written, read);
+    await run({ about: 'A bakery opens a second shop; for its neighbours.', sources: ['logo: the brand, red and cream', 'assets/sources/menu.pdf: the prices'] }, ctx);
+    read.set(BRIEF_PATH, written.get(BRIEF_PATH)!);
+    await run({ tone: 'Warm.' }, ctx);
+    const saved = JSON.parse(written.get(BRIEF_PATH)!);
+    expect(saved.about).toBe('A bakery opens a second shop; for its neighbours.');
+    expect(saved.sources).toHaveLength(2);
+    expect(saved.tone).toBe('Warm.');
+  });
+
   it('the inventory counts the other compositions', () => {
     const d = doc();
     d.compositions.inner = { name: 'Inner', width: 100, height: 100, fps: 30, duration: 1, layers: {}, order: [] };

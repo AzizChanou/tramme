@@ -1,14 +1,18 @@
 // Bringing files into storage as new projects: a .tramme archive (checked
 // for structure, then for meaning with its plugins loaded), a Lottie
-// animation, an example. Nothing reaches storage before the checks pass.
+// animation, an example, a video, or the sources of a video to make
+// (pictures, footage, sounds, documents). Nothing reaches storage before the
+// checks pass.
 
 import { stringifyDoc, validate, type TrammeDoc, type Registry } from '@tramme/core';
 import { fromLottie } from '@tramme/interop';
 import { builtinRegistry } from '@tramme/nodes';
-import { checkProject, DOCUMENT, MANIFEST, newProject, srcPath, unpackProject, type Issue, type Manifest } from '@tramme/project';
+import { checkProject, DOCUMENT, MANIFEST, newProject, pathIssue, srcPath, unpackProject, type Issue, type Manifest } from '@tramme/project';
 import { probeVideo } from '@tramme/render';
 import { api } from './api.ts';
-import { safeName } from './files.ts';
+import { freePath, safeName } from './files.ts';
+import { kindOf, SOURCES_DIR } from './sources.ts';
+import { freshId, slug } from './model.ts';
 import { t } from './i18n/index.ts';
 
 export class ImportError extends Error {
@@ -98,7 +102,7 @@ export async function importLottie(file: File, progress?: Progress): Promise<Man
   return done;
 }
 
-/** where the editor finds, on first opening, the video a project was made from */
+/** where the editor finds, on first opening, what a project was made from (a video, sources) */
 export const startKey = (id: string) => `tramme.start.${id}`;
 
 /**
@@ -138,6 +142,52 @@ export async function importVideo(file: File, progress?: Progress): Promise<Mani
 }
 
 export const isVideoFile = (f: File) => f.type.startsWith('video/') || /\.(mp4|m4v|webm|mov|mkv)$/i.test(f.name);
+
+/** a file a video can be made from: a picture, a video, a sound, a document (PDF) */
+export const isSourceFile = (f: File) => kindOf(f) !== 'file';
+
+/** a project made from sources starts landscape; the assistant sets the format once it knows the video */
+const SOURCES_FORMAT = { width: 1920, height: 1080, fps: 30, duration: 30 };
+
+/**
+ * Sources as a new project: every file in assets/sources/, the pictures,
+ * videos and sounds also assets of the document, so the assistant reads them
+ * all (the sources tool), tells what the video should be, then makes it.
+ * Progress counts bytes sent.
+ */
+export async function importSources(files: File[], progress?: Progress): Promise<Manifest> {
+  const usable = files.filter(isSourceFile);
+  if (!usable.length) throw new ImportError(t('importer.noSources'));
+  for (const f of usable) {
+    const bad = pathIssue(`${SOURCES_DIR}${safeName(f.name)}`);
+    if (bad) throw new ImportError(`${f.name} : ${bad}`);
+  }
+  // named after the first document, otherwise after the first file
+  const lead = usable.find((f) => kindOf(f) === 'document') ?? usable[0];
+  const name = lead.name.replace(/\.[^.]+$/, '').trim() || t('importer.sources');
+  const project = await api.create({ name, ...SOURCES_FORMAT, empty: true });
+  try {
+    const { doc } = newProject({ name, ...SOURCES_FORMAT, id: project.id });
+    const taken = new Set<string>(), total = usable.reduce((n, f) => n + f.size, 0);
+    let sent = 0;
+    for (const f of usable) {
+      const path = freePath(taken, `${SOURCES_DIR}${safeName(f.name)}`);
+      taken.add(path);
+      await api.writeAny(project.id, path, f, (done) => progress?.(sent + done, total, path));
+      sent += f.size;
+      const kind = kindOf(f), base = f.name.replace(/\.[^.]+$/, '');
+      if (kind === 'image' || kind === 'video' || kind === 'audio') doc.assets[freshId(doc.assets, slug(base).slice(0, 40) || kind)] = { type: kind, src: path, name: base };
+    }
+    const issues = validate(doc, builtinRegistry());
+    if (issues.length) throw new ImportError(t('importer.invalidSourcesProject'), issues);
+    await api.write(project.id, DOCUMENT, stringifyDoc(doc), { type: 'application/json' });
+    try { sessionStorage.setItem(startKey(project.id), JSON.stringify({ sources: usable.length })); } catch { /* the editor opens without the greeting */ }
+    return project;
+  } catch (e) {
+    await api.remove(project.id).catch(() => {});
+    throw e;
+  }
+}
 
 /** a file dropped or chosen on the home screen */
 export function importFile(file: File, progress?: Progress): Promise<Manifest> {

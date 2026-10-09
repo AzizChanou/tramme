@@ -11,6 +11,7 @@ import type { KeyedProvider, KeyStatus } from '@tramme/api';
 import { vaultOrigin } from './mode.ts';
 import { desktopFetch, tauri } from './tauri.ts';
 import { vaultFetch } from './vault/link.ts';
+import type { FileKind } from './sources.ts';
 
 export interface ChatItem {
   id: string;
@@ -20,7 +21,7 @@ export interface ChatItem {
   /** user: what the message was about */
   context?: string;
   /** user: files joined to the message (files of the project) */
-  attachments?: { path: string; name: string; kind: 'image' | 'audio' | 'video' | 'file'; asset?: string }[];
+  attachments?: { path: string; name: string; kind: FileKind; asset?: string }[];
   /** assistant activity: tool name and short description */
   tool?: { name: string; summary: string; done?: boolean; error?: boolean; progress?: ToolProgress };
   /** a still the assistant rendered (data URL) */

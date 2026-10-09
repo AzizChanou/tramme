@@ -1,7 +1,7 @@
 // Production build of the editor into apps/editor/dist, served by the Worker
 // as static assets: the bundles (hashed names), index.html, the key vault's
 // page (vault.html, personal mode), the service worker (sw.js, personal mode),
-// the examples as .tramme archives.
+// the pdf.js worker (pdf.worker.mjs), the examples as .tramme archives.
 //
 //   node apps/editor/build.ts                     build once (minified)
 //   node apps/editor/build.ts --dev               rebuild on change, run `wrangler dev` (R2 simulated, no Access) and the assistant's companion
@@ -9,6 +9,7 @@
 
 import { spawn } from 'node:child_process';
 import fs from 'node:fs';
+import { createRequire } from 'node:module';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import * as esbuild from 'esbuild';
@@ -157,6 +158,8 @@ fs.writeFileSync(path.join(DIST, 'manifest.webmanifest'), JSON.stringify({
 const examples = writeExamples();
 // the sound library shipped with the editor (CC0 recordings and their catalog, scripts/sound-library.ts)
 fs.cpSync(path.join(ROOT, 'sounds'), path.join(DIST, 'sounds'), { recursive: true });
+// pdf.js parses documents (the sources of a project) in a worker of its own, at a fixed address (src/pdf.ts)
+fs.copyFileSync(createRequire(import.meta.url).resolve('pdfjs-dist/build/pdf.worker.min.mjs'), path.join(DIST, 'pdf.worker.mjs'));
 
 if (!dev) {
   const t0 = performance.now();

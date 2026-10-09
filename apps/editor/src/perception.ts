@@ -15,6 +15,22 @@ export const canvas = (width: number, height: number) => {
   return { c, g: c.getContext('2d', { willReadFrequently: true })! };
 };
 
+/** a picture, decoded */
+export async function loadImage(url: string): Promise<HTMLImageElement> {
+  const img = new Image();
+  img.src = url;
+  await img.decode();
+  return img;
+}
+
+/** a picture of w × h drawn at scale k (on a background when given: what is transparent), as a JPEG data URL */
+export function jpegOf(image: CanvasImageSource, w: number, h: number, k: number, background?: string): string {
+  const { c, g } = canvas(Math.max(1, Math.round(w * k)), Math.max(1, Math.round(h * k)));
+  if (background) { g.fillStyle = background; g.fillRect(0, 0, c.width, c.height); }
+  g.drawImage(image, 0, 0, c.width, c.height);
+  return c.toDataURL('image/jpeg', 0.86);
+}
+
 /** the sound of a media file, mono, decoded a minute at a time */
 async function decodeMono(url: string, signal: AbortSignal): Promise<Float32Array> {
   const input = new Input({ source: new UrlSource(url), formats: ALL_FORMATS });
@@ -234,9 +250,7 @@ const subjects: ToolType<{ asset?: string; every?: number }> = {
     };
     let width = 0, height = 0;
     if (a.type === 'image') {
-      const img = new Image();
-      img.src = ctx.assetUrl(asset);
-      await img.decode();
+      const img = await loadImage(ctx.assetUrl(asset));
       width = img.naturalWidth; height = img.naturalHeight;
       await look(0, img, width, height);
     } else {
@@ -312,10 +326,7 @@ const palette: ToolType<{ asset?: string; t?: number; tokens?: boolean }> = {
     const asset = mediaOf(ctx, wanted, ['image', 'video']), a = ctx.doc.assets[asset];
     const { g } = canvas(96, 96);
     if (a.type === 'image') {
-      const img = new Image();
-      img.src = ctx.assetUrl(asset);
-      await img.decode();
-      g.drawImage(img, 0, 0, 96, 96);
+      g.drawImage(await loadImage(ctx.assetUrl(asset)), 0, 0, 96, 96);
     } else {
       const input = new Input({ source: new UrlSource(ctx.assetUrl(asset)), formats: ALL_FORMATS });
       try {

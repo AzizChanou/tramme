@@ -121,7 +121,7 @@
     "nothing": "Aucun passage assez long dans le transcript."
   },
   "attachments": {
-    "nameImageSoundVideo": "{name} : image, son, vidéo ou JSON attendus",
+    "nameImageSoundVideo": "{name} : image, son, vidéo, PDF ou JSON attendus",
     "attachmentName": "Pièce jointe : {name}",
     "couldNotTranscribeName": "Transcription de {name} impossible : {error}"
   },
@@ -162,7 +162,10 @@
     "nameUnreadableDuration": "{name} : durée illisible",
     "video": "Vidéo",
     "invalidVideoProject": "projet vidéo invalide",
-    "nameATrammeProject": "{name} : un projet .tramme, une animation Lottie (.json) ou une vidéo est attendu"
+    "nameATrammeProject": "{name} : un projet .tramme, une animation Lottie (.json) ou une vidéo est attendu",
+    "noSources": "aucune image, vidéo, son ou document PDF parmi ces fichiers",
+    "sources": "Ressources",
+    "invalidSourcesProject": "projet de ressources invalide"
   },
   "app": {
     "backToProjects": "Retour aux projets",
@@ -202,7 +205,12 @@
     "whatToCutSilences": "- ce qu'il faut **couper** : silences, hésitations, passages précis ;",
     "theStyleOfCaptions": "- le **style** des sous-titres et des titres, les **mots à mettre en avant** ;",
     "theOverallToneUnderstated": "- le **ton** général : sobre, dynamique, coloré.",
-    "iWillShowYou": "Je vous proposerai chaque changement en aperçu avant de l'appliquer."
+    "iWillShowYou": "Je vous proposerai chaque changement en aperçu avant de l'appliquer.",
+    "sourcesAreIn": "Vos {n} ressources sont dans le projet, et la parole des vidéos et des sons est en cours de transcription. Voici comment je vais procéder :",
+    "sourcesReadAll": "- je lis **tout** : les documents page par page, les images, les vidéos et les sons avec ce qui s'y dit ;",
+    "sourcesBrief": "- ce que j'apprends va dans le **brief** du projet : sujet, public, messages clés, chiffres, couleurs de la marque ;",
+    "sourcesDirections": "- puis je propose **deux ou trois pistes** de vidéo (format, durée, scène par scène) et je réalise celle que vous choisissez.",
+    "sourcesSend": "L'analyse est prête ci-dessous : envoyez-la telle quelle, ou précisez à quoi sert la vidéo (où elle sera diffusée, pour qui, quelle durée)."
   },
   "templates": {
     "captions": "Sous-titres",
@@ -309,7 +317,9 @@
       "eachExampleBecomesYour": "Chaque exemple devient une copie à vous, que vous pouvez modifier librement.",
       "themePreviewQualityFor": "Thème, qualité de l'aperçu selon la puissance de votre ordinateur, accès à l'assistant. Raccourci : **Ctrl+,**",
       "replayATour": "Revoir une visite",
-      "allGuidedToursAre": "Toutes les visites guidées sont ici, à tout moment. Une autre vous attend à la première ouverture d'un projet."
+      "allGuidedToursAre": "Toutes les visites guidées sont ici, à tout moment. Une autre vous attend à la première ouverture d'un projet.",
+      "startFromSources": "Partir de vos ressources",
+      "yourDocumentsPicturesAnd": "Vos documents (PDF), images, vidéos et sons, plusieurs à la fois : l'assistant les lit tous, dit ce que la vidéo devrait être, puis la réalise avec vous."
     }
   },
   "assistant": {
@@ -434,9 +444,12 @@
     "createAProjectStart": "Créez un projet, partez d'un exemple ou d'une vidéo, ou déposez ici un fichier .tramme, une animation Lottie ou une vidéo.",
     "examples": "Exemples",
     "aCopyBecomesYour": "une copie devient un projet à vous",
-    "dropATrammeProject": "Déposer un projet .tramme, une animation Lottie ou une vidéo",
+    "dropATrammeProject": "Déposer un projet .tramme, une animation Lottie, une vidéo, ou les ressources d'une vidéo (documents, images, rushes)",
     "doneTotalMb": "{done} / {total} Mo",
-    "doneTotalFileS": "{done} / {total} fichier(s)"
+    "doneTotalFileS": "{done} / {total} fichier(s)",
+    "fromSources": "Depuis des ressources",
+    "fromSourcesAbout": "Documents (PDF), images, vidéos et sons : l'assistant les lit tous et propose la vidéo à faire",
+    "uploadingSources": "Envoi des ressources ({n})"
   },
   "inspector": {
     "animateName": "Animer {name}",
@@ -1127,7 +1140,7 @@
     "Blocks": "Blocs",
     "the blocks saved in the project (list), or places one at a time": "les blocs enregistrés du projet (liste), ou en place un à un instant",
     "Project brief": "Brief du projet",
-    "writes the brief of the project (assets/brief.json): the facts of the document, the tone and the rules kept; the assistant follows it over its defaults": "écrit le brief du projet (assets/brief.json) : les faits du document, le ton et les règles conservés ; l'assistant le suit plutôt que ses réglages par défaut",
+    "writes the brief of the project (assets/brief.json): the facts of the document, and what the piece is about, its sources, the tone and the rules kept; the assistant follows it over its defaults": "écrit le brief du projet (assets/brief.json) : les faits du document, et le sujet de la pièce, ses ressources, le ton et les règles gardés ; l'assistant le suit avant ses habitudes",
     "Cut shorts": "Couper en shorts",
     "a long video as shorts: lists the passages that stand alone (candidates), or builds one composition per passage of a plan — the video framed for the format, captions on the remapped transcript, a title": "une longue vidéo en shorts : liste les passages qui se tiennent seuls (candidats), ou construit une composition par passage du plan : la vidéo cadrée pour le format, les sous-titres sur le transcript remappé, un titre",
     "Cut shorts from a long video": "Couper des shorts dans une longue vidéo",
@@ -1506,7 +1519,21 @@
     "sweep: left to right and back; circle; figure8; hold: parked at the centre": "sweep : de gauche à droite et retour ; circle ; figure8 ; hold : garé au centre",
     "sweep": "balayage",
     "figure8": "huit",
-    "hold": "fixe"
+    "hold": "fixe",
+    "Read the sources": "Lire les ressources",
+    "the material of the project (pictures, videos, sounds and PDF documents brought in): without source, lists them with a contact sheet; with one, reads it: a document's pages as text and pictures, a video's frames across its length and what is said, a sound's words, a picture as it is": "la matière du projet (images, vidéos, sons et documents PDF apportés) : sans ressource, les liste avec une planche ; avec une, la lit : les pages d'un document en texte et en images, des vues d'une vidéo sur toute sa durée et ce qui s'y dit, les paroles d'un son, une image telle quelle",
+    "Source": "Ressource",
+    "the asset id or the file path the list gives; none: the list": "l'id de la ressource ou le chemin du fichier donnés par la liste ; aucun : la liste",
+    "Pages": "Pages",
+    "a document: the pages to read, as \"1-4\", \"2,5,7\" or \"6-\" (the first four by default, six at most with their pictures)": "un document : les pages à lire, comme « 1-4 », « 2,5,7 » ou « 6- » (les quatre premières par défaut, six au plus avec leurs images)",
+    "Text only": "Texte seul",
+    "a document: the text of the pages without their pictures, thirty pages at a time": "un document : le texte des pages sans leurs images, trente pages à la fois",
+    "Analyse the sources": "Analyser les ressources",
+    "reads every picture, video, sound and document of the project, then proposes what the video should be": "lit chaque image, vidéo, son et document du projet, puis propose ce que la vidéo devrait être",
+    "About": "Sujet",
+    "what the piece is about: subject, audience, purpose, key messages, the facts and figures it must get right; given, it replaces the one kept": "de quoi parle la pièce : sujet, public, objectif, messages clés, les faits et chiffres à respecter ; donné, il remplace celui gardé",
+    "Sources": "Ressources",
+    "one line per source (its ref first): what it is and what it is good for in the video; given, they replace the ones kept": "une ligne par ressource (sa référence d'abord) : ce qu'elle est et à quoi elle sert dans la vidéo ; données, elles remplacent celles gardées"
   },
   "personal": {
     "cannotStart": "tramme ne peut pas démarrer ici",
@@ -1525,5 +1552,12 @@
     "maximize": "Agrandir",
     "restore": "Niveau inférieur",
     "close": "Fermer"
+  },
+  "sources": {
+    "none": "Pas encore de ressources dans le projet.",
+    "sheet": "Les ressources ({n})",
+    "listed": "Ressources listées : {n}.",
+    "readDocument": "Lecture de {name}, pages {pages}.",
+    "readOne": "Lecture de {name} terminée."
   }
 }

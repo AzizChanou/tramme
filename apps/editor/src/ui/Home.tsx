@@ -10,7 +10,7 @@ import { api, ApiError } from '../api.ts';
 import { saveBlob } from '../download.ts';
 import { safeName } from '../files.ts';
 import { ago } from '../model.ts';
-import { importArchive, ImportError, importFile, isVideoFile, type Progress } from '../importer.ts';
+import { importArchive, ImportError, importFile, importSources, isSourceFile, isVideoFile, type Progress } from '../importer.ts';
 import { toast } from '../state.ts';
 import { MenuHost, Modal, openMenu } from './controls.tsx';
 import { Icon } from './icons.tsx';
@@ -185,6 +185,7 @@ export function Home() {
   const [drag, setDrag] = useState(false);
   const input = useRef<HTMLInputElement>(null);
   const video = useRef<HTMLInputElement>(null);
+  const sources = useRef<HTMLInputElement>(null);
 
   const refresh = () => api.list().then(setProjects).catch((e) => setLoadError((e as Error).message));
   // the home tour, the first time, once the page has its content
@@ -211,9 +212,14 @@ export function Home() {
       setDialog({ kind: 'failure', error: e as Error });
     }
   };
+  const fromSources = (list: File[]) => run(t('home.uploadingSources', { n: list.length }), (p) => importSources(list, p), true);
   const openFiles = (files: FileList | File[] | null) => {
-    const f = files?.[0];
-    if (f) run(isVideoFile(f) ? t('home.uploadingTheVideoName', { name: f.name }) : t('home.importingName', { name: f.name }), (p) => importFile(f, p), isVideoFile(f));
+    const all = Array.from(files ?? []), f = all[0];
+    if (!f) return;
+    // several pictures, videos, sounds or documents, or one picture, sound or document: the sources of a video to make
+    const material = all.filter(isSourceFile);
+    if ((all.length > 1 && material.length) || (isSourceFile(f) && !isVideoFile(f))) { fromSources(material); return; }
+    run(isVideoFile(f) ? t('home.uploadingTheVideoName', { name: f.name }) : t('home.importingName', { name: f.name }), (p) => importFile(f, p), isVideoFile(f));
   };
   const useExample = (x: Example) => run(t('home.copyingTheExampleName', { name: t(x.name) }), async (p) => {
     const r = await fetch(`/examples/${x.file}`);
@@ -247,9 +253,11 @@ export function Home() {
         <button class="icon-btn" data-tour="settings" title={t('common.settingsCtrl')} onClick={() => { settingsOpen.value = true; }}><Icon name="gear" /></button>
         <button class="btn" data-tour="home-open" onClick={() => input.current?.click()}><Icon name="upload" /><span class="label">{t('common.openAFile')}</span></button>
         <button class="btn" data-tour="home-video" title={t('home.aProjectAtThe')} onClick={() => video.current?.click()}><Icon name="film" /><span class="label">{t('home.fromAVideo')}</span></button>
+        <button class="btn" data-tour="home-sources" title={t('home.fromSourcesAbout')} onClick={() => sources.current?.click()}><Icon name="doc" /><span class="label">{t('home.fromSources')}</span></button>
         <button class="btn primary" data-tour="home-new" onClick={() => setDialog({ kind: 'new' })}><Icon name="plus" /><span class="label">{t('common.newProject')}</span></button>
         <input ref={input} type="file" accept=".tramme,.trame,.emotion,.zip,.json,application/json" hidden onChange={(e) => { openFiles((e.target as HTMLInputElement).files); (e.target as HTMLInputElement).value = ''; }} />
         <input ref={video} type="file" accept="video/*,.mp4,.mov,.webm,.mkv" hidden onChange={(e) => { openFiles((e.target as HTMLInputElement).files); (e.target as HTMLInputElement).value = ''; }} />
+        <input ref={sources} type="file" multiple accept="image/*,video/*,audio/*,.pdf,application/pdf" hidden onChange={(e) => { const list = Array.from((e.target as HTMLInputElement).files ?? []); (e.target as HTMLInputElement).value = ''; if (list.length) fromSources(list); }} />
         <WindowControls />
       </header>
       <main class="home-main">

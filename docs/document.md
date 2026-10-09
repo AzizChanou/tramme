@@ -216,7 +216,7 @@ export const tools = [{
   ai: { when: 'a night sky or a festive background', avoid: 'more than 60 stars on a small format' },
   async run({ count }, ctx) {
     // ctx: doc (with the pending proposal), compId, time, selection, registry,
-    // assetUrl(id), readText(path), writeFile(path, data), renderStill(t), transcript(assetId)
+    // assetUrl(id), readText(path), files(), fileUrl(path), writeFile(path, data), renderStill(t), transcript(assetId)
     const ops = [/* JSON Patch operations on ctx.doc */];
     return { text: `${count} stars`, ops, label: 'Star field' };
   },

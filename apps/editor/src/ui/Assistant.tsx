@@ -18,7 +18,7 @@ import { acceptProposal, comp, propose, rejectProposal, S, toast, uiTime } from 
 import { ago, clip, describeOp, layerName, timecode } from '../model.ts';
 import { away, notify } from '../notify.ts';
 import { Icon } from './icons.tsx';
-import { attachFiles, attaching, attachmentUrl, pending, removePending, type Attachment } from '../attachments.ts';
+import { attachFiles, attaching, attachmentUrl, draft, pending, removePending, type Attachment } from '../attachments.ts';
 import { Popover, Seg, Select, Toggle } from './controls.tsx';
 import { preview } from '../preview.ts';
 import { m, t, tr } from '../i18n/index.ts';
@@ -266,7 +266,7 @@ function FileChip({ a, onRemove }: { a: { path: string; name: string; kind: stri
     <span class={`file-chip ${a.kind}`} title={a.path}>
       {a.kind === 'image'
         ? <img src={url} alt="" onClick={() => { lightbox.value = url; }} />
-        : <Icon name={a.kind === 'video' ? 'film' : a.kind === 'audio' ? 'audio' : 'code'} />}
+        : <Icon name={a.kind === 'video' ? 'film' : a.kind === 'audio' ? 'audio' : a.kind === 'document' ? 'doc' : 'code'} />}
       <span class="file-name">{a.name}</span>
       {onRemove && <button class="icon-btn xs" title={t('common.remove')} onClick={onRemove}><Icon name="x" /></button>}
     </span>
@@ -504,6 +504,9 @@ export function Assistant({ style }: { style?: Record<string, string | number> }
   }, [available]);
   useLayoutEffect(() => { const el = scroller.current; if (el) el.scrollTop = el.scrollHeight; }, [items.length, items.at(-1)?.text]);
   useEffect(() => { const el = area.current; if (el) { el.style.height = 'auto'; el.style.height = `${Math.min(180, el.scrollHeight)}px`; } }, [text]);
+  // words prepared for the user (a project made from sources: the analysis)
+  const prepared = draft.value;
+  useEffect(() => { if (prepared) { setText(prepared); draft.value = ''; } }, [prepared]);
   const ctx = contextLine(true);
   // the / menu: the tools and workflows of the vocabulary (the editor's and the project's plugins)
   const reg = S.registry.value;
@@ -605,7 +608,7 @@ export function Assistant({ style }: { style?: Record<string, string | number> }
             onKeyDown={keyDown} />
           <div class="bar">
             <button class="icon-btn sm" title={t('assistant.attachImagesSoundsOr')} disabled={!available} onClick={() => files.current?.click()}><Icon name="attach" /></button>
-            <input ref={files} type="file" multiple hidden accept="image/*,audio/*,video/*,.json,.svg" onChange={(e) => { join((e.target as HTMLInputElement).files); (e.target as HTMLInputElement).value = ''; }} />
+            <input ref={files} type="file" multiple hidden accept="image/*,audio/*,video/*,.pdf,application/pdf,.json,.svg" onChange={(e) => { join((e.target as HTMLInputElement).files); (e.target as HTMLInputElement).value = ''; }} />
             <div class="grow"><span class="chip" title={t('assistant.contextSentWithThe')}><Icon name="target" />{ctx.text}</span></div>
             {busy
               ? <button class="send stop" title={t('assistant.stop')} onClick={stop}><Icon name="stop" /></button>

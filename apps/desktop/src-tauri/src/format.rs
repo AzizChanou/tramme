@@ -85,7 +85,7 @@ const EXT: [(&str, &[&str]); 3] = [
         "assets",
         &[
             "png", "jpg", "jpeg", "webp", "gif", "avif", "svg", "ttf", "otf", "woff", "woff2",
-            "wav", "mp3", "ogg", "m4a", "flac", "mp4", "webm", "mov", "json", "js", "mjs",
+            "wav", "mp3", "ogg", "m4a", "flac", "mp4", "webm", "mov", "json", "js", "mjs", "pdf",
         ],
     ),
     ("plugins", &["js", "mjs"]),
@@ -106,6 +106,7 @@ pub fn mime_of(path: &str) -> &'static str {
         "otf" => "font/otf",
         "woff" => "font/woff",
         "woff2" => "font/woff2",
+        "pdf" => "application/pdf",
         "wav" => "audio/wav",
         "mp3" => "audio/mpeg",
         "ogg" => "audio/ogg",
@@ -374,6 +375,7 @@ mod tests {
         assert_eq!(mime_of("document.tramme.json"), "application/json; charset=utf-8");
         assert_eq!(mime_of("assets/images/x.svg"), "image/svg+xml");
         assert_eq!(mime_of("assets/fonts/x.woff2"), "font/woff2");
+        assert_eq!(mime_of("assets/sources/x.pdf"), "application/pdf");
         assert_eq!(mime_of("x.unknown"), "application/octet-stream");
     }
 

@@ -14,6 +14,7 @@ These packages end up in the editor's build (`apps/editor/dist`). The build also
 | [mediabunny](https://github.com/Vanilagy/mediabunny) | MPL-2.0 | Video decoding and encoding (MP4, WebM) |
 | [gifenc](https://github.com/mattdesl/gifenc) | MIT | GIF export |
 | [fflate](https://github.com/101arrowz/fflate) | MIT | `.tramme` archives, PNG sequences |
+| [pdf.js](https://github.com/mozilla/pdf.js) (`pdfjs-dist`) | Apache-2.0 | Reading PDF documents (the sources of a project); its worker is copied beside the editor (`pdf.worker.mjs`) |
 
 **About mediabunny (MPL-2.0).** The MPL is a file-level copyleft: if you modify mediabunny's own files and distribute the result, those files must stay under the MPL and their source must be available. Using it unmodified, as Tramme does, places no requirement on Tramme's own code.
 

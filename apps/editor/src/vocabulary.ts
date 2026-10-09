@@ -17,6 +17,7 @@ import { EDITOR_PRESETS } from './presets.ts';
 import { BUILTIN_KITS, RECIPE_TOOLS } from './recipes.ts';
 import { REVIEW_TOOLS } from './review.ts';
 import { SHORTS_TOOLS } from './shorts.ts';
+import { SOURCE_TOOLS } from './sources.ts';
 import { SOUND_TOOLS } from './sound.ts';
 import { TRACKING_TOOLS } from './tracking.ts';
 import { TEMPLATES, type TemplateArgs } from './templates.ts';
@@ -52,6 +53,10 @@ export const EDITOR_TOOLS: ToolType[] = [
 
 export const EDITOR_PROMPTS: PromptType[] = [
   {
+    name: 'analyze', title: 'Analyse the sources', description: 'reads every picture, video, sound and document of the project, then proposes what the video should be',
+    prompt: 'Analyse the sources of this project before making anything, following your guide for sources: list them (use_tool "sources"), read every one in full (each document to its last page, each video and sound with what is said), take the colours of the brand from its logo or its pictures (use_tool "palette"), and write what you learned in the brief (use_tool "brief" with about and sources). Then tell me in a few lines what you understood, and propose two or three directions for the video: what it is for and for whom, format and length, the story scene by scene with the sources each scene uses and what must be made for it. Recommend one, and wait for my choice before building.',
+  },
+  {
     name: 'dress', title: 'Dress a talking video', description: 'cuts, captions, titles and keywords on a video where someone speaks',
     prompt: 'Dress the talking video of this project, following your guide for talking videos: ask about the format and the tone if I have not said them, read the transcript, cut the silences and hesitations, add captions, section titles and keywords at the right moments, then check with frames.',
   },
@@ -75,5 +80,5 @@ export const EDITOR_PROMPTS: PromptType[] = [
 
 /** the base vocabulary of the editor, before a document's plugins */
 export function editorRegistry() {
-  return builtinRegistry().registerTool(...EDITOR_TOOLS, ...RECIPE_TOOLS, ...FIGURE_TOOLS, ...EVENT_TOOLS, ...PERCEPTION_TOOLS, ...TRACKING_TOOLS, ...CUTOUT_TOOLS, ...REVIEW_TOOLS, ...SOUND_TOOLS, ...IMAGE_TOOLS, ...SHORTS_TOOLS, ...BLOCK_TOOLS, ...BRIEF_TOOLS, ...LIBRARY_TOOLS).registerPrompt(...EDITOR_PROMPTS).registerKit(...BUILTIN_KITS).registerPreset(...EDITOR_PRESETS);
+  return builtinRegistry().registerTool(...EDITOR_TOOLS, ...RECIPE_TOOLS, ...FIGURE_TOOLS, ...EVENT_TOOLS, ...PERCEPTION_TOOLS, ...TRACKING_TOOLS, ...CUTOUT_TOOLS, ...REVIEW_TOOLS, ...SOUND_TOOLS, ...IMAGE_TOOLS, ...SHORTS_TOOLS, ...SOURCE_TOOLS, ...BLOCK_TOOLS, ...BRIEF_TOOLS, ...LIBRARY_TOOLS).registerPrompt(...EDITOR_PROMPTS).registerKit(...BUILTIN_KITS).registerPreset(...EDITOR_PRESETS);
 }

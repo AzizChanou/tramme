@@ -121,7 +121,7 @@
     "nothing": "No passage long enough in the transcript."
   },
   "attachments": {
-    "nameImageSoundVideo": "{name}: image, sound, video or JSON expected",
+    "nameImageSoundVideo": "{name}: image, sound, video, PDF or JSON expected",
     "attachmentName": "Attachment: {name}",
     "couldNotTranscribeName": "Could not transcribe {name}: {error}"
   },
@@ -162,7 +162,10 @@
     "nameUnreadableDuration": "{name}: unreadable duration",
     "video": "Video",
     "invalidVideoProject": "invalid video project",
-    "nameATrammeProject": "{name}: a .tramme project, a Lottie animation (.json) or a video is expected"
+    "nameATrammeProject": "{name}: a .tramme project, a Lottie animation (.json) or a video is expected",
+    "noSources": "no picture, video, sound or PDF document among these files",
+    "sources": "Sources",
+    "invalidSourcesProject": "invalid sources project"
   },
   "app": {
     "backToProjects": "Back to projects",
@@ -202,7 +205,12 @@
     "whatToCutSilences": "- what to **cut**: silences, hesitations, specific passages;",
     "theStyleOfCaptions": "- the **style** of captions and titles, the **words to highlight**;",
     "theOverallToneUnderstated": "- the overall **tone**: understated, lively, colorful.",
-    "iWillShowYou": "I will show you each change as a preview before applying it."
+    "iWillShowYou": "I will show you each change as a preview before applying it.",
+    "sourcesAreIn": "Your {n} sources are in the project, and what is said in the videos and sounds is being transcribed. Here is how I will work:",
+    "sourcesReadAll": "- I read **everything**: the documents page by page, the pictures, the videos and sounds with what is said;",
+    "sourcesBrief": "- what I learn goes into the project's **brief**: subject, audience, key messages, figures, brand colours;",
+    "sourcesDirections": "- then I propose **two or three directions** for the video (format, length, scene by scene), and make the one you choose.",
+    "sourcesSend": "The analysis is ready below: send it as it is, or add what the video is for (where it will be shown, for whom, how long)."
   },
   "templates": {
     "captions": "Captions",
@@ -309,7 +317,9 @@
       "eachExampleBecomesYour": "Each example becomes your own copy, which you can change freely.",
       "themePreviewQualityFor": "Theme, preview quality for your computer's power, access to the assistant. Shortcut: **Ctrl+,**",
       "replayATour": "Replay a tour",
-      "allGuidedToursAre": "All guided tours are here, at any time. Another one awaits you the first time you open a project."
+      "allGuidedToursAre": "All guided tours are here, at any time. Another one awaits you the first time you open a project.",
+      "startFromSources": "Start from your sources",
+      "yourDocumentsPicturesAnd": "Your documents (PDF), pictures, videos and sounds, several at once: the assistant reads them all, says what the video should be, then makes it with you."
     }
   },
   "assistant": {
@@ -434,9 +444,12 @@
     "createAProjectStart": "Create a project, start from an example or a video, or drop a .tramme file, a Lottie animation or a video here.",
     "examples": "Examples",
     "aCopyBecomesYour": "a copy becomes your own project",
-    "dropATrammeProject": "Drop a .tramme project, a Lottie animation or a video",
+    "dropATrammeProject": "Drop a .tramme project, a Lottie animation, a video, or the sources of a video (documents, pictures, footage)",
     "doneTotalMb": "{done} / {total} MB",
-    "doneTotalFileS": "{done} / {total} file(s)"
+    "doneTotalFileS": "{done} / {total} file(s)",
+    "fromSources": "From sources",
+    "fromSourcesAbout": "Documents (PDF), pictures, videos and sounds: the assistant reads them all and proposes the video to make",
+    "uploadingSources": "Uploading the sources ({n})"
   },
   "inspector": {
     "animateName": "Animate {name}",
@@ -883,5 +896,12 @@
     "maximize": "Maximize",
     "restore": "Restore",
     "close": "Close"
+  },
+  "sources": {
+    "none": "No sources in the project yet.",
+    "sheet": "The sources ({n})",
+    "listed": "Sources listed: {n}.",
+    "readDocument": "{name} read, pages {pages}.",
+    "readOne": "{name} read."
   }
 }

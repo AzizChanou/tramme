@@ -23,6 +23,7 @@ import { TRACKING_TOOLS } from '../src/tracking.ts';
 import { EDITOR_PRESETS } from '../src/presets.ts';
 import { LIBRARY_TOOLS } from '../src/library.ts';
 import { SOUND_TEXTS, SOUND_TOOLS } from '../src/sound.ts';
+import { SOURCE_TOOLS } from '../src/sources.ts';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(HERE, '../../..');
@@ -62,7 +63,7 @@ export function registryKeys(): Set<string> {
   schema(MOTION_BLUR_SCHEMA);
   schema(CAMERA_SCHEMA);
   // the editor's tools and workflows, shown in the chat's / menu
-  const tools = [...EDITOR_TOOLS, ...RECIPE_TOOLS, ...FIGURE_TOOLS, ...EVENT_TOOLS, ...PERCEPTION_TOOLS, ...TRACKING_TOOLS, ...CUTOUT_TOOLS, ...REVIEW_TOOLS, ...SOUND_TOOLS, ...LIBRARY_TOOLS];
+  const tools = [...EDITOR_TOOLS, ...RECIPE_TOOLS, ...FIGURE_TOOLS, ...EVENT_TOOLS, ...PERCEPTION_TOOLS, ...TRACKING_TOOLS, ...CUTOUT_TOOLS, ...REVIEW_TOOLS, ...SOUND_TOOLS, ...SOURCE_TOOLS, ...LIBRARY_TOOLS];
   for (const x of [...tools, ...EDITOR_PROMPTS, ...BUILTIN_CHECKS, ...BUILTIN_KITS, ...EDITOR_PRESETS]) { add(x.title); add(x.description); }
   for (const c of BUILTIN_CHECKS) for (const text of c.texts ?? []) add(text);
   for (const text of Object.values(SOUND_TEXTS)) add(text);

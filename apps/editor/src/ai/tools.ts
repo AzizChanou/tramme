@@ -13,7 +13,7 @@ import { inputIssues, vocabularyDetail, vocabularyIndex } from './answers.ts';
 import { uid } from './calls.ts';
 import { api, type AiEvent } from '../api.ts';
 import { describeOp, freshId } from '../model.ts';
-import { analyses } from '../perception.ts';
+import { analyses, jpegOf, loadImage } from '../perception.ts';
 import { safeName } from '../files.ts';
 import { transcribeAsset, transcriptIdOf } from '../speech.ts';
 import { TEMPLATES } from '../templates.ts';
@@ -114,9 +114,7 @@ export class ToolRunner {
     if (!a) return text(`unknown asset: ${assetId}`, true);
     let source: CanvasImageSource, w: number, h: number;
     if (a.type === 'image') {
-      const img = new Image();
-      img.src = this.urlOf(a.src);
-      await img.decode();
+      const img = await loadImage(this.urlOf(a.src));
       source = img; w = img.naturalWidth; h = img.naturalHeight;
     } else if (a.type === 'video') {
       let v = this.videos.get(assetId);
@@ -127,10 +125,7 @@ export class ToolRunner {
       if (!f.image) return text(`no frame at ${t} s`, true);
       source = f.image; w = frames.width; h = frames.height;
     } else return text(`${assetId}: a video or an image is expected`, true);
-    const k = Math.min(1, STILL_WIDTH / w), c = document.createElement('canvas');
-    c.width = Math.round(w * k); c.height = Math.round(h * k);
-    c.getContext('2d')!.drawImage(source, 0, 0, c.width, c.height);
-    const url = c.toDataURL('image/jpeg', 0.86);
+    const url = jpegOf(source, w, h, Math.min(1, STILL_WIDTH / w));
     this.events.push({ type: 'item', item: { id: uid(), role: 'assistant', image: { url, caption: `${a.name ?? assetId}${a.type === 'video' ? ` · ${t.toFixed(2)} s` : ''}` } } });
     return { content: [{ type: 'image', data: url.slice(url.indexOf(',') + 1), mimeType: 'image/jpeg' }] };
   }
@@ -278,6 +273,8 @@ ${r.content[0].type === 'text' ? r.content[0].text : ''}`);
       selection: S.selection.peek().filter((id) => doc.compositions[compId].layers[id]),
       assetUrl: (id) => { const a = doc.assets[id]; if (!a) throw new Error(`unknown asset: ${id}`); return this.urlOf(a.src); },
       readText: async (path) => (await api.readText(S.project.peek().id, path))?.text ?? null,
+      files: async () => (await api.info(S.project.peek().id)).files.map(({ path, size }) => ({ path, size })),
+      fileUrl: (path) => this.urlOf(path),
       writeFile: async (path, data) => {
         const bad = pathIssue(path);
         const plugin = /^plugins\/.+\.(js|mjs)$/i.test(path);

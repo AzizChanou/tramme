@@ -15,7 +15,7 @@ import { App } from './ui/App.tsx';
 import { Home } from './ui/Home.tsx';
 import './styles.css';
 import { offerTours } from './tours/index.ts';
-import { startFromVideo } from './start.ts';
+import { startProject } from './start.ts';
 import { t } from './i18n/index.ts';
 import { boot } from './mode.ts';
 import { initDesktop } from './desktop.ts';
@@ -50,7 +50,7 @@ async function openProject(id: string) {
   load(upgradeDoc(JSON.parse(doc.text)) as TrammeDoc, info.manifest, api.fileUrl(id, DOCUMENT), doc.etag);
   document.title = `${info.manifest.name} · tramme`;
   render(<App />, root);
-  loadChats(info.files).catch((e) => console.warn('[tramme] conversations :', (e as Error).message)).finally(startFromVideo);
+  loadChats(info.files).catch((e) => console.warn('[tramme] conversations :', (e as Error).message)).finally(startProject);
   await preview.start();
   // the editor's tour, the first time a project opens
   setTimeout(() => offerTours('editor'), 700);

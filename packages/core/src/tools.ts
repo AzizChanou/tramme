@@ -39,6 +39,10 @@ export interface ToolContext {
   assetUrl(id: string): string;
   /** a text file of the project, or null when there is none */
   readText(path: string): Promise<string | null>;
+  /** the files of the project (path, bytes), the ones the document does not reference included (documents brought in) */
+  files(): Promise<{ path: string; size: number }[]>;
+  /** absolute URL of a file of the project */
+  fileUrl(path: string): string;
   /** writes a file under assets/ (data the tool computed) or a plugin under plugins/ (.js, .mjs) and returns its path; a new file is declared as an asset by the tool's operations */
   writeFile(path: string, data: Blob | string): Promise<string>;
   /** a still of a composition at time t (pending proposal included), as a JPEG data URL */

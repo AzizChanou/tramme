@@ -96,7 +96,7 @@ examples/
 
 ## The editor
 
-- Home: recent projects with thumbnails, new project (formats, frame rate, length), project from a video (at its size, frame rate and length), opening a `.tramme` file or a Lottie animation from the computer (button or drag and drop), examples. Each project can be renamed, duplicated, saved to the computer as `.tramme`, or deleted.
+- Home: recent projects with thumbnails, new project (formats, frame rate, length), project from a video (at its size, frame rate and length), project from sources (documents, pictures, videos and sounds, several at once), opening a `.tramme` file or a Lottie animation from the computer (button or drag and drop), examples. Each project can be renamed, duplicated, saved to the computer as `.tramme`, or deleted.
 - An imported file is checked before it enters storage: format structure, document, loaded plugins, present assets. An imported project always gets a new id.
 - Top bar: back to projects, name, autosave (refused if the document changed in another tab), undo and redo (Ctrl+Z, Ctrl+Shift+Z), composition, format, frame rate, export.
 - Left: layer tree (drag and drop, rename, hide, precompose), compositions and assets (import by drag and drop, Lottie included), brand tokens.
@@ -134,7 +134,9 @@ In automatic mode, the editor takes the companion if it answers, the server othe
 
 All of them speak OpenAI's chat format: the same tools, the same loop in the editor, the same conversation (you can switch models midway; a model that cannot read images gets a note in their place). Small local models follow tools less well than Claude.
 
-Images, sounds and videos can be attached to a message (paperclip, drag and drop, paste). Each file enters the project (`assets/chat/`) and becomes an asset; the assistant sees the images, and sounds and videos are transcribed.
+Images, sounds, videos and PDF documents can be attached to a message (paperclip, drag and drop, paste). Each file enters the project (`assets/chat/`), and images, sounds and videos become assets; the assistant sees the images, sounds and videos are transcribed, and documents are read page by page.
+
+**From sources.** "From sources" on the home screen (or several files dropped on it) makes a project of the material a video is made from: PDF documents, pictures, footage, sounds, kept in `assets/sources/`. The sounds and videos are transcribed, and `/analyze` waits in the message box: the assistant lists the sources (`sources`: a contact sheet of them all), reads every one (a document's pages as text and as pictures, a video's frames across its length with what is said), takes the brand's colours (`palette`), writes what it learned in the brief (`about`: subject, audience, purpose, messages, facts; `sources`: what each one is good for), then proposes two or three directions for the video (format, length, scene by scene, the sources each scene uses) and builds the one you pick. Documents are read in the browser with pdf.js.
 
 **Dressing a video.** "From a video" on the home screen creates the project, transcribes the speech, and the assistant asks what you want: format, cuts, style, words to highlight. It reads what is said (`get_transcript`: timed sentences, pauses, hesitations), looks at the video (`media_frame`), cuts (`cut_media`: the kept passages placed end to end, the transcript remapped to the edit, the captions reconnected) and dresses with templates in the project's colors (`apply_template`: captions, section title, keyword, name and role lower third). Everything arrives as one proposal, checked with rendered frames, to apply or reject.
 
