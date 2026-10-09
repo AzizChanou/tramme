@@ -8,6 +8,8 @@ Until 1.0.0, the document format and the APIs may still change between minor ver
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-10-10
+
 ### Added
 
 - "From sources" takes a whole folder, chosen or dropped, its subfolders walked through. A kit among the files (a `brief.json` of kind `tramme-kit`, as an agent writes it from a project's repository) sets the project up: its name, its colours and curves as tokens, the fonts it names as font assets, its brief; the whole kit stays at `assets/sources/kit.json`, its paths pointing at the files as imported, and the assistant reads it first.
@@ -144,6 +146,7 @@ First public release.
 
 - Cloudflare Worker serving the editor and the API, projects stored in R2, access protected by Cloudflare Access.
 
-[Unreleased]: ../../compare/v0.2.0...HEAD
+[Unreleased]: ../../compare/v0.3.0...HEAD
+[0.3.0]: ../../compare/v0.2.0...v0.3.0
 [0.2.0]: ../../compare/v0.1.0...v0.2.0
 [0.1.0]: ../../releases/tag/v0.1.0

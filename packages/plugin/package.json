@@ -1,6 +1,6 @@
 {
   "name": "@tramme/plugin",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "license": "Apache-2.0",
   "private": true,
   "type": "module",
@@ -8,6 +8,6 @@
     ".": "./src/index.ts"
   },
   "dependencies": {
-    "@tramme/core": "0.2.0"
+    "@tramme/core": "0.3.0"
   }
 }
