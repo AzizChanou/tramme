@@ -71,7 +71,7 @@ Where the projects go: a `Tramme` folder in the user's documents by default, con
 - **Keys on the device.** The user enters their own provider keys in the settings. Store them with the OS keychain (a Tauri plugin such as `tauri-plugin-stronghold` or a keyring plugin), never in plain files or `localStorage`.
 - **Direct calls.** The editor already runs the tool loop in the page; only the transport changes, from the Worker relay to the provider's API. Check each provider's CORS rules for calls from a webview; if one refuses, route it through a Rust command.
 - **Local models** (Ollama, LM Studio) already work from the browser and keep working.
-- **Companion.** On desktop, `tramme agent` can keep running next to the app (it needs Node and a Claude Code login). Bundling it as a sidecar means shipping Node: decide later.
+- **Companion.** On desktop, `tramme agent` can keep running next to the app (it needs Node and an agent signed in: Claude Code, Codex or the Gemini CLI). Bundling it as a sidecar means shipping Node: decide later.
 - **Transcription.** OpenAI Whisper with the user's key (done), or on desktop the companion's local Whisper.
 
 ## The webview per platform

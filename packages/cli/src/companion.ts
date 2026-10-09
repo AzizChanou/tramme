@@ -1,27 +1,29 @@
-// The local companion: `tramme agent` runs Claude with the Agent SDK on this
-// machine (the Claude Code login, no API key) for the editor open in the
-// browser, deployed or local. The editor sends the user's message; Claude's
-// tool calls come back to the editor, which runs them (document, renderer,
-// project files) and posts the results. Nothing here touches the project.
+// The local companion: `tramme agent` runs the agents installed on this
+// machine, each on the user's own login and without an API key, for the
+// editor open in the browser, deployed or local: Claude (the Agent SDK, the
+// Claude Code login), Codex (a ChatGPT login) or the Gemini CLI (a Google
+// login), see agents.ts. The editor sends the user's message; the agent's tool
+// calls come back to the editor, which runs them (document, renderer, project
+// files) and posts the results. Nothing here touches the project.
 //
 // Listening on 127.0.0.1 only. Every request carries the pairing token shown
 // at startup; pages of other origins than the allowed ones are refused. A page
 // of an origin named with --origin (the editor `npm run dev` serves, a deployed
 // editor) receives the token by itself (/pair); any other local page has to be
-// given it by hand.
+// given it by hand. The command lines reach tramme's tools at /mcp/<key>, an
+// address that only holds for the turn running.
 
 import crypto from 'node:crypto';
 import fs from 'node:fs';
 import http from 'node:http';
 import os from 'node:os';
 import path from 'node:path';
-import { createSdkMcpServer, query, tool, type Query, type SDKMessage, type SDKUserMessage } from '@anthropic-ai/claude-agent-sdk';
-import { ADAPTIVE, COMPANION_PORT, DEFAULT_EFFORT, EFFORTS, MODELS, TOOLS, type Effort, type ToolResult } from '@tramme/assistant';
+import { COMPANION_PORT, ENGINES, MODELS, type Engine, type ToolResult } from '@tramme/assistant';
+import { engines, runEngine, serveTools, type Turn } from './agents.ts';
 
 const CONFIG = path.join(os.homedir(), '.tramme', 'companion.json');
 /** the pairing kept under the tool's former name: still valid, so the editor stays paired */
 const LEGACY_CONFIGS = ['.trame', '.emotion'].map((d) => path.join(os.homedir(), d, 'companion.json'));
-const TOOL_TIMEOUT = 15 * 60_000;
 
 /** the pairing token, kept between runs so the editor stays paired */
 function token(renew: boolean): string {
@@ -39,15 +41,6 @@ function token(renew: boolean): string {
   fs.mkdirSync(path.dirname(CONFIG), { recursive: true });
   fs.writeFileSync(CONFIG, JSON.stringify({ token: t }, null, 2) + '\n', { mode: 0o600 });
   return t;
-}
-
-type Out = Record<string, unknown>;
-
-interface Turn {
-  send: (ev: Out) => void;
-  pending: Map<string, (r: ToolResult) => void>;
-  abort: AbortController;
-  query: Query | null;
 }
 
 export async function startCompanion(opts: { port?: number; origins?: string[]; renew?: boolean } = {}) {
@@ -72,88 +65,28 @@ export async function startCompanion(opts: { port?: number; origins?: string[]; 
     req.on('error', reject);
   });
 
-  function tools(t: Turn) {
-    return createSdkMcpServer({
-      name: 'tramme',
-      version: '1.0.0',
-      alwaysLoad: true,
-      tools: TOOLS.map((def) => tool(def.name, def.description, def.schema.shape, async (input: unknown) => {
-        const callId = crypto.randomUUID();
-        t.send({ type: 'tool', callId, name: def.name, input });
-        const r = await new Promise<ToolResult>((resolve) => {
-          const timer = setTimeout(() => { t.pending.delete(callId); resolve({ content: [{ type: 'text', text: 'the editor did not answer' }], isError: true }); }, TOOL_TIMEOUT);
-          t.pending.set(callId, (x) => { clearTimeout(timer); resolve(x); });
-        });
-        return {
-          content: r.content.map((c) => (c.type === 'image' ? { type: 'image' as const, data: c.data, mimeType: c.mimeType } : { type: 'text' as const, text: c.text })),
-          isError: !!r.isError,
-        };
-      })),
-    });
-  }
+  /** stops the turn running, if any */
+  const stopTurn = () => { turn?.stop(); };
 
-  async function runTurn(body: { prompt?: string; system?: string; model?: string; effort?: string; sessionId?: string; images?: { mediaType: string; data: string }[] }, res: http.ServerResponse) {
+  async function runTurn(body: { engine?: string; prompt?: string; system?: string; model?: string; effort?: string; sessionId?: string; images?: { mediaType: string; data: string }[] }, res: http.ServerResponse) {
     if (typeof body.prompt !== 'string' || typeof body.system !== 'string') throw new Error('prompt and system expected');
-    const model = MODELS.some(([id]) => id === body.model) ? body.model! : MODELS[0][0];
-    const effort: Effort = EFFORTS.find((e) => e === body.effort) ?? DEFAULT_EFFORT;
+    const engine: Engine = ENGINES.find((e) => e === body.engine) ?? 'claude';
     // one conversation at a time: a new message stops the previous one
-    if (turn) { turn.abort.abort(); turn.query?.interrupt().catch(() => {}); }
+    stopTurn();
     res.writeHead(200, { 'content-type': 'application/x-ndjson; charset=utf-8', 'cache-control': 'no-store' });
-    const t: Turn = { send: (ev) => { if (!res.writableEnded) res.write(JSON.stringify(ev) + '\n'); }, pending: new Map(), abort: new AbortController(), query: null };
+    const t: Turn = {
+      send: (ev) => { if (!res.writableEnded) res.write(JSON.stringify(ev) + '\n'); },
+      pending: new Map(), abort: new AbortController(), key: crypto.randomBytes(24).toString('hex'),
+      stop: () => t.abort.abort(),
+    };
     turn = t;
-    res.on('close', () => { if (!res.writableFinished) { t.abort.abort(); t.query?.interrupt().catch(() => {}); } });
-    let message = 0;
-    const thinking = new Set<string>();
+    res.on('close', () => { if (!res.writableFinished) t.stop(); });
     try {
-      // images joined to the message: one user message of image blocks and the text
-      const images = Array.isArray(body.images) ? body.images.slice(0, 20) : [];
-      const prompt = images.length
-        ? (async function* () {
-          yield {
-            type: 'user' as const,
-            parent_tool_use_id: null,
-            message: { role: 'user' as const, content: [...images.map((i) => ({ type: 'image' as const, source: { type: 'base64' as const, media_type: i.mediaType as 'image/jpeg', data: i.data } })), { type: 'text' as const, text: body.prompt! }] },
-          } as SDKUserMessage;
-        })()
-        : body.prompt;
-      t.query = query({
-        prompt,
-        options: {
-          model,
-          systemPrompt: body.system,
-          // only tramme's tools, run by the editor: no files, no shell, no settings, no account connectors
-          tools: [],
-          mcpServers: { tramme: tools(t) },
-          strictMcpConfig: true,
-          settingSources: [],
-          canUseTool: async (name: string, input: Record<string, unknown>) => (name.startsWith('mcp__tramme__')
-            ? { behavior: 'allow' as const, updatedInput: input }
-            : { behavior: 'deny' as const, message: `Tool ${name} is not available in tramme.` }),
-          // thinking shown to the user as it goes (summarized)
-          ...(ADAPTIVE.has(model) ? { thinking: { type: 'adaptive' as const, display: 'summarized' as const }, effort } : {}),
-          includePartialMessages: true,
-          abortController: t.abort,
-          cwd: os.tmpdir(),
-          ...(body.sessionId ? { resume: body.sessionId } : {}),
-        },
+      await runEngine(engine, t, {
+        prompt: body.prompt, system: body.system, model: typeof body.model === 'string' ? body.model : '', effort: body.effort, sessionId: body.sessionId,
+        images: Array.isArray(body.images) ? body.images.slice(0, 20) : [],
+        mcpUrl: `http://127.0.0.1:${port}/mcp/${t.key}`,
       });
-      for await (const m of t.query as AsyncIterable<SDKMessage>) {
-        const msg = m as any;
-        if (msg.type === 'system' && msg.subtype === 'init') t.send({ type: 'session', id: msg.session_id, model });
-        else if (msg.parent_tool_use_id) continue;
-        else if (msg.type === 'stream_event') {
-          const ev = msg.event;
-          if (ev.type === 'message_start') message++;
-          const key = `${message}:${ev.index}`;
-          if (ev.type === 'content_block_start' && ev.content_block?.type === 'text') t.send({ type: 'text-start', key, text: ev.content_block.text ?? '' });
-          else if (ev.type === 'content_block_start' && /thinking/.test(ev.content_block?.type ?? '')) { thinking.add(key); t.send({ type: 'thinking-start', key }); }
-          else if (ev.type === 'content_block_delta' && ev.delta?.type === 'text_delta') t.send({ type: 'text', key, delta: ev.delta.text });
-          else if (ev.type === 'content_block_delta' && ev.delta?.type === 'thinking_delta') t.send({ type: 'thinking', key, delta: ev.delta.thinking });
-          else if (ev.type === 'content_block_stop' && thinking.delete(key)) t.send({ type: 'thinking-stop', key });
-        } else if (msg.type === 'result' && msg.subtype !== 'success') {
-          t.send({ type: 'error', message: (msg.errors ?? []).join('\n') || `Claude stopped (${msg.subtype})` });
-        }
-      }
     } catch (e) {
       if (!t.abort.signal.aborted) t.send({ type: 'error', message: (e as Error).message });
     } finally {
@@ -172,7 +105,7 @@ export async function startCompanion(opts: { port?: number; origins?: string[]; 
     }
     if (req.method === 'OPTIONS') {
       res.writeHead(204, {
-        'access-control-allow-methods': 'GET, POST',
+        'access-control-allow-methods': 'GET, POST, DELETE',
         'access-control-allow-headers': 'authorization, content-type',
         // a page served from the internet calling this machine (Chrome's private network access)
         'access-control-allow-private-network': 'true',
@@ -190,9 +123,21 @@ export async function startCompanion(opts: { port?: number; origins?: string[]; 
       json(200, { token: secret });
       return;
     }
+    // a command line reaching tramme's tools: only with the key of the turn running
+    const mcp = /^\/mcp\/([a-f0-9]{48})$/.exec(url.pathname);
+    if (mcp) {
+      const key = Buffer.from(mcp[1]), want = Buffer.from(turn?.key ?? '');
+      if (!turn || key.length !== want.length || !crypto.timingSafeEqual(key, want)) { json(404, { error: 'no turn running at this address' }); return; }
+      try { await serveTools(turn, req, res, req.method === 'POST' ? await readJson(req) : undefined); } catch (e) { if (!res.headersSent) json(400, { error: (e as Error).message }); else res.end(); }
+      return;
+    }
     if (!authOk(req.headers.authorization)) { json(401, { error: 'invalid companion token' }); return; }
     try {
-      if (req.method === 'GET' && url.pathname === '/health') json(200, { ok: true, app: 'tramme-companion', version: 1, models: MODELS });
+      if (req.method === 'GET' && url.pathname === '/health') {
+        // the agents this computer has (each with its version), for the editor's model menu
+        const found = await engines();
+        json(200, { ok: true, app: 'tramme-companion', version: 2, models: MODELS, engines: Object.fromEntries(ENGINES.map((e) => [e, !!found[e]])), versions: found });
+      }
       else if (req.method === 'POST' && url.pathname === '/turn') await runTurn(await readJson(req), res);
       else if (req.method === 'POST' && url.pathname === '/tool-result') {
         const b = await readJson(req) as { callId?: string; result?: ToolResult };
@@ -208,7 +153,7 @@ export async function startCompanion(opts: { port?: number; origins?: string[]; 
         const { transcribeLocal } = await import('./speech.ts');
         json(200, await transcribeLocal(b.audio, b.language));
       } else if (req.method === 'POST' && url.pathname === '/stop') {
-        if (turn) { turn.abort.abort(); turn.query?.interrupt().catch(() => {}); }
+        stopTurn();
         json(200, { ok: true });
       } else json(404, { error: 'unknown route' });
     } catch (e) {
@@ -218,6 +163,7 @@ export async function startCompanion(opts: { port?: number; origins?: string[]; 
   });
   await new Promise<void>((resolve, reject) => { server.once('error', reject); server.listen(port, '127.0.0.1', () => resolve()); });
   console.log(`tramme companion ready on http://127.0.0.1:${port}`);
+  engines().then((found) => console.log(`agents: Claude${found.codex ? `, Codex ${found.codex}` : ''}${found.gemini ? `, Gemini CLI ${found.gemini}` : ''}`)).catch(() => {});
   if (origins.size) console.log(`automatic pairing for: ${[...origins].join(', ')}`);
   console.log(`pairing token: ${secret}`);
   console.log(`(for another local page: paste it once in the editor, Assistant panel)`);

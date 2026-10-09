@@ -11,7 +11,7 @@
 //   tramme check-export <doc> --format lottie|svg --t 0.5,1.5 [--out dir]   an export played back (lottie-web, Chrome) vs tramme
 //   tramme compare  <ref> <test> [--diff dir] [--threshold 16]     files, or folders paired by time
 //   tramme schema   [--out schema/tramme-1.schema.json]
-//   tramme agent    [--origin https://app.example] [--port 4317] [--renew]   the local companion of the editor's assistant
+//   tramme agent    [--origin https://app.example] [--port 4317] [--renew]   the local companion of the editor's assistant (Claude Code, Codex or the Gemini CLI of this computer)
 // <doc> is a project folder (its document.tramme.json) or a document file.
 
 import fs from 'node:fs';

@@ -93,7 +93,9 @@
     "serviceError": "service error",
     "editOfName": "Edit of {name}",
     "providerNotConnected": "{provider} is not connected: add its key in Settings, Providers.",
-    "modelAdopted": "The assistant now uses {model} ({provider}), the AI connected."
+    "modelAdopted": "The assistant now uses {model} ({provider}), the AI connected.",
+    "cliNeedsCompanion": "{cli} runs on this computer through the local companion: start it, it finds {cli} by itself.",
+    "cliNotInstalled": "{cli} is not installed on this computer: install it, sign in once with your account, then retry."
   },
   "sound": {
     "nothingFound": "No sound found for this search.",
@@ -367,7 +369,7 @@
     "theLocalCompanionIs": "The local companion is running and waiting for its token.",
     "inTheCompanionS": "In the companion's terminal, copy the \"pairing token\" line and paste it here. You only do this once in this browser.",
     "connect": "Connect",
-    "itRunsClaudeWith": "It runs Claude with your Claude Code login, no key needed. Start it on this computer, in the Tramme folder:",
+    "itRunsClaudeWith": "It runs the agent installed on this computer (Claude Code, Codex or Gemini CLI) with your own login, no key needed. Start it in the Tramme folder:",
     "itConnectsToThisEditor": "It connects to this editor on its own.",
     "retry": "Retry",
     "newConversationTheOthers": "New conversation (the others stay in the history)",
@@ -396,11 +398,12 @@
     "keysClose": "close",
     "manageProviders": "Manage providers",
     "aiAccess": "AI access",
-    "companionAdvanced": "Local companion (advanced: Claude Code on this computer)",
+    "companionAdvanced": "Local companion (advanced: Claude Code, Codex or Gemini CLI on this computer)",
     "connectAnAi": "Connect an AI",
     "noAiConnected": "No AI connected yet.",
     "connectAnAiHint": "Connect the account of an AI you use: Claude, ChatGPT (OpenAI) or Gemini. Its key is pasted once in the settings, then the assistant is ready.",
-    "orTheCompanion": "Or, on a computer with Claude Code: the local companion"
+    "orTheCompanion": "Or, on a computer with Claude Code, Codex or Gemini CLI: the local companion",
+    "companionAgents": "Agents found: {list}"
   },
   "curves": {
     "smooth": "Smooth",
@@ -620,7 +623,8 @@
     "listUnavailableErrorType": "List unavailable ({error}); type {provider}:model-name",
     "noServerAtUrl": "No server at {url}. Start Ollama or LM Studio (address in the access settings).",
     "noKeyOnThe": "Not connected: {list}",
-    "connectProviders": "Connect providers…"
+    "connectProviders": "Connect providers…",
+    "cliDefault": "Its default model"
   },
   "settings": {
     "adaptsToTheMachine": "Adapts to the machine: smaller if playback slows down, larger when there is room.",

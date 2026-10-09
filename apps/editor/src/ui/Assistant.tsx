@@ -7,9 +7,9 @@ import { signal } from '@preact/signals';
 import type { ComponentChildren } from 'preact';
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'preact/hooks';
 import type { AiEvent, ChatItem } from '../api.ts';
-import { providerOf } from '@tramme/assistant';
+import { ENGINE_MODELS, ENGINES, engineOf, providerOf } from '@tramme/assistant';
 import { ModelPicker } from './ModelPicker.tsx';
-import { aiRoute, aiSettings, aiStatus, ask, routeLabel, chat, chatId, chats, decided, deleteChat, newChat, openChat, providerLabel, refreshStatus, remoteProviders, runTool, saveChat, serverName, setAiSettings, statusLabels, stop as stopAi, type ChatMeta } from '../ai/index.ts';
+import { aiRoute, aiSettings, aiStatus, ask, CLI_SETUP, cliUnavailable, routeLabel, chat, chatId, chats, decided, deleteChat, newChat, openChat, providerLabel, refreshStatus, remoteProviders, runTool, saveChat, serverName, setAiSettings, statusLabels, stop as stopAi, type ChatMeta } from '../ai/index.ts';
 import { openSettings } from '../settings.ts';
 import { fieldsOf, inputLine, inputOf, listCommands, matchCommands, parseCommand, ready, type Command, type Field } from '../ai/commands.ts';
 import { uid } from '../ai/calls.ts';
@@ -342,11 +342,13 @@ function History({ anchor, onClose }: { anchor: HTMLElement; onClose: () => void
 /** a phone or a tablet: nothing to start a companion with */
 const handheld = () => matchMedia('(pointer: coarse)').matches;
 
-/** the command that starts the local companion for this editor, copied on click */
-function CompanionCommand() {
-  const command = /^(localhost|127\.0\.0\.1)$/.test(location.hostname) ? 'npm run dev' : `npm run tramme -- agent --origin ${location.origin}`;
-  return <code class="cmd" onClick={() => navigator.clipboard?.writeText(command).then(() => toast(t('common.commandCopied')))} title={t('common.copy')}>{command}</code>;
+/** a command to type in a terminal, copied on click */
+function Command({ text }: { text: string }) {
+  return <code class="cmd" onClick={() => navigator.clipboard?.writeText(text).then(() => toast(t('common.commandCopied')))} title={t('common.copy')}>{text}</code>;
 }
+
+/** the command that starts the local companion for this editor */
+const CompanionCommand = () => <Command text={/^(localhost|127\.0\.0\.1)$/.test(location.hostname) ? 'npm run dev' : `npm run tramme -- agent --origin ${location.origin}`} />;
 
 /** where the assistant runs: the AI accounts connected first, then the local companion and local models for those who run them */
 function Settings({ anchor, onClose }: { anchor: HTMLElement; onClose: () => void }) {
@@ -366,6 +368,7 @@ function Settings({ anchor, onClose }: { anchor: HTMLElement; onClose: () => voi
         <summary class="faint">{t('assistant.companionAdvanced')}</summary>
         <div class="ai-more">
           <div class="ai-line"><span class={`dot ${st.companion === 'ok' ? 'ok' : st.companion === 'checking' ? '' : 'off'}`} /><b>{t('assistant.localCompanion')}</b><span class="faint">{labels.companion}</span></div>
+          {st.companion === 'ok' && <div class="faint">{t('assistant.companionAgents', { list: ENGINES.filter((e) => st.engines[e]).map((e) => ENGINE_MODELS[e].label).join(', ') })}</div>}
           <Seg value={set.prefer} options={[['auto', t('common.automatic')], ['companion', t('common.companion')], ['server', serverName()]]} onChange={(v) => setAiSettings({ prefer: v as typeof set.prefer })} />
           <div class="faint">{t('assistant.automaticTheLocalCompanion')}</div>
           {st.companion !== 'ok' && <div class="faint">{t('assistant.inTheTrammeFolder')} <CompanionCommand /></div>}
@@ -407,12 +410,24 @@ function Access() {
       <div class="access">
         <b>{t('assistant.noLocalModelFound', { url: set.localUrl })}</b>
         <span>{t('assistant.startOllamaOrLm')}</span>
-        {online && <span>{t('assistant.ollamaMustAcceptThis')} <code class="cmd" title={t('common.copy')} onClick={() => navigator.clipboard?.writeText(`OLLAMA_ORIGINS=${location.origin}`).then(() => toast(t('common.commandCopied')))}>OLLAMA_ORIGINS={location.origin}</code></span>}
+        {online && <span>{t('assistant.ollamaMustAcceptThis')} <Command text={`OLLAMA_ORIGINS=${location.origin}`} /></span>}
         <span class="faint">{t('assistant.theAddressCanBe')}</span>
       </div>
     );
   }
   const connect = <button class="btn sm primary" onClick={() => openSettings('providers')}><Icon name="link" />{t('assistant.connectAnAi')}</button>;
+  // Codex or the Gemini CLI: the companion, the command line installed and signed in
+  const engine = engineOf(set.model);
+  if (engine && engine !== 'claude') {
+    const setup = CLI_SETUP[engine];
+    return (
+      <div class="access">
+        <b>{cliUnavailable(set.model)}</b>
+        {st.companion !== 'ok' ? <CompanionCommand /> : <><Command text={setup.install} /><Command text={setup.login} /></>}
+        <button class="btn sm" onClick={() => refreshStatus()}><Icon name="loop" />{t('assistant.retry')}</button>
+      </div>
+    );
+  }
   if (provider !== 'anthropic' || set.prefer === 'server') return (
     <div class="access">
       <b>{t('ai.providerNotConnected', { provider: provider === 'anthropic' ? 'Anthropic' : providerLabel(set.model) })}</b>

@@ -29,15 +29,40 @@ export const DEFAULT_EFFORT: Effort = 'high';
 // `provider:model` (`openai:gpt-5`, `zai:glm-4-plus`, `local:llama3.1:8b`), of
 // a custom provider `custom:<id>:model` (`custom:deepseek:deepseek-chat`).
 
-export type Provider = 'anthropic' | 'openai' | 'gemini' | 'openrouter' | 'zai' | 'custom' | 'local';
+export type Provider = 'anthropic' | 'openai' | 'gemini' | 'openrouter' | 'zai' | 'custom' | 'local' | 'codex' | 'gemini-cli';
 /** the providers built in that are reached through the server */
-export const REMOTE: Record<Exclude<Provider, 'anthropic' | 'custom' | 'local'>, { label: string }> = {
+export const REMOTE: Record<Exclude<Provider, 'anthropic' | 'custom' | 'local' | 'codex' | 'gemini-cli'>, { label: string }> = {
   openai: { label: 'OpenAI' },
   gemini: { label: 'Gemini' },
   openrouter: { label: 'OpenRouter' },
   zai: { label: 'Z.AI (GLM)' },
 };
-export const PROVIDER_LABEL: Record<Provider, string> = { anthropic: 'Claude', openai: 'OpenAI', gemini: 'Gemini', openrouter: 'OpenRouter', zai: 'Z.AI (GLM)', custom: 'Custom provider', local: 'Local models' };
+export const PROVIDER_LABEL: Record<Provider, string> = { anthropic: 'Claude', openai: 'OpenAI', gemini: 'Gemini', openrouter: 'OpenRouter', zai: 'Z.AI (GLM)', custom: 'Custom provider', local: 'Local models', codex: 'ChatGPT (Codex)', 'gemini-cli': 'Gemini CLI' };
+
+// ── the companion's engines ──────────────────────────────────
+// The local companion runs a turn with one of the agents installed on the
+// user's computer, each on its own login: Claude Code (the Agent SDK), Codex
+// (a ChatGPT login) or the Gemini CLI (a Google login). A model of the last two
+// is written `codex:<model>` or `gemini-cli:<model>`, `default` leaving the
+// choice to the command line.
+
+export const ENGINES = ['claude', 'codex', 'gemini'] as const;
+export type Engine = typeof ENGINES[number];
+/** the model a command line picks by itself */
+export const CLI_DEFAULT = 'default';
+
+/** the models each engine runs, and its name for the user */
+export const ENGINE_MODELS: Record<Engine, { provider: Provider; label: string }> = {
+  claude: { provider: 'anthropic', label: 'Claude Code' },
+  codex: { provider: 'codex', label: 'ChatGPT (Codex)' },
+  gemini: { provider: 'gemini-cli', label: 'Gemini CLI' },
+};
+
+/** the companion's engine that runs a model, null when the model does not go through the companion */
+export function engineOf(model: string): Engine | null {
+  const p = providerOf(model);
+  return ENGINES.find((e) => ENGINE_MODELS[e].provider === p) ?? null;
+}
 /** where Ollama answers by default (LM Studio: http://127.0.0.1:1234/v1) */
 export const LOCAL_URL = 'http://127.0.0.1:11434/v1';
 
@@ -45,7 +70,7 @@ export function providerOf(model: string): Provider {
   const i = model.indexOf(':');
   const p = i > 0 ? model.slice(0, i) : '';
   if (p === 'glm') return 'zai';
-  return p === 'openai' || p === 'gemini' || p === 'openrouter' || p === 'zai' || p === 'custom' || p === 'local' ? p : 'anthropic';
+  return p === 'openai' || p === 'gemini' || p === 'openrouter' || p === 'zai' || p === 'custom' || p === 'local' || p === 'codex' || p === 'gemini-cli' ? p : 'anthropic';
 }
 /** where the server finds the model: its provider, or custom:<id> for a custom one */
 export function slotOf(model: string): string {
@@ -56,7 +81,8 @@ export function slotOf(model: string): string {
 /** the model's name for its provider */
 export const modelName = (model: string) => (providerOf(model) === 'anthropic' ? model : model.slice(slotOf(model).length + 1));
 /** a short name to show */
-export const modelLabel = (model: string) => MODELS.find(([id]) => id === model)?.[1] ?? modelName(model).replace(/^models\//, '');
+export const modelLabel = (model: string) => MODELS.find(([id]) => id === model)?.[1]
+  ?? (engineOf(model) && modelName(model) === CLI_DEFAULT ? PROVIDER_LABEL[providerOf(model)] : modelName(model).replace(/^models\//, ''));
 
 // ── the model taken for the user ─────────────────────────────
 // Someone who connected OpenAI or Gemini and not Claude should not have to
@@ -98,6 +124,8 @@ export function effortLevels(model: string, reasons = false): Effort[] {
     case 'gemini': return /^gemini-(2\.5|[3-9])/.test(name) ? CHAT_EFFORTS : [];
     case 'openrouter': return reasons ? CHAT_EFFORTS : [];
     case 'local': return /gpt-oss/.test(name) ? CHAT_EFFORTS : [];
+    // Codex takes a reasoning effort (model_reasoning_effort); the Gemini CLI none
+    case 'codex': return CHAT_EFFORTS;
     default: return [];
   }
 }

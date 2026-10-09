@@ -1,10 +1,11 @@
-// The model menu: Claude, then the providers connected in the settings
-// (OpenAI, Gemini, OpenRouter, Z.AI, custom ones), then the models of a local
-// server (Ollama, LM Studio). A search narrows long lists (OpenRouter offers
-// hundreds).
+// The model menu: Claude, then the command lines the local companion found on
+// this computer (Codex, the Gemini CLI), the providers connected in the
+// settings (OpenAI, Gemini, OpenRouter, Z.AI, custom ones), then the models of
+// a local server (Ollama, LM Studio). A search narrows long lists (OpenRouter
+// offers hundreds).
 
 import { useEffect, useRef, useState } from 'preact/hooks';
-import { MODELS, modelLabel, PROVIDER_LABEL, providerOf, type Effort } from '@tramme/assistant';
+import { CLI_DEFAULT, ENGINE_MODELS, MODELS, modelLabel, PROVIDER_LABEL, providerOf, type Effort } from '@tramme/assistant';
 import { aiModels, aiSettings, aiStatus, currentEffort, loadModels, modelEfforts, providerLabel, remoteProviders, setAiSettings, setEffort, type ModelOption } from '../ai/index.ts';
 import { openSettings } from '../settings.ts';
 import { Popover, Seg } from './controls.tsx';
@@ -86,7 +87,15 @@ export function ModelPicker({ wide = false }: { wide?: boolean }) {
   }, [anchor]);
   const pick = (id: string) => { setAiSettings({ model: id }); setAnchor(null); };
   // a model typed in full (openai:gpt-x, zai:glm-4-plus, custom:deepseek:deepseek-chat, local:qwen3:8b), for one the lists do not show
-  const typed = /^(openai|gemini|openrouter|zai|glm|local|custom:[a-z0-9-]+):\S+$/.test(query.trim()) ? query.trim() : null;
+  const typed = /^(openai|gemini|openrouter|zai|glm|local|codex|gemini-cli|custom:[a-z0-9-]+):\S+$/.test(query.trim()) ? query.trim() : null;
+  // the command lines of this computer: their own default, and the model typed for them if it is the one chosen
+  const clis = (['codex', 'gemini'] as const).filter((engine) => st.engines[engine]).map((engine) => {
+    const p = ENGINE_MODELS[engine].provider;
+    return {
+      engine, title: ENGINE_MODELS[engine].label,
+      options: [{ id: `${p}:${CLI_DEFAULT}`, label: t('models.cliDefault') }, ...(providerOf(model) === p && !model.endsWith(`:${CLI_DEFAULT}`) ? [{ id: model, label: modelLabel(model) }] : [])],
+    };
+  });
   const providers = remoteProviders.value;
   // the server's keys are known once its configuration answered (server no longer null)
   const configured = providers.filter((p) => st.remote[p.slot]), missing = st.server === null ? [] : providers.filter((p) => !st.remote[p.slot]);
@@ -104,6 +113,7 @@ export function ModelPicker({ wide = false }: { wide?: boolean }) {
           <div class="models-list">
             {typed &&<button class="model-opt" onClick={() => pick(typed)}><span>{t('models.useName', { name: typed })}</span></button>}
             <Group title="Claude" options={MODELS.map(([id, label]) => ({ id, label }))} current={model} query={query} pick={pick} />
+            {clis.map((c) => <Group key={c.engine} title={c.title} options={c.options} current={model} query={query} pick={pick} />)}
             {configured.map(({ slot, label }) => {
               const list = models.remote[slot];
               const options = list === undefined ? null : Array.isArray(list) ? list.map((o) => ({ id: `${slot}:${o.id}`, label: o.label })) : [];

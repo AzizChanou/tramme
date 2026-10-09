@@ -47,7 +47,7 @@ then `npm run deploy`. The Worker then checks the signature (the team's public k
 
 Two paths, chosen in the editor (Assistant, settings):
 
-- **Local companion** (recommended): on your machine, with your Claude Code login, no key.
+- **Local companion**: on your machine, with the login of an agent installed there (Claude Code, Codex with a ChatGPT login, or the Gemini CLI with a Google login), no key.
 
   ```sh
   npm run tramme -- agent --origin https://<your editor's address>

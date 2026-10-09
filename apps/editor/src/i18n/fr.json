@@ -93,7 +93,9 @@
     "serviceError": "erreur du service",
     "editOfName": "Montage de {name}",
     "providerNotConnected": "{provider} n'est pas connecté : ajoutez sa clé dans Réglages, Fournisseurs.",
-    "modelAdopted": "L'assistant utilise maintenant {model} ({provider}), l'IA connectée."
+    "modelAdopted": "L'assistant utilise maintenant {model} ({provider}), l'IA connectée.",
+    "cliNeedsCompanion": "{cli} tourne sur cet ordinateur à travers le compagnon local : lancez-le, il trouve {cli} tout seul.",
+    "cliNotInstalled": "{cli} n'est pas installé sur cet ordinateur : installez-le, connectez-vous une fois avec votre compte, puis réessayez."
   },
   "sound": {
     "nothingFound": "Aucun son trouvé pour cette recherche.",
@@ -367,7 +369,7 @@
     "theLocalCompanionIs": "Le compagnon local est lancé, il attend son jeton.",
     "inTheCompanionS": "Dans le terminal du compagnon, copiez la ligne « jeton d'appairage » et collez-la ici. C'est à faire une seule fois sur ce navigateur.",
     "connect": "Connecter",
-    "itRunsClaudeWith": "Il fait parler Claude avec votre connexion Claude Code, sans clé. Lancez-le sur cet ordinateur, dans le dossier de Tramme :",
+    "itRunsClaudeWith": "Il fait tourner l'agent installé sur cet ordinateur (Claude Code, Codex ou Gemini CLI) avec votre propre connexion, sans clé. Lancez-le dans le dossier de Tramme :",
     "itConnectsToThisEditor": "Il se connecte tout seul à cet éditeur.",
     "retry": "Réessayer",
     "newConversationTheOthers": "Nouvelle conversation (les autres restent dans l'historique)",
@@ -396,11 +398,12 @@
     "keysClose": "fermer",
     "manageProviders": "Gérer les fournisseurs",
     "aiAccess": "Accès à l'IA",
-    "companionAdvanced": "Compagnon local (avancé : Claude Code sur cet ordinateur)",
+    "companionAdvanced": "Compagnon local (avancé : Claude Code, Codex ou Gemini CLI sur cet ordinateur)",
     "connectAnAi": "Connecter une IA",
     "noAiConnected": "Aucune IA n'est connectée pour l'instant.",
     "connectAnAiHint": "Connectez le compte d'une IA que vous utilisez : Claude, ChatGPT (OpenAI) ou Gemini. Sa clé se colle une fois dans les réglages, puis l'assistant est prêt.",
-    "orTheCompanion": "Ou, sur un ordinateur avec Claude Code : le compagnon local"
+    "orTheCompanion": "Ou, sur un ordinateur avec Claude Code, Codex ou Gemini CLI : le compagnon local",
+    "companionAgents": "Agents trouvés : {list}"
   },
   "curves": {
     "smooth": "Douce",
@@ -620,7 +623,8 @@
     "listUnavailableErrorType": "Liste indisponible ({error}) ; tapez {provider}:nom-du-modèle",
     "noServerAtUrl": "Aucun serveur à {url}. Lancez Ollama ou LM Studio (adresse dans les réglages d'accès).",
     "noKeyOnThe": "Non connectés : {list}",
-    "connectProviders": "Connecter des fournisseurs…"
+    "connectProviders": "Connecter des fournisseurs…",
+    "cliDefault": "Son modèle par défaut"
   },
   "settings": {
     "adaptsToTheMachine": "S'adapte à la machine : plus petite si la lecture ralentit, plus grande s'il y a de la marge.",

@@ -1,7 +1,9 @@
-// The local path: the companion (`tramme agent`) runs Claude with the
-// Agent SDK on the user's machine and their Claude Code login. It streams the
-// turn back as NDJSON; each tool call is run here and its result posted back.
+// The local path: the companion (`tramme agent`) runs an agent installed on
+// the user's machine, on their own login: Claude Code (the Agent SDK), Codex
+// (ChatGPT) or the Gemini CLI. It streams the turn back as NDJSON; each tool
+// call is run here and its result posted back.
 
+import type { Engine } from '@tramme/assistant';
 import type { AiEvent } from '../api.ts';
 import type { ToolRunner } from './tools.ts';
 import { runCall, uid } from './calls.ts';
@@ -11,13 +13,20 @@ export interface CompanionLink { url: string; token: string }
 
 const headers = (link: CompanionLink) => ({ authorization: `Bearer ${link.token}`, 'content-type': 'application/json' });
 
-/** 'ok', 'unpaired' (wrong or missing token), or 'absent' (not running, or refused by the browser) */
-export async function probeCompanion(link: CompanionLink): Promise<'ok' | 'unpaired' | 'absent'> {
+export type CompanionState = 'ok' | 'unpaired' | 'absent';
+/** the agents the companion found on this machine (an older companion: Claude only) */
+export type Engines = Record<Engine, boolean>;
+export const NO_ENGINES: Engines = { claude: false, codex: false, gemini: false };
+
+/** 'ok', 'unpaired' (wrong or missing token), or 'absent' (not running, or refused by the browser), and the agents it runs */
+export async function probeCompanion(link: CompanionLink): Promise<{ state: CompanionState; engines: Engines }> {
   try {
-    const r = await fetch(`${link.url}/health`, { headers: headers(link), signal: AbortSignal.timeout(2500) });
-    if (r.status === 401) return 'unpaired';
-    return r.ok ? 'ok' : 'absent';
-  } catch { return 'absent'; }
+    const r = await fetch(`${link.url}/health`, { headers: headers(link), signal: AbortSignal.timeout(20_000) });
+    if (r.status === 401) return { state: 'unpaired', engines: NO_ENGINES };
+    if (!r.ok) return { state: 'absent', engines: NO_ENGINES };
+    const body = await r.json().catch(() => ({})) as { engines?: Partial<Engines> };
+    return { state: 'ok', engines: { ...NO_ENGINES, claude: true, ...body.engines } };
+  } catch { return { state: 'absent', engines: NO_ENGINES }; }
 }
 
 /** the token, given by the companion to an editor whose address it was started with (--origin); null otherwise */
@@ -53,7 +62,7 @@ async function* ndjson(body: ReadableStream<Uint8Array<ArrayBuffer>>): AsyncGene
 
 export async function* companionTurn(
   link: CompanionLink,
-  req: { prompt: string; system: string; model: string; effort?: string; sessionId?: string; images?: { mediaType: string; data: string }[] },
+  req: { engine: Engine; prompt: string; system: string; model: string; effort?: string; sessionId?: string; images?: { mediaType: string; data: string }[] },
   runner: ToolRunner,
   signal: AbortSignal,
   onSession: (id: string) => void,

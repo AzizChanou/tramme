@@ -7,13 +7,13 @@
 // shared by all of them.
 
 import { computed, signal } from '@preact/signals';
-import { COMPANION_PORT, DEFAULT_MODEL, EFFORTS, effortFor, effortLevels, LOCAL_URL, modelLabel, MODELS, pickModel, PROVIDER_LABEL, providerOf, REMOTE, setTranslator, slotOf, systemPrompt, userPrompt, type Effort, type TurnContext } from '@tramme/assistant';
+import { CLI_DEFAULT, COMPANION_PORT, DEFAULT_MODEL, EFFORTS, effortFor, effortLevels, engineOf, LOCAL_URL, modelLabel, modelName, MODELS, pickModel, PROVIDER_LABEL, providerOf, REMOTE, setTranslator, slotOf, systemPrompt, userPrompt, type Effort, type TurnContext } from '@tramme/assistant';
 import { CHAT, CHAT_INDEX, chatPath } from '@tramme/project';
 import type { TrammeDoc } from '@tramme/core';
 import reference from '../../../../docs/document.md';
 import { api, type AiEvent, type ChatItem, type KeyedProvider, type KeyStatus } from '../api.ts';
 import { S, toast } from '../state.ts';
-import { companionTurn, pairCompanion, probeCompanion, stopCompanion } from './companion.ts';
+import { companionTurn, NO_ENGINES, pairCompanion, probeCompanion, stopCompanion, type CompanionState, type Engines } from './companion.ts';
 import { ServerSession, type Message } from './server.ts';
 import { ToolRunner } from './tools.ts';
 import { runCall, uid } from './calls.ts';
@@ -70,7 +70,9 @@ export function setAiSettings(patch: Partial<AiSettings>) {
 }
 
 interface Status {
-  companion: 'checking' | 'ok' | 'unpaired' | 'absent';
+  companion: 'checking' | CompanionState;
+  /** the agents the companion runs: Claude Code, Codex, the Gemini CLI */
+  engines: Engines;
   /** the server's Anthropic key */
   server: boolean | null;
   /** the other providers with a key, by slot (openai…, custom:<id>) */
@@ -80,7 +82,7 @@ interface Status {
   /** local models: looked for only when one is chosen or the model menu opens */
   local: 'unknown' | 'ok' | 'absent';
 }
-export const aiStatus = signal<Status>({ companion: 'checking', server: null, remote: {}, keys: null, local: 'unknown' });
+export const aiStatus = signal<Status>({ companion: 'checking', engines: NO_ENGINES, server: null, remote: {}, keys: null, local: 'unknown' });
 
 /** the providers of the chat format reached through the server: the built-in ones, then the custom ones */
 export const remoteProviders = computed(() => [
@@ -117,9 +119,11 @@ export type Route = 'companion' | 'server' | 'remote' | 'local';
 
 /** the path the next message takes, or null when none is available */
 export const aiRoute = computed<Route | null>(() => {
-  const { companion, server, remote, local } = aiStatus.value, { prefer, model } = aiSettings.value;
-  const provider = providerOf(model);
+  const { companion, engines, server, remote, local } = aiStatus.value, { prefer, model } = aiSettings.value;
+  const provider = providerOf(model), engine = engineOf(model);
   if (provider === 'local') return local === 'ok' ? 'local' : null;
+  // Codex and the Gemini CLI: only through the companion, when it has them
+  if (engine && engine !== 'claude') return companion === 'ok' && engines[engine] ? 'companion' : null;
   if (provider !== 'anthropic') return remote[slotOf(model)] ? 'remote' : null;
   if (prefer === 'companion') return companion === 'ok' ? 'companion' : null;
   if (prefer === 'server') return server ? 'server' : null;
@@ -164,8 +168,9 @@ async function localModels(): Promise<ModelOption[] | null> {
  */
 async function adoptConnected() {
   const { model } = aiSettings.peek(), st = aiStatus.peek();
-  if (aiRoute.peek() || providerOf(model) === 'local' || st.companion === 'checking') return;
-  let next: string | undefined = st.server ? DEFAULT_MODEL : undefined;
+  // a local model or a command line of this computer chosen on purpose stays chosen (it may just not be started yet)
+  if (aiRoute.peek() || providerOf(model) === 'local' || (engineOf(model) && engineOf(model) !== 'claude') || st.companion === 'checking') return;
+  let next: string | undefined = st.server || st.companion === 'ok' ? DEFAULT_MODEL : undefined;
   const slots = remoteProviders.peek().map((p) => p.slot).filter((s) => st.remote[s]);
   if (!next && slots.length) {
     if (!Object.keys(aiModels.peek().remote).length) aiModels.value = { ...aiModels.peek(), remote: await api.models().catch(() => ({})) as never };
@@ -199,11 +204,11 @@ const link = () => ({ url: aiSettings.peek().companionUrl.replace(/\/+$/, ''), t
 export const companionLink = link;
 
 /** the companion, paired by itself when it was started for this editor's address */
-async function reachCompanion(): Promise<'ok' | 'unpaired' | 'absent'> {
-  const state = await probeCompanion(link());
-  if (state !== 'unpaired') return state;
+async function reachCompanion(): Promise<{ state: CompanionState; engines: Engines }> {
+  const found = await probeCompanion(link());
+  if (found.state !== 'unpaired') return found;
   const token = await pairCompanion(link().url);
-  if (!token || token === link().token) return state;
+  if (!token || token === link().token) return found;
   keepSettings({ token });
   return probeCompanion(link());
 }
@@ -220,7 +225,7 @@ export async function refreshStatus(quiet = false) {
       : api.config().then((c) => ({ server: c.claude.server, remote: c.llm ?? {}, keys: c.keys ?? null })).catch(() => ({ server: false, remote: {}, keys: null })),
     wantLocal ? localModels() : Promise.resolve(undefined),
   ]);
-  const next: Status = { companion, ...config, local: local === undefined ? before.local : local ? 'ok' : 'absent' };
+  const next: Status = { companion: companion.state, engines: companion.engines, ...config, local: local === undefined ? before.local : local ? 'ok' : 'absent' };
   if (local) aiModels.value = { ...aiModels.peek(), local };
   if (quiet && JSON.stringify(next) === JSON.stringify(aiStatus.peek())) return;
   aiStatus.value = next;
@@ -388,15 +393,22 @@ export async function* ask(p: AskPayload, signal: AbortSignal): AsyncGenerator<A
   // the interface's language is the user's: the answers, proposal titles and new layer names follow it
   notes.push(`The user's interface is in ${locale === 'fr' ? 'French' : 'English'}: reply in that language, including the titles of your proposals and the names of the layers you create.`);
   const images = await imageBlocks(p.attachments ?? []);
-  // the companion keeps its own history: another model taking over the conversation reads what was said
-  if (route !== 'companion' && !session.server.messages.length) notes.unshift(...earlier());
+  // each agent of the companion keeps its own history (the session is the engine's): another one taking over the conversation reads what was said
+  const model = aiSettings.peek().model, effort = currentEffort(model), engine = engineOf(model);
+  // a conversation saved before the engines holds Claude's session alone
+  const kept = session.companion && !session.companion.includes(':') ? `claude:${session.companion}` : session.companion;
+  const resumed = route === 'companion' && engine && kept?.startsWith(`${engine}:`) ? kept.slice(engine.length + 1) : undefined;
+  if (route === 'companion' ? !resumed : !session.server.messages.length) notes.unshift(...earlier());
   const prompt = userPrompt(p.text, p.context, notes);
   // the project's brief, when there is one, rides in the system prompt: the assistant follows it from the first word
   let brief: string | null = null;
   try { brief = (await api.readText(S.project.peek().id, 'assets/brief.json'))?.text ?? null; } catch { brief = null; }
   const system = systemPrompt(reference, brief ?? undefined);
-  const model = aiSettings.peek().model, effort = currentEffort(model);
-  if (route === 'companion') yield* companionTurn(link(), { prompt, system, model, effort, sessionId: session.companion, images }, runner, signal, (id) => { session.companion = id; });
+  if (route === 'companion' && engine) {
+    // Claude by its model id; a command line by its own model name, none for its default
+    const asked = engine === 'claude' ? model : modelName(model) === CLI_DEFAULT ? '' : modelName(model);
+    yield* companionTurn(link(), { engine, prompt, system, model: asked, effort, sessionId: resumed, images }, runner, signal, (id) => { session.companion = `${engine}:${id}`; });
+  }
   else {
     const target = route === 'local' ? { url: localBase() } : route === 'remote' ? { url: `/api/llm/${encodeURIComponent(slotOf(model))}` } : undefined;
     yield* session.server.turn(prompt, model, system, runner, signal, { images, target, effort });
@@ -430,10 +442,28 @@ export async function disconnectProvider(provider: KeyedProvider) { await api.re
 export async function saveCustomProvider(id: string, c: { label: string; base: string; key?: string }) { await api.setCustom(id, c); await providersChanged(); }
 export async function removeCustomProvider(id: string) { await api.removeCustom(id); await providersChanged(); }
 
+/** what installs each command line the companion runs, and signs it in once */
+export const CLI_SETUP: Record<'codex' | 'gemini', { install: string; login: string }> = {
+  codex: { install: 'npm install -g @openai/codex', login: 'codex login' },
+  gemini: { install: 'npm install -g @google/gemini-cli', login: 'gemini' },
+};
+
+/** why a command line of this computer (Codex, the Gemini CLI) cannot answer, '' when it can */
+export function cliUnavailable(model: string): string {
+  const engine = engineOf(model), { companion, engines } = aiStatus.peek();
+  if (!engine || engine === 'claude') return '';
+  const cli = providerLabel(model);
+  if (companion === 'checking') return t('ai.lookingForTheLocal');
+  if (companion === 'unpaired') return t('ai.theLocalCompanionIs');
+  if (companion !== 'ok') return t('ai.cliNeedsCompanion', { cli });
+  return engines[engine] ? '' : t('ai.cliNotInstalled', { cli, ...CLI_SETUP[engine] });
+}
+
 export function unavailableReason(): string {
   const { companion, server, remote, local } = aiStatus.peek(), { prefer, model } = aiSettings.peek();
   const provider = providerOf(model);
   if (provider === 'local') return local === 'unknown' ? t('ai.lookingForLocalModels') : t('ai.noLocalModelServer', { url: aiSettings.peek().localUrl });
+  if (engineOf(model) !== 'claude' && engineOf(model)) return cliUnavailable(model);
   if (provider !== 'anthropic') return remote[slotOf(model)] ? '' : t('ai.providerNotConnected', { provider: providerLabel(model) });
   if (companion === 'checking') return t('ai.lookingForTheLocal');
   if (prefer === 'companion' || (prefer === 'auto' && !server)) {
