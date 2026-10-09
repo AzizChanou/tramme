@@ -7,12 +7,12 @@
 // shared by all of them.
 
 import { computed, signal } from '@preact/signals';
-import { COMPANION_PORT, DEFAULT_MODEL, EFFORTS, effortFor, effortLevels, LOCAL_URL, MODELS, PROVIDER_LABEL, providerOf, REMOTE, setTranslator, slotOf, systemPrompt, userPrompt, type Effort, type TurnContext } from '@tramme/assistant';
+import { COMPANION_PORT, DEFAULT_MODEL, EFFORTS, effortFor, effortLevels, LOCAL_URL, modelLabel, MODELS, pickModel, PROVIDER_LABEL, providerOf, REMOTE, setTranslator, slotOf, systemPrompt, userPrompt, type Effort, type TurnContext } from '@tramme/assistant';
 import { CHAT, CHAT_INDEX, chatPath } from '@tramme/project';
 import type { TrammeDoc } from '@tramme/core';
 import reference from '../../../../docs/document.md';
 import { api, type AiEvent, type ChatItem, type KeyedProvider, type KeyStatus } from '../api.ts';
-import { S } from '../state.ts';
+import { S, toast } from '../state.ts';
 import { companionTurn, pairCompanion, probeCompanion, stopCompanion } from './companion.ts';
 import { ServerSession, type Message } from './server.ts';
 import { ToolRunner } from './tools.ts';
@@ -157,6 +157,28 @@ async function localModels(): Promise<ModelOption[] | null> {
   } catch { return null; }
 }
 
+/**
+ * No way to the chosen model, but another AI is connected (only an OpenAI or a
+ * Gemini key, say): its strongest model takes over, and the user is told. A
+ * local model chosen on purpose stays chosen.
+ */
+async function adoptConnected() {
+  const { model } = aiSettings.peek(), st = aiStatus.peek();
+  if (aiRoute.peek() || providerOf(model) === 'local' || st.companion === 'checking') return;
+  let next: string | undefined = st.server ? DEFAULT_MODEL : undefined;
+  const slots = remoteProviders.peek().map((p) => p.slot).filter((s) => st.remote[s]);
+  if (!next && slots.length) {
+    if (!Object.keys(aiModels.peek().remote).length) aiModels.value = { ...aiModels.peek(), remote: await api.models().catch(() => ({})) as never };
+    for (const slot of slots) {
+      const list = aiModels.peek().remote[slot];
+      if ((next = Array.isArray(list) ? pickModel(slot, list.map((o) => o.id)) : undefined)) break;
+    }
+  }
+  if (!next || next === model) return;
+  keepSettings({ model: next });
+  toast(t('ai.modelAdopted', { model: modelLabel(next), provider: providerLabel(next) }));
+}
+
 /** the companion and the server looked for once if nothing did yet (the settings opened from the home page) */
 export async function ensureStatus() { if (aiStatus.peek().server === null) await refreshStatus(true); }
 
@@ -202,6 +224,7 @@ export async function refreshStatus(quiet = false) {
   if (local) aiModels.value = { ...aiModels.peek(), local };
   if (quiet && JSON.stringify(next) === JSON.stringify(aiStatus.peek())) return;
   aiStatus.value = next;
+  await adoptConnected();
   // an OpenRouter model: its listing says whether it takes an effort level
   if (providerOf(aiSettings.peek().model) === 'openrouter' && next.remote.openrouter && !aiModels.peek().remote.openrouter) loadModels().catch(() => {});
 }

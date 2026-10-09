@@ -376,8 +376,9 @@ const GROUPS: { title: () => string; panes: Pane[] }[] = [
   {
     title: () => t('common.assistant'),
     panes: [
-      { id: 'model', icon: 'wand', title: () => t('settings.model'), body: Model },
+      // an AI to talk with first: the model and the companion come after
       { id: 'providers', icon: 'key', title: () => t('settings.providers'), body: Providers },
+      { id: 'model', icon: 'wand', title: () => t('settings.model'), body: Model },
       { id: 'behavior', icon: 'chat', title: () => t('settings.behavior'), body: Behavior },
       { id: 'connection', icon: 'link', title: () => t('settings.connection'), body: Connection },
     ],

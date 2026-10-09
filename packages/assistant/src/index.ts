@@ -58,6 +58,28 @@ export const modelName = (model: string) => (providerOf(model) === 'anthropic' ?
 /** a short name to show */
 export const modelLabel = (model: string) => MODELS.find(([id]) => id === model)?.[1] ?? modelName(model).replace(/^models\//, '');
 
+// ── the model taken for the user ─────────────────────────────
+// Someone who connected OpenAI or Gemini and not Claude should not have to
+// find the model menu: the assistant takes the strongest model of a connected
+// provider that follows tools well. A provider's listing is searched for these
+// families in order; within a family, the newest version wins.
+const PREFERRED: Partial<Record<Provider, RegExp[]>> = {
+  openai: [/^gpt-5(\.\d+)*$/, /^gpt-5/, /^gpt-4\.1$/, /^gpt-4o$/],
+  gemini: [/^gemini-\d+(\.\d+)*-pro$/, /^gemini-\d+(\.\d+)*-pro/, /^gemini-\d+(\.\d+)*-flash$/],
+  openrouter: [/^anthropic\/claude-sonnet/, /^anthropic\/claude-opus/, /^openai\/gpt-5/, /^google\/gemini-[\d.]+-pro/],
+  zai: [/^glm-\d+(\.\d+)*$/, /^glm-/],
+};
+
+/** the model to take among a provider's listing (slot: openai, gemini, custom:<id>…; ids without the provider), undefined for an empty listing */
+export function pickModel(slot: string, ids: string[]): string | undefined {
+  const newest = (list: string[]) => [...list].sort((a, b) => b.localeCompare(a, 'en', { numeric: true }))[0];
+  for (const family of PREFERRED[providerOf(`${slot}:`)] ?? []) {
+    const found = ids.filter((id) => family.test(id));
+    if (found.length) return `${slot}:${newest(found)}`;
+  }
+  return ids.length ? `${slot}:${ids[0]}` : undefined;
+}
+
 /** the levels the providers of the chat format share (reasoning_effort, OpenRouter's reasoning.effort) */
 const CHAT_EFFORTS: Effort[] = ['low', 'medium', 'high'];
 

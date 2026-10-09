@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { effortFor, effortLevels } from '@tramme/assistant';
+import { effortFor, effortLevels, pickModel } from '@tramme/assistant';
 import { builtinRegistry } from '@tramme/nodes';
 import { inputIssues, vocabularyDetail, vocabularyIndex } from '../src/ai/answers.ts';
 import { REVIEW_TOOLS } from '../src/review.ts';
@@ -31,6 +31,19 @@ describe('effort levels', () => {
     // a level the model does not have: its default
     expect(effortFor('gemini:gemini-2.5-pro', chosen)).toBeUndefined();
     expect(effortFor('claude-haiku-4-5-20251001', { 'claude-haiku-4-5-20251001': 'high' })).toBeUndefined();
+  });
+});
+
+describe('the model taken for the user', () => {
+  it('takes the strongest model a connected provider lists, the newest of its family', () => {
+    expect(pickModel('openai', ['gpt-4o', 'gpt-4.1', 'gpt-5', 'gpt-5.1', 'gpt-5-mini', 'o4-mini'])).toBe('openai:gpt-5.1');
+    expect(pickModel('openai', ['gpt-4o-mini', 'gpt-4.1', 'gpt-4o'])).toBe('openai:gpt-4.1');
+    expect(pickModel('gemini', ['gemini-2.0-flash', 'gemini-2.5-flash', 'gemini-2.5-pro', 'gemini-3-pro-preview'])).toBe('gemini:gemini-2.5-pro');
+    expect(pickModel('gemini', ['gemini-2.5-flash-lite', 'gemini-2.5-flash'])).toBe('gemini:gemini-2.5-flash');
+    expect(pickModel('openrouter', ['openai/gpt-5', 'anthropic/claude-sonnet-4.5', 'anthropic/claude-sonnet-5'])).toBe('openrouter:anthropic/claude-sonnet-5');
+    expect(pickModel('zai', ['glm-4-plus', 'glm-4.6', 'glm-4.5'])).toBe('zai:glm-4.6');
+    expect(pickModel('custom:deepseek', ['deepseek-chat', 'deepseek-reasoner'])).toBe('custom:deepseek:deepseek-chat');
+    expect(pickModel('openai', [])).toBeUndefined();
   });
 });
 

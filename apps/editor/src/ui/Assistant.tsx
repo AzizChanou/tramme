@@ -339,34 +339,49 @@ function History({ anchor, onClose }: { anchor: HTMLElement; onClose: () => void
   );
 }
 
-/** where the assistant runs, and how to reach Claude */
+/** a phone or a tablet: nothing to start a companion with */
+const handheld = () => matchMedia('(pointer: coarse)').matches;
+
+/** the command that starts the local companion for this editor, copied on click */
+function CompanionCommand() {
+  const command = /^(localhost|127\.0\.0\.1)$/.test(location.hostname) ? 'npm run dev' : `npm run tramme -- agent --origin ${location.origin}`;
+  return <code class="cmd" onClick={() => navigator.clipboard?.writeText(command).then(() => toast(t('common.commandCopied')))} title={t('common.copy')}>{command}</code>;
+}
+
+/** where the assistant runs: the AI accounts connected first, then the local companion and local models for those who run them */
 function Settings({ anchor, onClose }: { anchor: HTMLElement; onClose: () => void }) {
   const st = aiStatus.value, set = aiSettings.value;
   const [token, setToken] = useState(set.token);
   const [url, setUrl] = useState(set.companionUrl);
   const [localUrl, setLocalUrl] = useState(set.localUrl);
   const labels = statusLabels(st);
-  const command = `npm run tramme -- agent --origin ${location.origin}`;
+  const account = (on: boolean) => (on ? t('common.keySet') : t('common.noKey'));
   return (
     <Popover anchor={anchor} onClose={onClose} class="ai-settings" align="right">
-      <div style={{ fontWeight: 600 }}>{t('common.accessToClaude')}</div>
-      <Seg value={set.prefer} options={[['auto', t('common.automatic')], ['companion', t('common.companion')], ['server', serverName()]]} onChange={(v) => setAiSettings({ prefer: v as typeof set.prefer })} />
-      <div class="faint" style={{ lineHeight: 1.45 }}>{t('assistant.automaticTheLocalCompanion')}</div>
-      <div class="ai-line"><span class={`dot ${st.companion === 'ok' ? 'ok' : st.companion === 'checking' ? '' : 'off'}`} /><b>{t('assistant.localCompanion')}</b><span class="faint">{labels.companion}</span></div>
-      {st.companion !== 'ok' && <div class="faint" style={{ lineHeight: 1.45 }}>{t('assistant.inTheTrammeFolder')} <code class="cmd" onClick={() => navigator.clipboard?.writeText(command).then(() => toast(t('common.commandCopied')))} title={t('common.copy')}>{command}</code></div>}
-      <label class="lbl">{t('assistant.tokenShownByThe')}</label>
-      <div class="field"><input type="password" value={token} placeholder={t('common.pairingToken')} onInput={(e) => setToken((e.target as HTMLInputElement).value.trim())} onChange={() => setAiSettings({ token })} /></div>
-      <details>
-        <summary class="faint">{t('assistant.companionAddress')}</summary>
-        <div class="field" style={{ marginTop: 6 }}><input value={url} onInput={(e) => setUrl((e.target as HTMLInputElement).value.trim())} onChange={() => setAiSettings({ companionUrl: url })} /></div>
-      </details>
-      <div class="ai-line"><span class={`dot ${st.server ? 'ok' : 'off'}`} /><b>{serverName()}</b><span class="faint">{labels.server}</span></div>
-      <div style={{ fontWeight: 600, marginTop: 4 }}>{t('assistant.otherModels')}</div>
-      {remoteProviders.value.map((p) => <div key={p.slot} class="ai-line"><span class={`dot ${st.remote[p.slot] ? 'ok' : 'off'}`} /><b>{p.label}</b><span class="faint">{st.remote[p.slot] ? t('common.keySet') : t('common.noKey')}</span></div>)}
+      <div style={{ fontWeight: 600 }}>{t('assistant.aiAccess')}</div>
+      <div class="ai-line"><span class={`dot ${st.server ? 'ok' : 'off'}`} /><b>Claude (Anthropic)</b><span class="faint">{account(!!st.server)}</span></div>
+      {remoteProviders.value.map((p) => <div key={p.slot} class="ai-line"><span class={`dot ${st.remote[p.slot] ? 'ok' : 'off'}`} /><b>{p.label}</b><span class="faint">{account(!!st.remote[p.slot])}</span></div>)}
       <button class="btn sm" onClick={() => { onClose(); openSettings('providers'); }}><Icon name="link" />{t('assistant.manageProviders')}</button>
-      <label class="lbl">{t('assistant.localModelsOllamaLm')}</label>
-      <div class="field"><input value={localUrl} placeholder="http://127.0.0.1:11434/v1" onInput={(e) => setLocalUrl((e.target as HTMLInputElement).value.trim())} onChange={() => setAiSettings({ localUrl })} /></div>
-      <div class="faint" style={{ lineHeight: 1.45 }}>{t('assistant.ollama11434LmStudio')}</div>
+      <details open={set.prefer === 'companion' || st.companion === 'ok' || st.companion === 'unpaired'}>
+        <summary class="faint">{t('assistant.companionAdvanced')}</summary>
+        <div class="ai-more">
+          <div class="ai-line"><span class={`dot ${st.companion === 'ok' ? 'ok' : st.companion === 'checking' ? '' : 'off'}`} /><b>{t('assistant.localCompanion')}</b><span class="faint">{labels.companion}</span></div>
+          <Seg value={set.prefer} options={[['auto', t('common.automatic')], ['companion', t('common.companion')], ['server', serverName()]]} onChange={(v) => setAiSettings({ prefer: v as typeof set.prefer })} />
+          <div class="faint">{t('assistant.automaticTheLocalCompanion')}</div>
+          {st.companion !== 'ok' && <div class="faint">{t('assistant.inTheTrammeFolder')} <CompanionCommand /></div>}
+          <label class="lbl">{t('assistant.tokenShownByThe')}</label>
+          <div class="field"><input type="password" value={token} placeholder={t('common.pairingToken')} onInput={(e) => setToken((e.target as HTMLInputElement).value.trim())} onChange={() => setAiSettings({ token })} /></div>
+          <label class="lbl">{t('assistant.companionAddress')}</label>
+          <div class="field"><input value={url} onInput={(e) => setUrl((e.target as HTMLInputElement).value.trim())} onChange={() => setAiSettings({ companionUrl: url })} /></div>
+        </div>
+      </details>
+      <details open={providerOf(set.model) === 'local'}>
+        <summary class="faint">{t('assistant.localModelsOllamaLm')}</summary>
+        <div class="ai-more">
+          <div class="field"><input value={localUrl} placeholder="http://127.0.0.1:11434/v1" onInput={(e) => setLocalUrl((e.target as HTMLInputElement).value.trim())} onChange={() => setAiSettings({ localUrl })} /></div>
+          <div class="faint">{t('assistant.ollama11434LmStudio')}</div>
+        </div>
+      </details>
       <button class="btn sm" onClick={() => { setAiSettings({ token, companionUrl: url, localUrl }); refreshStatus(); }}><Icon name="loop" />{t('common.check')}</button>
     </Popover>
   );
@@ -379,12 +394,11 @@ const ROUTE_TITLE = {
   local: m('assistant.localModelOnThis'),
 };
 
-/** how to reach a model, right in the panel when the assistant cannot answer */
+/** how to reach a model, right in the panel when the assistant cannot answer: an AI account first, the companion for those who run one */
 function Access() {
   const st = aiStatus.value, set = aiSettings.value;
   const [token, setToken] = useState('');
   if (st.companion === 'checking') return null;
-  const copy = (text: string) => navigator.clipboard?.writeText(text).then(() => toast(t('common.commandCopied')));
   const provider = providerOf(set.model);
   if (provider === 'local') {
     if (st.local === 'unknown') return null;
@@ -393,15 +407,16 @@ function Access() {
       <div class="access">
         <b>{t('assistant.noLocalModelFound', { url: set.localUrl })}</b>
         <span>{t('assistant.startOllamaOrLm')}</span>
-        {online && <span>{t('assistant.ollamaMustAcceptThis')} <code class="cmd" title={t('common.copy')} onClick={() => copy(`OLLAMA_ORIGINS=${location.origin}`)}>OLLAMA_ORIGINS={location.origin}</code></span>}
+        {online && <span>{t('assistant.ollamaMustAcceptThis')} <code class="cmd" title={t('common.copy')} onClick={() => navigator.clipboard?.writeText(`OLLAMA_ORIGINS=${location.origin}`).then(() => toast(t('common.commandCopied')))}>OLLAMA_ORIGINS={location.origin}</code></span>}
         <span class="faint">{t('assistant.theAddressCanBe')}</span>
       </div>
     );
   }
+  const connect = <button class="btn sm primary" onClick={() => openSettings('providers')}><Icon name="link" />{t('assistant.connectAnAi')}</button>;
   if (provider !== 'anthropic' || set.prefer === 'server') return (
     <div class="access">
       <b>{t('ai.providerNotConnected', { provider: provider === 'anthropic' ? 'Anthropic' : providerLabel(set.model) })}</b>
-      <button class="btn sm" onClick={() => openSettings('providers')}><Icon name="link" />{t('assistant.connectInSettings')}</button>
+      {connect}
     </div>
   );
   if (st.companion === 'unpaired') return (
@@ -414,14 +429,20 @@ function Access() {
       </div>
     </form>
   );
-  const command = /^(localhost|127\.0\.0\.1)$/.test(location.hostname) ? 'npm run dev' : `npm run tramme -- agent --origin ${location.origin}`;
   return (
     <div class="access">
-      <b>{t('assistant.theAssistantNeedsThe')}</b>
-      <span>{t('assistant.itRunsClaudeWith')}</span>
-      <code class="cmd" onClick={() => copy(command)} title={t('common.copy')}>{command}</code>
-      <span class="faint">{set.prefer === 'auto' ? t('assistant.itConnectsToThis') : t('assistant.itConnectsToThisEditor')}</span>
-      <button class="btn sm" onClick={() => refreshStatus()}><Icon name="loop" />{t('assistant.retry')}</button>
+      <b>{t('assistant.noAiConnected')}</b>
+      <span>{t('assistant.connectAnAiHint')}</span>
+      {connect}
+      {!handheld() && (
+        <details class="access-more">
+          <summary>{t('assistant.orTheCompanion')}</summary>
+          <span>{t('assistant.itRunsClaudeWith')}</span>
+          <CompanionCommand />
+          <span class="faint">{t('assistant.itConnectsToThisEditor')}</span>
+          <button class="btn sm" onClick={() => refreshStatus()}><Icon name="loop" />{t('assistant.retry')}</button>
+        </details>
+      )}
     </div>
   );
 }

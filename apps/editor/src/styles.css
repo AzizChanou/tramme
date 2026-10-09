@@ -805,6 +805,9 @@ svg.i.flip { transform: rotate(180deg); }
 .assistant .access b { color: var(--text); font-weight: 600; }
 .assistant .access code.cmd { margin-top: 0; }
 .assistant .access .btn { align-self: flex-start; }
+.ai-more { display: flex; flex-direction: column; gap: 8px; margin-top: 8px; line-height: 1.45; }
+.assistant .access-more summary { cursor: pointer; color: var(--text-3); }
+.assistant .access-more[open] { display: flex; flex-direction: column; gap: 8px; }
 .access-row { display: flex; gap: 6px; }
 .access-row .field { flex: 1; min-width: 0; height: 26px; }
 code.cmd { display: block; margin-top: 4px; padding: 6px 8px; border-radius: 5px; background: var(--panel); font-family: var(--mono); font-size: 10.5px; color: var(--text); word-break: break-all; cursor: copy; user-select: text; }
