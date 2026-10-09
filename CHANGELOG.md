@@ -8,6 +8,8 @@ Until 1.0.0, the document format and the APIs may still change between minor ver
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-10-09
+
 ### Added
 
 - The local companion runs Codex (a ChatGPT login) and the Gemini CLI (a Google login) besides Claude Code: it finds them on the computer, the model menu offers them ("ChatGPT (Codex)", "Gemini CLI"), and they reach tramme's tools as an MCP server held for the turn, with no shell, files or web of their own. Each keeps its session for the next message; switching agents midway hands the conversation over as text.
@@ -63,6 +65,8 @@ Until 1.0.0, the document format and the APIs may still change between minor ver
 
 ### Changed
 
+- The project format (still `tramme-project/1`) admits PDF documents under `assets/`. Every project of 0.1.0 opens as before; a project holding a PDF (made from sources, or with a document attached to the assistant) does not open in 0.1.0.
+- Tool contexts gain `files()` and `fileUrl(path)`: plugin tools may use them; a host that builds tool contexts itself must provide them.
 - Switched project license from MIT to Apache-2.0.
 - Provider keys are connected in the editor, under Settings, Providers: Connect, Change key, Disconnect for Anthropic, OpenAI, Gemini, OpenRouter, Z.AI and ElevenLabs. The Worker keeps them in R2 and never sends them back; Cloudflare secrets still work, a key connected in the settings comes first.
 - Custom providers: any service of the OpenAI chat format (DeepSeek, Groq, Mistral…) added by name, base URL and key; its models show in the model menu (`custom:<id>:model`).
@@ -132,5 +136,6 @@ First public release.
 
 - Cloudflare Worker serving the editor and the API, projects stored in R2, access protected by Cloudflare Access.
 
-[Unreleased]: ../../compare/v0.1.0...HEAD
+[Unreleased]: ../../compare/v0.2.0...HEAD
+[0.2.0]: ../../compare/v0.1.0...v0.2.0
 [0.1.0]: ../../releases/tag/v0.1.0
