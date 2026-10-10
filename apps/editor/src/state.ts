@@ -39,6 +39,10 @@ export const S = {
   /** preview render size as a fraction of the composition, from the viewport's display size */
   previewScale: signal(0.5),
   selection: signal<string[]>([]),
+  /** groups folded, the same in the layer tree and the timeline */
+  collapsed: signal<Set<string>>(new Set()),
+  /** sound layers the preview plays alone (none: all); the exports keep the whole mix */
+  solo: signal<Set<string>>(new Set()),
   /** keyframes selected in the timeline: 'layerId|prop|index' */
   keys: signal<string[]>([]),
   safe: signal(false),
@@ -152,6 +156,42 @@ export function redo() {
 export function setRegistry(r: Registry) { S.registry.value = r; }
 
 export function select(ids: string[]) { S.selection.value = ids; }
+
+/** the layer clicked last without Shift: where a Shift+click range starts */
+let anchor: string | null = null;
+
+/** a click on a layer of a list (the tree, the timeline): alone, toggled with Ctrl, a range from the last one with Shift */
+export function clickSelect(e: { shiftKey: boolean; ctrlKey: boolean; metaKey: boolean }, id: string, order: string[]) {
+  const sel = S.selection.peek();
+  if (e.shiftKey && anchor && order.includes(anchor)) {
+    const a = order.indexOf(anchor), b = order.indexOf(id);
+    select(order.slice(Math.min(a, b), Math.max(a, b) + 1));
+    return;
+  }
+  anchor = id;
+  if (e.ctrlKey || e.metaKey) select(sel.includes(id) ? sel.filter((x) => x !== id) : [...sel, id]);
+  else select([id]);
+}
+
+/** every layer of the composition shown */
+export function selectAll() { select(Object.keys(comp.peek().layers)); }
+
+/** folds or unfolds a group; with branch (Alt+click), every group inside it too */
+export function toggleFold(id: string, branch = false) {
+  const c = comp.peek(), fold = !S.collapsed.peek().has(id), s = new Set(S.collapsed.peek());
+  const walk = (lid: string) => {
+    if (!c.layers[lid]?.children) return;
+    fold ? s.add(lid) : s.delete(lid);
+    if (branch) c.layers[lid].children!.forEach(walk);
+  };
+  walk(id);
+  S.collapsed.value = s;
+}
+
+/** folds or unfolds every group of the composition shown */
+export function foldAll(fold: boolean) {
+  S.collapsed.value = fold ? new Set(Object.entries(comp.peek().layers).filter(([, l]) => l.children).map(([id]) => id)) : new Set();
+}
 
 export function setTime(t: number) {
   const c = comp.peek();

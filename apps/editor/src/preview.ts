@@ -14,9 +14,9 @@ const notchAtMost = (x: number) => [...NOTCHES].reverse().find((k) => k <= x + 1
 export const previewInfo = signal({ scale: 1, still: 1, motion: 0.5 });
 
 import { effect, signal } from '@preact/signals';
-import { audioClips, type TrammeDoc, type EvaluatedFrame } from '@tramme/core';
+import { audioClips, soundMix, type TrammeDoc, type EvaluatedFrame } from '@tramme/core';
 import { editorRegistry } from './vocabulary.ts';
-import { clipChain, playClip, Renderer } from '@tramme/render';
+import { clipChain, masterGainDb, mixBus, playClip, Renderer } from '@tramme/render';
 import { comp, compIdOf, S, setRegistry, setTime, viewDoc } from './state.ts';
 import { prefs } from './settings.ts';
 import { syncPluginTours } from './tours/index.ts';
@@ -31,6 +31,11 @@ class Preview {
   private audio: AudioContext | null = null;
   /** every sound of the preview goes through it: the volume set for the preview (the exports keep the mix as it is) */
   private master: GainNode | null = null;
+  /** the master of the exports, as near as a live playback gets: their loudness gain (measured ahead, kept per mix), then a limiter */
+  private level: GainNode | null = null;
+  private levels = new Map<string, Promise<number>>();
+  /** this playback's way in to the level: cut on stop, so the buses of a playback do not outlive it */
+  private playOut: GainNode | null = null;
   private buffers = new Map<string, Promise<AudioBuffer | null>>();
   private sources: AudioBufferSourceNode[] = [];
   /** sound of video layers: media elements playing their cut, and the timers that start and stop them */
@@ -78,7 +83,8 @@ class Preview {
       lastT = t;
       this.invalidate();
     });
-    effect(() => { if (S.playing.value) this.play(); else this.stopAudio(); });
+    // a solo changed while playing: the sound starts again with it
+    effect(() => { void S.solo.value; if (S.playing.value) this.play(); else this.stopAudio(); });
     effect(() => { void S.previewScale.value; void prefs.value; this.invalidate(); });
     effect(() => { const p = prefs.value; if (this.master) this.master.gain.value = p.previewMuted ? 0 : p.previewVolume; });
   }
@@ -284,33 +290,41 @@ class Preview {
     this.stopAudio();
     const doc = viewDoc.peek();
     // audio layers and the sound of videos, each from its in point to its out point (the cuts)
-    const clips = audioClips(doc, compIdOf(doc)).filter((c) => c.at + c.duration > from);
+    const solo = S.solo.peek();
+    const clips = audioClips(doc, compIdOf(doc)).filter((c) => c.at + c.duration > from && (!solo.size || solo.has(c.layerId)));
     if (clips.length && !this.audio) {
       this.audio = new AudioContext({ sampleRate: 48000 });
       this.master = this.audio.createGain();
       this.master.connect(this.audio.destination);
       this.master.gain.value = prefs.peek().previewMuted ? 0 : prefs.peek().previewVolume;
+      const limiter = this.audio.createDynamicsCompressor();
+      limiter.threshold.value = -1.5; limiter.knee.value = 0; limiter.ratio.value = 20; limiter.attack.value = 0.002; limiter.release.value = 0.08;
+      this.level = this.audio.createGain();
+      this.level.connect(limiter).connect(this.master);
     }
     if (this.audio) await this.audio.resume();
     this.clock = { at: this.now(), t0: from, audio: false };
     if (!this.audio || !this.renderer || !clips.length) return;
-    const r = this.renderer, ctx = this.audio;
+    const r = this.renderer, ctx = this.audio, compId = compIdOf(doc);
+    this.levelOf(doc, compId);
     const sounds = clips.filter((c) => doc.assets[c.asset].type !== 'video');
     const bufs = await Promise.all(sounds.map((c) => this.buffer(r.assets.url(c.asset))));
     if (!S.playing.peek()) return;
     const startAt = ctx.currentTime + 0.03;
     this.clock = { at: startAt, t0: from, audio: true };
-    // the mixer of the exports: filters, gain curves, fades and reverb sound the same here
-    const out = this.master!;
+    // the mixer of the exports: filters, gain curves, fades, reverb and the shared room sound the same here
+    this.playOut = ctx.createGain();
+    this.playOut.connect(this.level!);
+    const bus = mixBus(ctx, soundMix(doc.compositions[compId]), this.playOut);
     sounds.forEach((c, i) => {
-      const src = bufs[i] && playClip(ctx, c, bufs[i]!, out, startAt, from);
+      const src = bufs[i] && playClip(ctx, c, bufs[i]!, bus(c), startAt, from);
       if (src) this.sources.push(src);
     });
     // a video's sound streams from its file (never decoded whole): one element per cut, started and stopped on the clock
     for (const c of clips.filter((x) => doc.assets[x.asset].type === 'video')) {
       const el = new Audio(r.assets.url(c.asset));
       el.preload = 'auto';
-      ctx.createMediaElementSource(el).connect(clipChain(ctx, c, out, startAt, from));
+      ctx.createMediaElementSource(el).connect(clipChain(ctx, c, bus(c), startAt, from));
       const skip = Math.max(0, from - c.at);
       const begin = () => { el.currentTime = c.offset + skip; el.play().catch(() => {}); };
       const wait = Math.max(0, c.at - from) * 1000 + 30;
@@ -319,7 +333,20 @@ class Preview {
     }
   }
 
+  /** the loudness gain of the master for this mix: measured once per mix (in the background the first time), then set on the level */
+  private levelOf(doc: TrammeDoc, compId: string) {
+    const r = this.renderer!, key = JSON.stringify([soundMix(doc.compositions[compId]), audioClips(doc, compId)]);
+    let p = this.levels.get(key);
+    if (!p) {
+      p = masterGainDb(doc, compId, (id) => r.assets.url(id)).catch(() => 0);
+      this.levels.set(key, p);
+    }
+    p.then((db) => { if (this.level && this.audio) this.level.gain.setTargetAtTime(Math.pow(10, db / 20), this.audio.currentTime, 0.05); });
+  }
+
   private stopAudio() {
+    this.playOut?.disconnect();
+    this.playOut = null;
     for (const s of this.sources) { try { s.stop(); } catch { /* not started */ } }
     this.sources = [];
     for (const t of this.timers) clearTimeout(t);

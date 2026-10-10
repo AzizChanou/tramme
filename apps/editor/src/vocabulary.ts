@@ -19,6 +19,7 @@ import { REVIEW_TOOLS } from './review.ts';
 import { SHORTS_TOOLS } from './shorts.ts';
 import { SOURCE_TOOLS } from './sources.ts';
 import { SOUND_TOOLS } from './sound.ts';
+import { MIXING_TOOLS } from './mixing.ts';
 import { TRACKING_TOOLS } from './tracking.ts';
 import { TEMPLATES, type TemplateArgs } from './templates.ts';
 
@@ -70,7 +71,7 @@ export const EDITOR_PROMPTS: PromptType[] = [
   },
   {
     name: 'sound-design', title: 'Sound design', description: 'gives the video its sound: effects on the moments that matter, a bed if it needs one, levels under the voice',
-    prompt: 'Give this video its sound, following your guide for sound: look at the key moments (check), say in a few lines which sounds go where and why, then search the library (sfx with a query) and place them on the moments (on: entrances, cuts, markers, beats), write the ones the library lacks (synth), duck any music under a voice (duck), and check the mix (check) before summing up.',
+    prompt: 'Give this video its sound, following your guide for sound: read the cues of the picture (cues) and say in a few lines which sounds go where and why (the heroes first), then search the library (sfx with a query), look at the sheet and place them on the cues (on: heroes, cuts, lands, appears, moves), a stack and a stop on each hero; find recordings for what the library lacks (sound-find), duck any music under a voice (duck), balance the effects (mix), check (check) and fix the sound warnings, two rounds at most. End with the credits (credits) and the moments I should listen to.',
   },
   {
     name: 'shorts', title: 'Cut shorts from a long video', description: 'the strongest moments as shorts of the asked format, captions and titles included',
@@ -80,5 +81,5 @@ export const EDITOR_PROMPTS: PromptType[] = [
 
 /** the base vocabulary of the editor, before a document's plugins */
 export function editorRegistry() {
-  return builtinRegistry().registerTool(...EDITOR_TOOLS, ...RECIPE_TOOLS, ...FIGURE_TOOLS, ...EVENT_TOOLS, ...PERCEPTION_TOOLS, ...TRACKING_TOOLS, ...CUTOUT_TOOLS, ...REVIEW_TOOLS, ...SOUND_TOOLS, ...IMAGE_TOOLS, ...SHORTS_TOOLS, ...SOURCE_TOOLS, ...BLOCK_TOOLS, ...BRIEF_TOOLS, ...LIBRARY_TOOLS).registerPrompt(...EDITOR_PROMPTS).registerKit(...BUILTIN_KITS).registerPreset(...EDITOR_PRESETS);
+  return builtinRegistry().registerTool(...EDITOR_TOOLS, ...RECIPE_TOOLS, ...FIGURE_TOOLS, ...EVENT_TOOLS, ...PERCEPTION_TOOLS, ...TRACKING_TOOLS, ...CUTOUT_TOOLS, ...REVIEW_TOOLS, ...SOUND_TOOLS, ...MIXING_TOOLS, ...IMAGE_TOOLS, ...SHORTS_TOOLS, ...SOURCE_TOOLS, ...BLOCK_TOOLS, ...BRIEF_TOOLS, ...LIBRARY_TOOLS).registerPrompt(...EDITOR_PROMPTS).registerKit(...BUILTIN_KITS).registerPreset(...EDITOR_PRESETS);
 }

@@ -24,6 +24,8 @@ const P: Record<string, string> = {
   unlock: 'M4.5 7.5h7v5.5h-7zM6 7.5V5.5a2 2 0 0 1 3.9-.6',
   chevron: 'M6 4l4 4-4 4',
   chevronDown: 'M4 6l4 4 4-4',
+  foldAll: 'M5 2.5l3 3 3-3M5 13.5l3-3 3 3M3 8h10',
+  unfoldAll: 'M5 5.5l3-3 3 3M5 10.5l3 3 3-3M3 8h10',
   plus: 'M8 3.5v9M3.5 8h9',
   minus: 'M3.5 8h9',
   trash: 'M3 4.5h10M6.5 4.5V3h3v1.5M4.5 4.5l.6 8.5h5.8l.6-8.5',

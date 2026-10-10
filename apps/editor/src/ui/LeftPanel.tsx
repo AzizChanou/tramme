@@ -3,8 +3,8 @@
 import { signal } from '@preact/signals';
 import { useRef, useState } from 'preact/hooks';
 import { addLayer, applyOps, layerActive, moveLayer, pointer, removeLayer, type Asset, type TrammeDoc, type Layer, type NodeType, type Op, type PresetType, type TokenType } from '@tramme/core';
-import { comp, commit, S, select, viewDoc, toast, uiTime } from '../state.ts';
-import { flatTree, freshId, layerName, parentOf, subtree, commonStem, folderOf, imagesIn } from '../model.ts';
+import { clickSelect, comp, commit, foldAll, S, select, toggleFold, viewDoc, toast, uiTime } from '../state.ts';
+import { flatTree, freshId, layerName, parentOf, SOUND_GROUP, soundGroupOf, subtree, topLayers, commonStem, folderOf, imagesIn } from '../model.ts';
 import { ColorField, openMenu, Swatch, TextInput, resolveColor, type MenuItem } from './controls.tsx';
 import { Icon, kindColor, kindIcon } from './icons.tsx';
 import { preview } from '../preview.ts';
@@ -14,7 +14,6 @@ import { safeName, takenPaths, upload } from '../files.ts';
 import { m, t, tr } from '../i18n/index.ts';
 
 const tab = signal<'layers' | 'assets' | 'tokens'>('layers');
-const collapsed = signal<Set<string>>(new Set());
 
 // ── new layers ───────────────────────────────────────────────
 function firstToken(doc: TrammeDoc, type: TokenType) {
@@ -105,7 +104,7 @@ export function deleteSelection() {
   const sel = S.selection.peek().filter((id) => c.layers[id]);
   if (!sel.length) return;
   // a layer inside another selected one goes with its parent
-  const roots = sel.filter((id) => !sel.some((o) => o !== id && subtree(c, o).includes(id)));
+  const roots = topLayers(c, sel);
   const ops: Op[] = [];
   let cur = doc;
   for (const id of roots) {
@@ -138,6 +137,22 @@ export function duplicateSelection() {
   if (commit(t('common.duplicate'), ops)) select([mapping.get(id)!]);
 }
 
+/** the sounds at the root of the stack go into the Sound group, made at the bottom when there is none */
+export function groupSounds() {
+  const doc = S.doc.peek(), compId = S.compId.peek(), c = doc.compositions[compId];
+  const loose = c.order.filter((id) => c.layers[id]?.type === 'audio');
+  if (!loose.length) return;
+  const ops: Op[] = [];
+  let cur = doc, group = soundGroupOf(c);
+  if (!group) {
+    group = freshId(c.layers, 'sound');
+    const o = addLayer(cur, compId, group, { type: 'group', name: SOUND_GROUP, children: [] }, { index: 0 });
+    ops.push(...o); cur = applyOps(cur, o).doc;
+  }
+  for (const id of loose) { const o = moveLayer(cur, compId, id, { parent: group }); ops.push(...o); cur = applyOps(cur, o).doc; }
+  if (commit(t('panel.groupSoundsN', { n: loose.length }), ops)) S.collapsed.value = new Set([...S.collapsed.peek(), group]);
+}
+
 /** move the selected layers (same parent) into a new composition, replaced by one comp layer */
 export function precompose() {
   const doc = S.doc.peek(), compId = S.compId.peek(), c = doc.compositions[compId];
@@ -165,24 +180,18 @@ export function precompose() {
 }
 
 // ── layer tree ───────────────────────────────────────────────
+/** the words the layer tree is narrowed to: every layer whose name holds them, folded groups opened */
+const filter = signal('');
+
 function LayerTree() {
-  const c = comp.value, now = uiTime.value, sel = S.selection.value;
-  const items = flatTree(c, collapsed.value);
+  const c = comp.value, now = uiTime.value, sel = S.selection.value, q = filter.value.trim().toLowerCase();
+  const items = q ? flatTree(c).filter(({ id, layer }) => `${layerName(id, layer)} ${id}`.toLowerCase().includes(q)) : flatTree(c, S.collapsed.value);
   const [renaming, setRenaming] = useState<string | null>(null);
   const [drop, setDrop] = useState<{ id: string; where: 'before' | 'after' | 'inside' } | null>(null);
-  const anchor = useRef<string | null>(null);
   const compId = S.compId.value;
   const lp = (id: string) => pointer('compositions', compId, 'layers', id);
 
-  const click = (e: MouseEvent, id: string) => {
-    if (e.shiftKey && anchor.current) {
-      const ids = items.map((i) => i.id), a = ids.indexOf(anchor.current), b = ids.indexOf(id);
-      select(ids.slice(Math.min(a, b), Math.max(a, b) + 1));
-    } else if (e.ctrlKey || e.metaKey) {
-      select(sel.includes(id) ? sel.filter((x) => x !== id) : [...sel, id]);
-      anchor.current = id;
-    } else { select([id]); anchor.current = id; }
-  };
+  const click = (e: MouseEvent, id: string) => clickSelect(e, id, items.map((i) => i.id));
 
   const startDrag = (e: PointerEvent, id: string) => {
     if (e.button !== 0 || renaming) return;
@@ -230,20 +239,28 @@ function LayerTree() {
       { label: t('panel.goToInPoint'), icon: 'start', onClick: () => { S.time.value = l.in ?? 0; } },
       { label: t('panel.precompose'), icon: 'comp', onClick: precompose },
       ...(l.type === 'comp' && typeof l.props?.comp === 'string' ? [{ label: t('panel.openComposition'), icon: 'comp' as const, onClick: () => { S.compId.value = l.props!.comp as string; select([]); } }] : []),
+      ...(l.type === 'audio' && c.order.includes(id) ? [{ label: t('panel.groupSounds'), icon: 'audio' as const, onClick: groupSounds }] : []),
       'sep',
       { label: t('common.delete'), icon: 'trash', hint: t('common.del'), onClick: deleteSelection },
     ]);
   };
 
-  if (!items.length) {
+  if (!Object.keys(c.layers).length) {
     return <div class="empty"><Icon name="layers" />{t('panel.noLayers')}<button class="btn sm" onClick={(e) => addLayerMenu(e)}><Icon name="plus" />{t('panel.addALayer')}</button></div>;
   }
   return (
     <div class="tree" role="tree">
+      <div class="tree-filter">
+        <Icon name="search" size={12} />
+        <input value={filter.value} placeholder={t('panel.filterLayers')} spellcheck={false}
+          onInput={(e) => { filter.value = (e.target as HTMLInputElement).value; }} onKeyDown={(e) => { if (e.key === 'Escape') { filter.value = ''; (e.target as HTMLInputElement).blur(); } }} />
+        {filter.value ? <button class="icon-btn xs" title={t('panel.clearFilter')} onClick={() => { filter.value = ''; }}><Icon name="x" /></button> : <FoldButtons />}
+      </div>
+      {!items.length && <div class="faint tree-none">{t('panel.noLayerMatches')}</div>}
       {items.map(({ id, layer, depth }) => {
         const active = layerActive(layer, c, now);
         const hidden = layer.visible === false;
-        const isOpen = !collapsed.value.has(id);
+        const isOpen = !S.collapsed.value.has(id);
         const d = drop?.id === id ? ` drop-${drop.where}` : '';
         return (
           <div key={id} data-layer={id} role="treeitem" aria-selected={sel.includes(id)}
@@ -251,7 +268,7 @@ function LayerTree() {
             style={{ paddingLeft: 6 + depth * 14 }}
             onClick={(e) => click(e, id)} onDblClick={() => setRenaming(id)} onPointerDown={(e) => startDrag(e, id)} onContextMenu={(e) => rowMenu(e, id)}>
             {layer.children
-              ? <button class={`twist${isOpen ? ' open' : ''}`} onClick={(e) => { e.stopPropagation(); const s = new Set(collapsed.value); isOpen ? s.add(id) : s.delete(id); collapsed.value = s; }}><Icon name="chevron" /></button>
+              ? <button class={`twist${isOpen ? ' open' : ''}`} title={t('panel.foldHint')} onClick={(e) => { e.stopPropagation(); toggleFold(id, e.altKey); }}><Icon name="chevron" /></button>
               : <span style={{ width: 16, flex: 'none' }} />}
             <span class="kind" style={{ color: kindColor(layer.type) }}><Icon name={kindIcon(layer.type)} /></span>
             <span class="name">
@@ -261,7 +278,7 @@ function LayerTree() {
                   onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); if (e.key === 'Escape') setRenaming(null); }} />
                 : layerName(id, layer)}
             </span>
-            {layer.clip && <span class="badge" title={t('panel.clippedByName', { name: layer.clip })}><Icon name="safe" size={12} /></span>}
+            <span class="badge" title={layer.clip ? t('panel.clippedByName', { name: layer.clip }) : undefined}>{layer.clip && <Icon name="safe" size={12} />}</span>
             <span class={`row-actions${hidden ? ' always' : ''}`}>
               <button class={`icon-btn xs${hidden ? ' on' : ''}`} title={hidden ? t('common.show') : t('common.hide')} onPointerDown={(e) => e.stopPropagation()}
                 onClick={(e) => { e.stopPropagation(); commit(hidden ? t('common.show') : t('common.hide'), hidden ? [{ op: 'remove', path: `${lp(id)}/visible` }] : [{ op: 'add', path: `${lp(id)}/visible`, value: false }]); }}>
@@ -504,6 +521,17 @@ function Tokens() {
         ))}
       </>}
     </div>
+  );
+}
+
+/** fold or unfold every group at once: shown when the composition has groups */
+export function FoldButtons() {
+  if (!Object.values(comp.value.layers).some((l) => l.children)) return null;
+  return (
+    <>
+      <button class="icon-btn xs" title={t('panel.foldAll')} onClick={() => foldAll(true)}><Icon name="foldAll" /></button>
+      <button class="icon-btn xs" title={t('panel.unfoldAll')} onClick={() => foldAll(false)}><Icon name="unfoldAll" /></button>
+    </>
   );
 }
 

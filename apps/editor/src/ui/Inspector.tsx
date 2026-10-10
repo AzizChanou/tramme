@@ -3,7 +3,7 @@
 // shown by colour and switched from its menu.
 
 import { useMemo, useState } from 'preact/hooks';
-import { Evaluator, getAt, pointer, propKind, sheetIssues, TRANSFORM_SCHEMA, MOTION_BLUR_SCHEMA, CAMERA_SCHEMA, type TrammeDoc, type Paint, type Prop, type PropDef, type PropSchema, type Token } from '@tramme/core';
+import { Evaluator, getAt, pointer, propKind, sheetIssues, TRANSFORM_SCHEMA, MOTION_BLUR_SCHEMA, CAMERA_SCHEMA, SOUND_MIX_SCHEMA, type TrammeDoc, type Paint, type Prop, type PropDef, type PropSchema, type Token } from '@tramme/core';
 import { comp, commit, draft, cancelDraft, S, viewDoc, select, uiTime } from '../state.ts';
 import { assetData } from '../preview.ts';
 import { addModifierOps, editAtOps, fixedOps, folderOf, imagesIn, keyAtOps, keyIndexAt, keysOf, removeKeyOps, removeModifierOps, setAtOps, snap, freshId, fmtSeconds } from '../model.ts';
@@ -529,6 +529,9 @@ function CompInspector({ ctx }: { ctx: Ctx }) {
         {c.camera
           ? <SchemaRows ctx={ctx} schema={CAMERA_SCHEMA} basePath={`${cp}/camera`} baseAddress="$comp.camera" />
           : <button class="btn sm" onClick={() => commit(t('inspector.camera'), [{ op: 'add', path: `${cp}/camera`, value: {} }])}><Icon name="plus" />{t('common.enable')}</button>}
+      </Section>
+      <Section id="sound" title={t('settings.sound')}>
+        <SchemaRows ctx={ctx} schema={SOUND_MIX_SCHEMA} basePath={`${cp}/sound`} baseAddress="$comp.sound" />
       </Section>
       <EffectsSection ctx={ctx} base={cp} address="$comp.effects" effects={c.effects || []} stage="finish" title={t('inspector.finishingEffects')} />
     </>

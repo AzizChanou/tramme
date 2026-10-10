@@ -28,9 +28,13 @@ export interface Preferences {
   varySounds: boolean;
   /** a sound made by a provider (it costs money) waits for the user's yes */
   confirmPaid: boolean;
+  /** paid generations a turn of the assistant may make when its changes apply without the user (nothing is asked then) */
+  paidPerTurn: number;
   /** voice-overs: the provider (auto: the first the server has a key for) and the voice ('' for its own) */
   voiceProvider: 'auto' | 'elevenlabs' | 'openai' | 'gemini';
   voice: string;
+  /** the ElevenLabs voice model ('' for the newest, Eleven v4) */
+  voiceModel: string;
   /** what the preview plays at, 0 to 1, and muted; the exports keep the mix as it is */
   previewVolume: number;
   previewMuted: boolean;
@@ -38,7 +42,7 @@ export interface Preferences {
 
 export const DEFAULT_PREFERENCES: Preferences = {
   language: 'auto', theme: 'studio', display: 'editor', motion: 'auto', still: 'display', blur: 'document', exactFrames: true,
-  effectsDb: -8, musicDb: -14, duckDb: -12, varySounds: true, confirmPaid: true, voiceProvider: 'auto', voice: '', previewVolume: 1, previewMuted: false,
+  effectsDb: -8, musicDb: -14, duckDb: -12, varySounds: true, confirmPaid: true, paidPerTurn: 10, voiceProvider: 'auto', voice: '', voiceModel: '', previewVolume: 1, previewMuted: false,
 };
 
 // ── themes and display modes ────────────────────────────────
@@ -103,9 +107,11 @@ function load(): Preferences {
     p.previewVolume = within(p.previewVolume, d.previewVolume, 0, 1);
     p.varySounds = p.varySounds !== false;
     p.confirmPaid = p.confirmPaid !== false;
+    p.paidPerTurn = Math.round(within(p.paidPerTurn, d.paidPerTurn, 0, 100));
     p.previewMuted = p.previewMuted === true;
     if (!VOICE_PROVIDERS.includes(p.voiceProvider)) p.voiceProvider = d.voiceProvider;
     if (typeof p.voice !== 'string') p.voice = d.voice;
+    if (typeof p.voiceModel !== 'string') p.voiceModel = d.voiceModel;
     return p;
   } catch { return { ...DEFAULT_PREFERENCES }; }
 }

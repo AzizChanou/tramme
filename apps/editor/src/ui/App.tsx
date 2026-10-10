@@ -2,10 +2,11 @@
 // Under 760 px the panels become tabs below the viewport.
 
 import { useEffect } from 'preact/hooks';
-import { S, undo, redo, frameStep, setTime, comp, saveNow, toast, select } from '../state.ts';
+import { S, undo, redo, frameStep, setTime, comp, saveNow, toast, select, selectAll } from '../state.ts';
 import { Assistant } from './Assistant.tsx';
 import { MenuHost, Modal, useSize } from './controls.tsx';
-import { answer, question } from '../confirm.ts';
+import { answer, chatShown, question } from '../confirm.ts';
+import { away, notify } from '../notify.ts';
 import { Icon } from './icons.tsx';
 import { Inspector } from './Inspector.tsx';
 import { deleteSelection, duplicateSelection, LeftPanel } from './LeftPanel.tsx';
@@ -30,6 +31,7 @@ function useShortcuts() {
       if (mod && e.key.toLowerCase() === 'z') { e.preventDefault(); e.shiftKey ? redo() : undo(); return; }
       if (mod && e.key.toLowerCase() === 'y') { e.preventDefault(); redo(); return; }
       if (mod && e.key.toLowerCase() === 'd') { e.preventDefault(); duplicateSelection(); return; }
+      if (mod && e.key.toLowerCase() === 'a') { e.preventDefault(); selectAll(); return; }
       if (e.code === 'Space') { e.preventDefault(); S.playing.value = !S.playing.value; return; }
       if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') {
         e.preventDefault();
@@ -66,10 +68,12 @@ export function Toasts() {
   );
 }
 
-/** a question the editor waits an answer for (a sound that costs money) */
+/** a question the editor waits an answer for (a sound that costs money); the user told when elsewhere */
 function QuestionDialog() {
   const q = question.value;
-  if (!q) return null;
+  useEffect(() => { if (q && away()) notify(q.title, q.text); }, [q]);
+  // asked during a turn of the assistant: in the conversation, when one is on screen
+  if (!q || (q.inChat && chatShown.value > 0)) return null;
   return (
     <Modal title={q.title} onClose={() => answer(false)}>
       <div class="modal-body">

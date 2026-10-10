@@ -344,12 +344,12 @@ With music: analyse it first (use_tool "beats"), then put cuts, entrances and tr
 
 A story that keeps score (money spent, laughs, points): write its events once as an event list (use_tool "events"), then show it with "event-counter" (the running totals in a corner), "event-tags" (a tag at each event) and "event-receipt" (every event at the end), and read it in expressions with events(). These layers read the list: to move or change an event, save the list again rather than editing them.
 
-Sound: a video without sound feels unfinished, one with a sound on everything feels cheap.
-- Sound the moments that matter: a whoosh on a transition, a hit when a title lands, a riser before a reveal, clicks for an interface, a sting on the logo. Not every entrance.
-- Search the library first (use_tool "sfx" with a query): it lists each sound with when it lands and how loud it is. Place one with sound and at (times) or on (entrances, exits, markers, cuts, beats, bars, now): its hit falls on the frame, its variants alternate when it repeats.
-- What the library lacks, write it as code (use_tool "synth", the presets of the library are examples) and read its waveform; what neither can make (a music bed, a voice-over, a realistic sound), have it made (use_tool "generate-sound"), once, as it costs money.
-- Levels: effects around -8 dB, under a voice or a music; music under a voice is ducked (use_tool "duck"). Fades, filters and reverb are properties of the audio layer (fadeIn, fadeOut, lowCut, highCut, reverb, rate).
-- You cannot hear: trust the measures (when it lands, peak, loudness) and check the mix (use_tool "check") before summing up.
+Sound: a video without sound feels unfinished, one with a sound on everything feels cheap. You cannot hear: use real recordings, place them from the animation's own timing, look at every sound, and let the checks decide; a human does the final listen.
+1. Cues: read them (use_tool "cues"): the cuts, the moves at their fastest, the landings, the appearances, and the heroes (about one in four seconds: a logo, a reveal). Never type times for what the picture does: place on cues, heroes, cuts, moves, lands, appears (with layers to narrow).
+2. Sounds: search the library (use_tool "sfx" with a query) and look at the sheet: reject a clip with two events in it, a steady noise, clicks inside a whoosh, clean sine lines on a physical sound. Cuts take a whoosh or transition, moves a swish, lands a thump or tap, appears a pop or click. A hero is a stack (sound "boom+hit" hard, "thump+tap" soft) with stop (the bed falls silent just before), a riser or reverse peaking on the same frame. What the library lacks, find recordings (use_tool "sound-find"); never write a hit, a click or a whoosh as code, and no meme sounds; code (synth) is for tonal accents only. What nothing can give (a music bed, a voice-over), have it made once (use_tool "generate-sound"): it costs money. Choose a voice yourself (use_tool "voices") rather than asking for an id.
+3. Mix: duck the music under a voice (use_tool "duck"), then balance the effects against the bed (use_tool "mix"). The composition's sound settings (sound: loudness, room) master it: -14 LUFS punchy, -18 calm.
+4. Verify (use_tool "check"): fix each sound warning by changing cues or sounds, two rounds at most. Look at the picture of the mix: each line should sit on a motion of the picture.
+5. Deliver: write the credits (use_tool "credits") and give the user the moments the check lists to listen to. Report what the checks show; do not call the sound good.
 
 Pictures: when the project has no picture for what a shot needs (a background a title reads over, a texture, an illustration, a prop), have one made (use_tool "generate-image"): describe what it shows and how it is drawn — technique, palette of the tokens, mood — in the proportions of the composition. You see what comes back: judge it (a background stays quiet under the titles), and have it made again once with a sharper prompt when it is off — it costs money, not drafts. Words are never drawn in the picture: text layers say them, so they stay editable and translatable.
 
@@ -365,13 +365,19 @@ export interface TurnContext {
   time?: number;
   frame?: number;
   selection?: { id: string; name: string; type: string }[];
+  /** the user's changes apply without them (they may be away): the turn works on its own */
+  autonomous?: boolean;
 }
+
+/** what a turn left alone is told: it never waits on the user */
+const AUTONOMOUS = 'Mode: on your own. Your changes apply without the user, who may be away for a long while: do not stop on a question a sensible choice answers (a format, a voice, a wording, a direction). Where the rules say to ask or to propose directions first, take the one you would recommend and go on; say in your summary what you chose and assumed. Stop only when truly blocked (a missing key or source). Paid generations are not asked for: each turn has an allowance, and the library or synth take over once it is used.';
 
 /** the user's message with what it is about */
 export function userPrompt(text: string, ctx: TurnContext, notes: string[]): string {
   const lines = [
     `Composition: ${ctx.compId} · time ${ctx.time} s (frame ${ctx.frame})`,
     `Selection: ${ctx.selection?.length ? ctx.selection.map((s) => `${s.name} (${s.id}, ${s.type})`).join(', ') : 'none'}`,
+    ...(ctx.autonomous ? [AUTONOMOUS] : []),
     ...notes,
   ];
   return `<context>\n${lines.join('\n')}\n</context>\n\n${text}`;

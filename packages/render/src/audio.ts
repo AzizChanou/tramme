@@ -1,10 +1,12 @@
 // The one mixer of tramme: the editor's preview plays through it (live), the
 // browser exports and the command line mix with it (offline). Each clip of
 // audioClips (@tramme/core) goes through its filters, its gain (curve and
-// fades) and the room of the reverb. Also: the WAV encoder, and the synth
-// that turns a sound's code into samples.
+// fades) and the room of the reverb; the effects share one short room (the
+// composition's sound settings), and the master is brought to the
+// composition's loudness, its true peak held under -1 dBTP. Also: the WAV
+// encoder, and the synth that turns a sound's code into samples.
 
-import { audioClips, gainAt, gainMoves, type AudioClip, type TrammeDoc } from '@tramme/core';
+import { audioClips, curveAt, gainAt, gainMoves, integratedLoudness, master, soundMix, type AudioClip, type SoundMix, type TrammeDoc } from '@tramme/core';
 
 export const MIX_RATE = 48000;
 /** samples of a moving gain per second */
@@ -29,6 +31,37 @@ function room(ctx: BaseAudioContext): AudioBuffer {
   return b;
 }
 
+/** the short room the effects share: 12 ms before its first reflection, 0.6 s to fade 60 dB */
+const shared = new WeakMap<BaseAudioContext, AudioBuffer>();
+function sharedRoom(ctx: BaseAudioContext): AudioBuffer {
+  let b = shared.get(ctx);
+  if (!b) {
+    const decay = 0.6, pre = Math.round(ctx.sampleRate * 0.012), n = Math.round(ctx.sampleRate * decay) + pre, rnd = seeded(11);
+    b = ctx.createBuffer(2, n, ctx.sampleRate);
+    for (let c = 0; c < 2; c++) { const d = b.getChannelData(c); for (let i = pre; i < n; i++) d[i] = (rnd() * 2 - 1) * Math.exp((-6.9 * (i - pre)) / (n - pre)) * 0.35; }
+    shared.set(ctx, b);
+  }
+  return b;
+}
+
+/**
+ * The buses of a mix into `out`: the effects go through the composition's
+ * shared room (band-limited to 250 Hz – 7 kHz, so it never muddies the low
+ * end nor hisses), the other sounds straight. Returns where a clip's chain
+ * goes.
+ */
+export function mixBus(ctx: BaseAudioContext, mix: SoundMix, out: AudioNode): (clip: AudioClip) => AudioNode {
+  if (!(mix.room > 0)) return () => out;
+  const fx = ctx.createGain(), send = ctx.createGain(), hp = ctx.createBiquadFilter(), lp = ctx.createBiquadFilter(), conv = ctx.createConvolver();
+  send.gain.value = mix.room;
+  hp.type = 'highpass'; hp.frequency.value = 250;
+  lp.type = 'lowpass'; lp.frequency.value = 7000;
+  conv.buffer = sharedRoom(ctx);
+  fx.connect(out);
+  fx.connect(send).connect(hp).connect(lp).connect(conv).connect(out);
+  return (c) => (c.role === 'effect' ? fx : out);
+}
+
 /**
  * The chain of one clip into `out`: filters, then its gain, the reverb beside
  * it. `from` is the composition time played at `startAt` (time of the
@@ -36,7 +69,22 @@ function room(ctx: BaseAudioContext): AudioBuffer {
  */
 export function clipChain(ctx: BaseAudioContext, clip: AudioClip, out: AudioNode, startAt: number, from: number): AudioNode {
   const stages: AudioNode[] = [];
-  if (clip.lowCut > 0) { const f = ctx.createBiquadFilter(); f.type = 'highpass'; f.frequency.value = clip.lowCut; stages.push(f); }
+  const begin = Math.max(from, clip.at), end = clip.at + clip.duration;
+  /** a parameter following a curve over the clip, sampled GAIN_RATE times a second */
+  const follow = (param: AudioParam, at: (t: number) => number) => {
+    const n = Math.max(2, Math.ceil((end - begin) * GAIN_RATE) + 1);
+    const curve = Float32Array.from({ length: n }, (_, i) => at(begin + ((end - begin) * i) / (n - 1)));
+    param.value = curve[0];
+    param.setValueCurveAtTime(curve, startAt + (begin - from), end - begin);
+  };
+  if (clip.lowCut > 0 || clip.lowCutCurve) {
+    const f = ctx.createBiquadFilter(), curve = clip.lowCutCurve;
+    f.type = 'highpass';
+    // a cut at 0 Hz is none: 10 Hz is as good
+    if (curve && end > begin) follow(f.frequency, (t) => Math.max(10, curveAt(curve, t)));
+    else f.frequency.value = Math.max(10, clip.lowCut);
+    stages.push(f);
+  }
   if (clip.highCut > 0) { const f = ctx.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = clip.highCut; stages.push(f); }
   const gain = ctx.createGain();
   stages.push(gain);
@@ -48,14 +96,8 @@ export function clipChain(ctx: BaseAudioContext, clip: AudioClip, out: AudioNode
     conv.buffer = room(ctx);
     gain.connect(send).connect(conv).connect(out);
   }
-  const begin = Math.max(from, clip.at), end = clip.at + clip.duration;
   if (!gainMoves(clip)) gain.gain.value = gainAt(clip, begin);
-  else if (end > begin) {
-    const n = Math.max(2, Math.ceil((end - begin) * GAIN_RATE) + 1);
-    const curve = Float32Array.from({ length: n }, (_, i) => gainAt(clip, begin + ((end - begin) * i) / (n - 1)));
-    gain.gain.value = curve[0];
-    gain.gain.setValueCurveAtTime(curve, startAt + (begin - from), end - begin);
-  }
+  else if (end > begin) follow(gain.gain, (t) => gainAt(clip, t));
   return stages[0];
 }
 
@@ -73,13 +115,29 @@ export function playClip(ctx: BaseAudioContext, clip: AudioClip, buffer: AudioBu
   return src;
 }
 
-/** the composition's sound over [from, to], mixed offline at 48 kHz stereo; null when it has none */
-export async function mixComposition(doc: TrammeDoc, compId: string, url: (asset: string) => string, opts: { from?: number; to?: number } = {}): Promise<AudioBuffer | null> {
-  const comp = doc.compositions[compId];
+export interface MixOptions {
+  from?: number;
+  to?: number;
+  /** the master brought to the composition's loudness (true by default); false: the sum as it is (stems, measures) */
+  master?: boolean;
+  /** only these clips (a stem: the effects, the bed) */
+  only?: (clip: AudioClip) => boolean;
+}
+
+/**
+ * The composition's sound over [from, to], mixed offline at 48 kHz stereo;
+ * null when it has none. The master is measured over the whole composition,
+ * so a part of it sounds as it does in the whole.
+ */
+export async function mixComposition(doc: TrammeDoc, compId: string, url: (asset: string) => string, opts: MixOptions = {}): Promise<AudioBuffer | null> {
+  const comp = doc.compositions[compId], mix = soundMix(comp);
   const from = opts.from ?? 0, to = opts.to ?? comp.duration;
-  const clips = audioClips(doc, compId).filter((c) => c.at < to && c.at + c.duration > from);
+  const mastered = opts.master !== false && mix.loudness !== null;
+  const [a, b] = mastered ? [0, comp.duration] : [from, to];
+  const clips = audioClips(doc, compId).filter((c) => (!opts.only || opts.only(c)) && c.at < b && c.at + c.duration > a);
   if (!clips.length) return null;
-  const ctx = new OfflineAudioContext(2, Math.max(1, Math.ceil((to - from) * MIX_RATE)), MIX_RATE);
+  const ctx = new OfflineAudioContext(2, Math.max(1, Math.ceil((b - a) * MIX_RATE)), MIX_RATE);
+  const bus = mixBus(ctx, mix, ctx.destination);
   const decoded = new Map<string, Promise<AudioBuffer | null>>();
   for (const c of clips) {
     let p = decoded.get(c.asset);
@@ -87,10 +145,28 @@ export async function mixComposition(doc: TrammeDoc, compId: string, url: (asset
       p = fetch(url(c.asset)).then((r) => r.arrayBuffer()).then((d) => ctx.decodeAudioData(d)).catch(() => null);
       decoded.set(c.asset, p);
     }
-    const b = await p;
-    if (b) playClip(ctx, c, b, ctx.destination, 0, from);
+    const buf = await p;
+    if (buf) playClip(ctx, c, buf, bus(c), 0, a);
   }
-  return ctx.startRendering();
+  const out = await ctx.startRendering();
+  if (!mastered) return out;
+  master([out.getChannelData(0), out.getChannelData(1)], MIX_RATE, mix.loudness!);
+  if (from <= 0 && to >= comp.duration) return out;
+  // the part asked for, cut from the mastered whole
+  const i0 = Math.round(from * MIX_RATE), n = Math.max(1, Math.round((to - from) * MIX_RATE));
+  const part = new OfflineAudioContext(2, n, MIX_RATE).createBuffer(2, n, MIX_RATE);
+  for (let c = 0; c < 2; c++) part.getChannelData(c).set(out.getChannelData(c).subarray(i0, i0 + n));
+  return part;
+}
+
+/** the gain (dB) the master gives this composition's mix to reach its loudness; 0 when it keeps the mix as it is or has no sound. For a live playback, which cannot measure ahead */
+export async function masterGainDb(doc: TrammeDoc, compId: string, url: (asset: string) => string): Promise<number> {
+  const target = soundMix(doc.compositions[compId]).loudness;
+  if (target === null) return 0;
+  const raw = await mixComposition(doc, compId, url, { master: false });
+  if (!raw) return 0;
+  const lufs = integratedLoudness([raw.getChannelData(0), raw.getChannelData(1)], raw.sampleRate);
+  return Number.isFinite(lufs) ? target - lufs : 0;
 }
 
 /** 16-bit PCM WAV of a buffer */

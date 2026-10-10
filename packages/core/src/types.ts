@@ -151,6 +151,8 @@ export interface Composition {
   markers?: Marker[];
   /** finishing effects applied to the whole frame */
   effects?: Effect[];
+  /** how its sound is finished: the master's loudness (LUFS, null: as mixed) and the share of the room the effects have in common */
+  sound?: { loudness?: number | null; room?: number };
   layers: Record<string, Layer>;
   /** root stack, bottom to top */
   order: string[];

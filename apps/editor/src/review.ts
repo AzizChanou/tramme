@@ -6,7 +6,7 @@
 import { Evaluator, motionReport, runChecks, type QualityIssue, type ToolContext, type ToolType, type TrammeDoc } from '@tramme/core';
 import { pixelsOf, flowLines } from './flow.ts';
 import { analyses, canvas } from './perception.ts';
-import { soundIssues } from './sound.ts';
+import { masterText, soundReport } from './mixing.ts';
 import { t } from './i18n/index.ts';
 
 const CELL = 360;
@@ -71,21 +71,25 @@ export function keyTimes(doc: TrammeDoc, compId: string, issues: QualityIssue[],
 }
 
 const check: ToolType<{ frames?: number }> = {
-  name: 'check', title: 'Check the composition', description: 'runs the quality checks (readability, safe zone, overlaps, pacing, the sound: clipping, loudness, sounds on top of each other) and shows a contact sheet of the key moments',
+  name: 'check', title: 'Check the composition', description: "runs the quality checks (readability, safe zone, overlaps, pacing; the sound: the master's loudness and peak, each effect on its cue and heard over the bed, the music under the voice, dips and silences) and shows a contact sheet of the key moments and the picture of the mix",
   input: { type: 'object', properties: { frames: { type: 'integer', minimum: 2, maximum: 12, title: 'Frames' } } },
   ai: { when: 'before summing up any change, and whenever the user asks if it looks right; read the issues, look at the sheet, fix what matters' },
   async run({ frames = 8 }, ctx) {
-    const issues = [...await runChecks(ctx.doc, ctx.registry, ctx.compId, { data: await analyses(ctx) }), ...await soundIssues(ctx)];
+    const sound = await soundReport(ctx, { image: true });
+    const issues = [...await runChecks(ctx.doc, ctx.registry, ctx.compId, { data: await analyses(ctx) }), ...sound.issues];
     const times = keyTimes(ctx.doc, ctx.compId, issues, frames);
     const url = await sheet(ctx, times, Math.min(4, times.length), ctx.compId);
     const warnings = issues.filter((i) => i.severity === 'warning').length, notes = issues.length - warnings;
     const lines = issues.map((i) => `- [${i.severity}] ${i.message}${i.layers?.length ? ` (layers: ${i.layers.join(', ')})` : ''}`);
     const head = issues.length ? `${warnings} warning(s), ${notes} note(s).` : 'No issue found by the checks.';
     const shown = issues.map((i) => `- ${i.say ? t(i.say.text, i.say.params) : i.message}`);
+    // the sound: its master, the picture of the mix, and the moments a human checks by ear
+    const listen = sound.listen.map((x) => `${x.toFixed(2)} s`).join(', ');
+    const heard = sound.master ? `\n${masterText(sound.master)} The picture of the mix shows the master's waveform and spectrogram over the motion of the picture, a line at each effect (heroes red): an effect away from a motion, two hits in one place, a hit with no body show there.${listen ? ` Ask the user to listen at ${listen}: you cannot hear, they do the final listen.` : ''}` : '';
     return {
-      text: `${head}\n${lines.join('\n')}\nContact sheet at ${times.map((x) => `${x} s`).join(', ')}: judge the composition, the hierarchy and the rhythm.`,
-      notice: [issues.length ? t('review.issues', { warnings, notes }) : t('review.noIssue'), ...shown].join('\n'),
-      images: [{ url, caption: t('review.contactSheet') }],
+      text: `${head}\n${lines.join('\n')}\nContact sheet at ${times.map((x) => `${x} s`).join(', ')}: judge the composition, the hierarchy and the rhythm.${heard}`,
+      notice: [issues.length ? t('review.issues', { warnings, notes }) : t('review.noIssue'), ...shown, ...(listen ? [t('review.listen', { times: listen })] : [])].join('\n'),
+      images: [{ url, caption: t('review.contactSheet') }, ...(sound.image ? [{ url: sound.image, caption: t('review.mixPicture') }] : [])],
     };
   },
 };

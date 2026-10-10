@@ -7,14 +7,15 @@
 // layer; the mixer of @tramme/render plays it the same in the preview and
 // the exports.
 
-import { audioClips, isAudioAnalysis, pointer, searchSounds, soundFigures, staticValue, variantsOf, type Layer, type Op, type QualityIssue, type SoundEntry, type SoundFigures, type ToolContext, type ToolType } from '@tramme/core';
-import { encodeWav, mixComposition, renderSynth, SYNTH_MAX } from '@tramme/render';
+import { audioClips, Evaluator, isAudioAnalysis, pointer, searchSounds, soundCues, soundFigures, soundFlaws, staticValue, variantsOf, type Layer, type Op, type SoundCue, type SoundEntry, type SoundFigures, type SoundRole, type SoundVisual, type ToolContext, type ToolType } from '@tramme/core';
+import { encodeWav, renderSynth, SYNTH_MAX } from '@tramme/render';
 import { api } from './api.ts';
-import { confirmWith } from './confirm.ts';
-import { clip, freshId } from './model.ts';
+import { payFor } from './confirm.ts';
+import { clip, freshId, SOUND_GROUP, soundGroupOf } from './model.ts';
 import { prefs } from './settings.ts';
 import { analyses } from './perception.ts';
 import { SOUND_PRESETS } from './sound-presets.ts';
+import { canvas, caption, drawSpectrogram, drawWave, INK, mark } from './sound-pictures.ts';
 import { t } from './i18n/index.ts';
 
 // ── the library ──────────────────────────────────────────────
@@ -42,21 +43,44 @@ const line = (e: SoundEntry, all: SoundEntry[]) => {
 /** a list of times or ids given as an array, a number, or text ("1.5, 3") from the / menu */
 const listOf = (v: unknown): string[] => (Array.isArray(v) ? v.map(String) : typeof v === 'number' ? [String(v)] : typeof v === 'string' ? v.split(/[\s,;]+/) : []).filter(Boolean);
 
-export const MOMENTS = ['now', 'entrances', 'exits', 'markers', 'cuts', 'beats', 'bars'] as const;
+export const MOMENTS = ['cues', 'heroes', 'cuts', 'moves', 'lands', 'appears', 'now', 'entrances', 'exits', 'markers', 'beats', 'bars'] as const;
+
+/** a time to sound, with what the picture does there when a cue says so */
+export interface Moment { t: number; visual?: SoundVisual; weight?: 'hero' | 'support' }
+
+const cueCache = new WeakMap<object, Map<string, SoundCue[]>>();
+/** the cues of the composition, read from the timing of its picture (once per document) */
+export function cuesOf(ctx: ToolContext): SoundCue[] {
+  let byComp = cueCache.get(ctx.doc);
+  if (!byComp) { byComp = new Map(); cueCache.set(ctx.doc, byComp); }
+  let list = byComp.get(ctx.compId);
+  if (!list) { list = soundCues(new Evaluator(ctx.doc, ctx.registry), ctx.compId); byComp.set(ctx.compId, list); }
+  return list;
+}
+
+/** the cue words: which cues each one names */
+const CUE_WORDS: Record<string, (c: SoundCue) => boolean> = {
+  cues: () => true, heroes: (c) => c.weight === 'hero', moves: (c) => c.kind === 'move', lands: (c) => c.kind === 'land', appears: (c) => c.kind === 'appear',
+};
 
 /**
  * Composition times named by the document, on its frames: numbers as they
- * are; now (the editor's time); entrances and exits of layers (the ones
- * given, or every visible layer not a sound); markers; cuts (between video
- * layers, and the shots found by the shots tool); beats and bars (of a music
- * analysed by the beats tool, where its layer plays it).
+ * are; the cues of the picture (cues, heroes, moves, lands, appears: what the
+ * animation does, see the cues tool); cuts (where the picture changes, between
+ * video layers, and the shots found by the shots tool); now (the editor's
+ * time); entrances and exits of layers (the ones given, or every visible layer
+ * not a sound); markers; beats and bars (of a music analysed by the beats
+ * tool, where its layer plays it). A moment from a cue carries what it
+ * underlines and its weight.
  */
-export async function momentsOf(ctx: ToolContext, at: unknown, on: unknown, layers: unknown): Promise<number[]> {
+export async function momentsOf(ctx: ToolContext, at: unknown, on: unknown, layers: unknown): Promise<Moment[]> {
   const c = ctx.doc.compositions[ctx.compId], fps = c.fps;
-  const times: number[] = listOf(at).map(Number).filter(Number.isFinite);
+  const found: Moment[] = listOf(at).map(Number).filter(Number.isFinite).map((t) => ({ t }));
+  const push = (times: number[]) => found.push(...times.map((t) => ({ t })));
   const words = listOf(on).map((w) => w.toLowerCase());
   const named = listOf(layers).filter((id) => c.layers[id]);
   const visual = (Object.entries(c.layers) as [string, Layer][]).filter(([id, l]) => (named.length ? named.includes(id) : l.type !== 'audio' && l.visible !== false));
+  const cued = (keep: (x: SoundCue) => boolean) => found.push(...cuesOf(ctx).filter((x) => keep(x) && (!named.length || named.includes(x.layer))).map((x) => ({ t: x.t, visual: x.kind, weight: x.weight })));
   // where a layer plays a file: composition time of a time in that file
   const playing = (asset: string) => (Object.values(c.layers) as Layer[]).filter((l) => (l.type === 'audio' || l.type === 'video') && staticValue(l.props?.[l.type]) === asset);
   const inFile = (asset: string, fileTimes: number[]) => playing(asset).flatMap((l) => {
@@ -66,32 +90,39 @@ export async function momentsOf(ctx: ToolContext, at: unknown, on: unknown, laye
   const read = words.some((w) => ['cuts', 'beats', 'bars'].includes(w)) ? await analyses(ctx) : () => undefined;
   const assets = Object.keys(ctx.doc.assets);
   for (const w of words) {
-    if (w === 'now') times.push(ctx.time);
-    else if (w === 'entrances') times.push(...visual.map(([, l]) => l.in ?? 0).filter((x) => named.length || x > 0));
-    else if (w === 'exits') times.push(...visual.map(([, l]) => l.out ?? c.duration).filter((x) => x < c.duration));
-    else if (w === 'markers') times.push(...(c.markers ?? []).map((m) => m.t));
+    if (CUE_WORDS[w]) cued(CUE_WORDS[w]);
+    else if (w === 'now') push([ctx.time]);
+    else if (w === 'entrances') push(visual.map(([, l]) => l.in ?? 0).filter((x) => named.length || x > 0));
+    else if (w === 'exits') push(visual.map(([, l]) => l.out ?? c.duration).filter((x) => x < c.duration));
+    else if (w === 'markers') push((c.markers ?? []).map((m) => m.t));
     else if (w === 'cuts') {
-      const videos = (Object.values(c.layers) as Layer[]).filter((l) => l.type === 'video').map((l) => l.in ?? 0).filter((x) => x > 0);
-      times.push(...videos);
+      cued((x) => x.kind === 'cut');
+      push((Object.values(c.layers) as Layer[]).filter((l) => l.type === 'video').map((l) => l.in ?? 0).filter((x) => x > 0));
       for (const id of assets.filter((a) => a.startsWith('shots-'))) {
         const s = read(id) as { source?: string; cuts?: number[] } | undefined;
-        if (s?.source && Array.isArray(s.cuts)) times.push(...inFile(s.source, s.cuts));
+        if (s?.source && Array.isArray(s.cuts)) push(inFile(s.source, s.cuts));
       }
     } else if (w === 'beats' || w === 'bars') {
       for (const id of assets.filter((a) => a.startsWith('analysis-'))) {
         const a = read(id);
-        if (isAudioAnalysis(a) && a.source) times.push(...inFile(a.source, w === 'bars' ? a.downbeats : a.beats));
+        if (isAudioAnalysis(a) && a.source) push(inFile(a.source, w === 'bars' ? a.downbeats : a.beats));
       }
     } else throw new Error(`unknown moment "${w}": ${MOMENTS.join(', ')}, or times in seconds`);
   }
-  const snapped = [...new Set(times.map((x) => Math.round(x * fps) / fps))].filter((x) => x >= 0 && x < c.duration);
-  return snapped.sort((a, b) => a - b);
+  // one moment a frame, the one a cue describes first
+  const byFrame = new Map<number, Moment>();
+  for (const m of found) {
+    const f = Math.round(m.t * fps), had = byFrame.get(f);
+    if (f < 0 || f / fps >= c.duration) continue;
+    if (!had || (!had.visual && m.visual)) byFrame.set(f, { ...m, t: +(f / fps).toFixed(4) });
+  }
+  return [...byFrame.values()].sort((a, b) => a.t - b.t);
 }
 
 // ── a sound in the project, placed ───────────────────────────
 interface ProjectSound { asset: string; ops: Op[]; figures: SoundFigures; reload: string[] }
 
-/** a file kept under assets/sounds/ and declared as an audio asset (replaced when made again) */
+/** a file kept under assets/sounds/ and declared as an audio asset (replaced when made again); `made`: what made it, or where it comes from and its license */
 async function keepFile(ctx: ToolContext, name: string, data: Blob, title: string, figures: SoundFigures, made?: unknown): Promise<ProjectSound> {
   const slug = name.toLowerCase().replace(/[^a-z0-9_-]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 56) || 'sound';
   const asset = `sound-${slug}`;
@@ -102,139 +133,240 @@ async function keepFile(ctx: ToolContext, name: string, data: Blob, title: strin
 }
 
 /** the measures of a sound file: decoded the way the mixer will */
-async function measure(data: Blob): Promise<{ buffer: AudioBuffer; figures: SoundFigures }> {
+export async function measure(data: Blob): Promise<{ buffer: AudioBuffer; figures: SoundFigures }> {
   const buffer = await new OfflineAudioContext(1, 1, 48000).decodeAudioData(await data.arrayBuffer());
-  return { buffer, figures: soundFigures(Array.from({ length: buffer.numberOfChannels }, (_, c) => buffer.getChannelData(c)), buffer.sampleRate) };
+  return { buffer, figures: soundFigures(channelsOf(buffer), buffer.sampleRate) };
 }
 
+export const channelsOf = (b: AudioBuffer) => Array.from({ length: b.numberOfChannels }, (_, c) => b.getChannelData(c));
 const wavBlob = (b: AudioBuffer) => new Blob([encodeWav(b) as BlobPart], { type: 'audio/wav' });
 
-/** a sound of the library brought into the project: its file copied, or its code rendered */
+/** a sound of the library brought into the project: its file copied (with where it comes from and its license), or its code rendered */
 async function bring(ctx: ToolContext, e: SoundEntry): Promise<ProjectSound> {
   if (e.code) {
     const buffer = await renderSynth(e.code, { duration: e.duration, signal: ctx.signal });
-    const figures = soundFigures(Array.from({ length: buffer.numberOfChannels }, (_, c) => buffer.getChannelData(c)), buffer.sampleRate);
-    return keepFile(ctx, e.id, wavBlob(buffer), e.title, figures, { code: e.code, duration: e.duration, from: e.id });
+    return keepFile(ctx, e.id, wavBlob(buffer), e.title, soundFigures(channelsOf(buffer), buffer.sampleRate), { code: e.code, duration: e.duration, from: e.id });
   }
   const asset = `sound-${e.id}`.slice(0, 64);
   const figures: SoundFigures = { duration: e.duration, peakAt: e.peakAt, peakDb: e.peakDb ?? 0, loudDb: e.loudDb ?? 0, rmsDb: 0, start: 0, end: e.duration };
   if (ctx.doc.assets[asset]) return { asset, figures, ops: [], reload: [] };
-  const r = await fetch(fileUrl(e), { signal: ctx.signal });
+  return keepFile(ctx, e.id, await fileOf(e, ctx.signal), e.title, figures, creditOf(e));
+}
+
+/** the file of a recorded sound of the library, typed by its extension */
+async function fileOf(e: SoundEntry, signal?: AbortSignal): Promise<Blob> {
+  const r = await fetch(fileUrl(e), { signal });
   if (!r.ok) throw new Error(`sound ${e.id} not found (HTTP ${r.status})`);
   const blob = await r.blob();
-  return keepFile(ctx, e.id, new Blob([blob], { type: TYPE[ext(e.file!)] ?? blob.type }), e.title, figures);
+  return new Blob([blob], { type: TYPE[ext(e.file!)] ?? blob.type });
 }
+
+/** where a sound of the library comes from, kept beside its file for the credits */
+const creditOf = (e: SoundEntry) => ({ from: e.id, title: e.title, ...(e.license ? { license: e.license } : {}), ...(e.author ? { author: e.author } : {}), ...(e.url ? { url: e.url } : {}) });
 
 /** sounds whose moment is their start: music, voices, beds, jingles */
 const FROM_START = new Set(['music', 'voice', 'ambience', 'sting']);
+/** the bus of a kind of sound (effects are the default) */
+const ROLE: Record<string, SoundRole> = { music: 'music', voice: 'voice', ambience: 'ambience' };
+/** each sound stacked on a hero comes this much under the one before (dB) */
+const STACK_DB = 4;
 
 interface Placement { asset: string; title: string; figures: SoundFigures; kind: string }
 
+/** the group the sounds are kept in, at the bottom of the stack; made the first time */
+function soundGroup(ctx: ToolContext, taken: Record<string, unknown>, ops: Op[]): string {
+  const found = soundGroupOf(ctx.doc.compositions[ctx.compId]);
+  if (found) return found;
+  const id = freshId(taken, 'sound');
+  taken[id] = true;
+  ops.push({ op: 'add', path: pointer('compositions', ctx.compId, 'layers', id), value: { type: 'group', name: SOUND_GROUP, children: [] } });
+  ops.push({ op: 'add', path: pointer('compositions', ctx.compId, 'order', 0), value: id });
+  return id;
+}
+
 /**
- * Audio layers playing each sound so its moment falls on each time: the
+ * Audio layers playing each sound so its moment falls on each moment: the
  * moment it lands on (a hit, the pass of a whoosh, the top of a riser), or
- * its start for music and voices. Several sounds alternate (variants); rates
- * vary a little when one sound repeats, so it does not sound copied.
+ * its start for music and voices. Each entry of `sounds` is a stack played
+ * together, peaks aligned, each layer 4 dB under the one before (a hero:
+ * hit+boom); several entries alternate (variants), and rates vary a little
+ * when one sound repeats, so it does not sound copied. A moment from a cue
+ * gives the layer what it underlines and its weight. The layers go in the
+ * Sound group.
  */
-function place(ctx: ToolContext, sounds: Placement[], times: number[], o: { gain: number; rate?: number; align?: 'peak' | 'start'; vary: boolean }): { ops: Op[]; layers: string[] } {
+function place(ctx: ToolContext, sounds: Placement[][], moments: Moment[], o: { gain: number; rate?: number; align?: 'peak' | 'start'; vary: boolean; weight?: 'hero' | 'support' }): { ops: Op[]; layers: string[] } {
   const c = ctx.doc.compositions[ctx.compId], taken: Record<string, unknown> = { ...c.layers };
   const ops: Op[] = [], layers: string[] = [];
-  times.forEach((time, i) => {
-    const s = sounds[i % sounds.length];
-    const nudge = o.vary && sounds.length === 1 && times.length > 1 ? 1 + ((((i * 0.618034) % 1) - 0.5) * 0.08) : 1;
+  if (!moments.length) return { ops, layers };
+  const group = soundGroup(ctx, taken, ops);
+  moments.forEach((m, i) => {
+    const stack = sounds[i % sounds.length];
+    const nudge = o.vary && sounds.length === 1 && moments.length > 1 ? 1 + ((((i * 0.618034) % 1) - 0.5) * 0.08) : 1;
     const rate = +((o.rate ?? 1) * nudge).toFixed(3);
-    const align = o.align ?? (FROM_START.has(s.kind) ? 'start' : 'peak');
-    const lead = (align === 'peak' ? s.figures.peakAt : 0) / rate;
-    let at = time - lead, start = 0;
-    if (at < 0) { start = -at * rate; at = 0; }
-    const out = Math.min(c.duration, at + (s.figures.duration - start) / rate);
-    if (out <= at) return;
-    const id = freshId(taken, s.asset.replace(/^sound-/, 'sfx-'));
-    taken[id] = true;
-    layers.push(id);
-    const props: Record<string, unknown> = { audio: s.asset, start: +start.toFixed(4), gain: o.gain };
-    if (rate !== 1) props.rate = rate;
-    ops.push({ op: 'add', path: pointer('compositions', ctx.compId, 'layers', id), value: { type: 'audio', name: `${s.title} · ${time.toFixed(2)} s`, in: +at.toFixed(4), out: +out.toFixed(4), props } });
-    ops.push({ op: 'add', path: pointer('compositions', ctx.compId, 'order', '-'), value: id });
+    const weight = o.weight ?? m.weight;
+    stack.forEach((s, k) => {
+      const align = o.align ?? (FROM_START.has(s.kind) ? 'start' : 'peak');
+      const lead = (align === 'peak' ? s.figures.peakAt : 0) / rate;
+      let at = m.t - lead, start = 0;
+      if (at < 0) { start = -at * rate; at = 0; }
+      const out = Math.min(c.duration, at + (s.figures.duration - start) / rate);
+      if (out <= at) return;
+      const id = freshId(taken, s.asset.replace(/^sound-/, 'sfx-'));
+      taken[id] = true;
+      layers.push(id);
+      const props: Record<string, unknown> = { audio: s.asset, start: +start.toFixed(4), gain: +(o.gain - STACK_DB * k).toFixed(1) };
+      if (rate !== 1) props.rate = rate;
+      if (ROLE[s.kind]) props.role = ROLE[s.kind];
+      if (weight === 'hero') props.weight = 'hero';
+      if (m.visual) props.visual = m.visual;
+      ops.push({ op: 'add', path: pointer('compositions', ctx.compId, 'layers', id), value: { type: 'audio', name: `${s.title} · ${m.t.toFixed(2)} s`, in: +at.toFixed(4), out: +out.toFixed(4), props } });
+      ops.push({ op: 'add', path: pointer('compositions', ctx.compId, 'layers', group, 'children', '-'), value: id });
+    });
   });
   return { ops, layers };
 }
 
+// ── the bed makes room for a hero ────────────────────────────
+/** the music and ambience layers: the bed the effects sound over */
+const bedLayers = (ctx: ToolContext) => audioClips(ctx.doc, ctx.compId).filter((x) => x.role === 'music' || x.role === 'ambience').map((x) => x.layerId);
+
+/**
+ * Keys written into an animated property of layers, over spans: the value it
+ * had at each span's edges kept, the keys inside a span replaced. How a stop
+ * before a hero and a build into it are written over a ducking already there.
+ */
+function shapeOps(ctx: ToolContext, ids: string[], prop: string, spans: { from: number; to: number; keys: (base: (t: number) => number) => { t: number; v: number }[] }[], rest: number): Op[] {
+  const c = ctx.doc.compositions[ctx.compId], ev = new Evaluator(ctx.doc, ctx.registry);
+  return ids.flatMap((id) => {
+    const l = c.layers[id];
+    if (!l) return [];
+    const base = (t: number) => { const v = ev.value(`${id}.${prop}`, t, ctx.compId); return typeof v === 'number' ? v : rest; };
+    const raw = l.props?.[prop] as { $k?: { t: number; v: number }[] } | number | undefined;
+    let keys = (typeof raw === 'object' && raw?.$k ? raw.$k : []).map((k) => ({ ...k }));
+    const added: { t: number; v: number }[] = [];
+    for (const s of spans) {
+      added.push({ t: +s.from.toFixed(3), v: base(s.from) }, ...s.keys(base).map((k) => ({ t: +k.t.toFixed(3), v: +k.v.toFixed(2) })), { t: +s.to.toFixed(3), v: base(s.to) });
+      keys = keys.filter((k) => k.t < s.from || k.t > s.to);
+    }
+    const merged = [...keys, ...added].sort((a, b) => a.t - b.t).filter((k, i, all) => i === 0 || k.t > all[i - 1].t);
+    return [{ op: l.props?.[prop] === undefined ? 'add' : 'replace', path: pointer('compositions', ctx.compId, 'layers', id, 'props', prop), value: { $k: merged } } as Op];
+  });
+}
+
+/** a dead stop before each moment: the bed falls 24 dB over the 0.4 s before it, so the hit lands in silence, and comes back after */
+const stopOps = (ctx: ToolContext, times: number[]) => shapeOps(ctx, bedLayers(ctx), 'gain', times.map((t) => ({
+  from: Math.max(0, t - 0.4), to: t + 0.35, keys: (base) => [{ t: t - 0.05, v: base(t - 0.4) - 24 }, { t, v: base(t - 0.4) - 24 }],
+})), 0);
+
+/** a build into each moment: the bed thins out (its low end cut, 40 to 300 Hz) over the 2 s before it, whole again right after */
+const buildOps = (ctx: ToolContext, times: number[]) => shapeOps(ctx, bedLayers(ctx), 'lowCut', times.map((t) => ({
+  from: Math.max(0, t - 2), to: t + 0.05, keys: (base) => [{ t: Math.max(0, t - 2) + 0.01, v: Math.max(40, base(t - 2)) }, { t: t - 0.01, v: Math.max(300, base(t)) }],
+})), 0);
+
 const ALIGN = { enum: ['peak', 'start'], title: 'Align', description: 'peak: the moment the sound lands on falls on the time (hits, whooshes, risers); start: its beginning does (music, voices, jingles)' };
 const PLACING = {
   at: { type: ['array', 'number', 'string'], title: 'At (s)', description: 'composition times, e.g. [1.2, 3.5] or "1.2, 3.5"' },
-  on: { type: 'string', title: 'On', description: `moments named by the document, comma separated: ${MOMENTS.join(', ')}` },
-  layers: { type: ['array', 'string'], format: 'layer', title: 'Layers', description: 'whose entrances or exits (every visible layer when empty)' },
-  gain: { type: 'number', minimum: -40, maximum: 12, title: 'Volume (dB)', description: 'the level of the Sound settings by default (-8 dB unless changed): under a voice or music' },
+  on: { type: 'string', title: 'On', description: `moments named by the document, comma separated: ${MOMENTS.join(', ')} (cues, heroes, moves, lands, appears: what the animation does, see the cues tool)` },
+  layers: { type: ['array', 'string'], format: 'layer', title: 'Layers', description: 'whose cues, entrances or exits (every visible layer when empty)' },
+  gain: { type: 'number', minimum: -40, maximum: 12, title: 'Volume (dB)', description: 'the level of the Sound settings by default (-8 dB unless changed): under a voice or music; the mix tool balances it against the bed' },
   align: ALIGN,
 };
 
-/** where a tool places its sound: the times asked for; none asked, nowhere (the sound only joins the project) */
+/** where a tool places its sound: the moments asked for; none asked, nowhere (the sound only joins the project) */
 const timesOf = (ctx: ToolContext, input: { at?: unknown; on?: unknown; layers?: unknown }) => momentsOf(ctx, input.at, input.on, input.layers);
 
-const placedText = (p: { layers: string[] }, times: number[]) => (p.layers.length ? `Placed at ${times.map((x) => x.toFixed(2)).join(', ')} s (layers ${p.layers.join(', ')}).` : 'Not placed (no time given): the asset is in the project, place it with at or on.');
+const placedText = (p: { layers: string[] }, moments: Moment[]) => (p.layers.length ? `Placed at ${moments.map((m) => `${m.t.toFixed(2)}${m.visual ? ` (${m.weight === 'hero' ? 'hero ' : ''}${m.visual})` : ''}`).join(', ')} s (layers ${p.layers.join(', ')}).` : 'Not placed (no time given): the asset is in the project, place it with at or on.');
 
 // ── what a sound looks like ──────────────────────────────────
 /** its waveform, the moment it lands on marked: the assistant cannot hear, it reads this */
-function waveform(buffer: AudioBuffer, figures: SoundFigures, caption: string): string {
-  const W = 720, H = 150, canvas = document.createElement('canvas');
-  canvas.width = W; canvas.height = H;
-  const g = canvas.getContext('2d')!, d = buffer.getChannelData(0), per = Math.max(1, Math.floor(d.length / W));
-  g.fillStyle = '#0b0f12'; g.fillRect(0, 0, W, H);
-  g.strokeStyle = '#1f282e'; g.beginPath(); g.moveTo(0, H / 2); g.lineTo(W, H / 2); g.stroke();
-  g.fillStyle = '#4cc38a';
-  for (let x = 0; x < W; x++) {
-    let lo = 0, hi = 0;
-    for (let i = x * per; i < Math.min(d.length, (x + 1) * per); i++) { lo = Math.min(lo, d[i]); hi = Math.max(hi, d[i]); }
-    g.fillRect(x, H / 2 - hi * (H / 2 - 8), 1, Math.max(1, (hi - lo) * (H / 2 - 8)));
+function waveform(buffer: AudioBuffer, figures: SoundFigures, label: string): string {
+  const W = 720, H = 150, { el, g } = canvas(W, H);
+  drawWave(g, buffer.getChannelData(0), 0, 20, W, H - 24);
+  mark(g, (figures.peakAt / Math.max(1e-6, figures.duration)) * W, 0, H, INK.hero);
+  caption(g, `${label} · ${figures.duration.toFixed(2)} s · lands at ${figures.peakAt.toFixed(2)} s · peak ${figures.peakDb} dB · loud ${figures.loudDb} dB`, 8, 14);
+  return el.toDataURL('image/png');
+}
+
+/** a sound of the library as samples: its file decoded, or its code rendered */
+async function samplesOf(e: SoundEntry, signal?: AbortSignal): Promise<AudioBuffer> {
+  if (e.code) return renderSynth(e.code, { duration: e.duration, signal });
+  return (await measure(await fileOf(e, signal))).buffer;
+}
+
+/** candidates side by side, each its waveform over its spectrogram, the moment it lands on marked: how the assistant picks one */
+async function soundSheet(ctx: ToolContext, entries: SoundEntry[]): Promise<string> {
+  const W = 380, H = 190, cols = 2, rows = Math.ceil(entries.length / cols), { el, g } = canvas(W * cols, H * rows);
+  for (const [i, e] of entries.entries()) {
+    const x = (i % cols) * W, y = Math.floor(i / cols) * H;
+    const b = await samplesOf(e, ctx.signal).catch(() => null);
+    caption(g, `${e.id}`, x + 6, y + 13, INK.text, '600 11px system-ui, sans-serif');
+    if (!b) { caption(g, 'could not be read', x + 6, y + 30, INK.faint); continue; }
+    const d = b.getChannelData(0);
+    drawWave(g, d, x + 4, y + 18, W - 8, 52);
+    drawSpectrogram(g, d, b.sampleRate, x + 4, y + 74, W - 8, H - 80);
+    mark(g, x + 4 + (e.peakAt / Math.max(1e-6, b.duration)) * (W - 8), y + 18, H - 24, INK.hero);
   }
-  const px = (s: number) => (s / Math.max(1e-6, figures.duration)) * W;
-  g.fillStyle = '#ff6b5e'; g.fillRect(px(figures.peakAt), 0, 2, H);
-  g.font = '600 12px system-ui, sans-serif'; g.fillStyle = '#e6edf0';
-  g.fillText(`${caption} · ${figures.duration.toFixed(2)} s · lands at ${figures.peakAt.toFixed(2)} s · peak ${figures.peakDb} dB · loud ${figures.loudDb} dB`, 8, 16);
-  return canvas.toDataURL('image/png');
+  return el.toDataURL('image/png');
 }
 
 const figuresText = (f: SoundFigures) => `${f.duration.toFixed(2)} s, lands at ${f.peakAt.toFixed(2)} s, sound from ${f.start.toFixed(2)} to ${f.end.toFixed(2)} s, peak ${f.peakDb} dBFS, loud ${f.loudDb} dBFS (average ${f.rmsDb})`;
 
 // ── the tools ────────────────────────────────────────────────
-const sfx: ToolType<{ query?: string; sound?: string; at?: unknown; on?: string; layers?: unknown; gain?: number; rate?: number; vary?: boolean; align?: 'peak' | 'start' }> = {
-  name: 'sfx', title: 'Sound effects', description: 'searches the sound library (recorded sounds, sounds written as code, your own) and places a sound on moments of the video, its hit on the frame',
+/** kinds a recording always beats code for: a hit, a click, a whoosh written as code sounds cheap */
+const RECORDED_FIRST = new Set(['impact', 'hit', 'boom', 'thump', 'tap', 'click', 'tick', 'pop', 'whoosh', 'swish', 'transition', 'ui', 'key']);
+
+const sfx: ToolType<{ query?: string; sound?: string; at?: unknown; on?: string; layers?: unknown; gain?: number; rate?: number; vary?: boolean; align?: 'peak' | 'start'; weight?: 'hero' | 'support'; stop?: boolean; build?: boolean }> = {
+  name: 'sfx', title: 'Sound effects', description: 'searches the sound library (recorded sounds, sounds written as code, your own) and places a sound on moments of the video, its hit on the frame; a hero stacks sounds and makes the bed stop before it',
   input: {
     type: 'object',
     properties: {
       query: { type: 'string', title: 'Search', description: 'what it should sound like: "metal hit heavy", "whoosh", "riser", "click", "glitch", "logo sting"' },
-      sound: { type: 'string', title: 'Sound', description: 'id of a sound found by a search, to place it' },
+      sound: { type: 'string', title: 'Sound', description: 'id of a sound found by a search, to place it; several joined with + play together, peaks aligned, each 4 dB under the one before (a hero: "boom-id+hit-id", a soft one: "thump-id+tap-id")' },
       ...PLACING,
       rate: { type: 'number', minimum: 0.25, maximum: 4, title: 'Speed', description: 'under 1 lower and longer, over 1 higher and shorter' },
       vary: { type: 'boolean', title: 'Vary', description: 'alternate its variants on repeated moments (as the Sound settings say by default)' },
+      weight: { enum: ['hero', 'support'], title: 'Weight', description: 'hero: one of the few moments the film is built around; the cues say it by default' },
+      stop: { type: 'boolean', title: 'Stop before', description: 'the music and ambience fall 24 dB over the 0.4 s before each moment, so a hero lands in silence' },
+      build: { type: 'boolean', title: 'Build', description: 'the music thins out (its low end cut) over the 2 s before each moment, into a hero' },
     },
   },
   ai: {
-    when: 'to give the video its sound: a whoosh on each transition, a hit on a title, a riser before a reveal, clicks on a UI, a sting on the logo. Search first (query), listen with your eyes (the list says when each lands and how loud), then place one (sound, with at or on)',
-    avoid: 'a sound on every element; two hits at the same instant; sounds louder than the voice (keep them around -8 dB under it)',
+    when: 'to give the video its sound. Read the cues first (cues tool), then sound the cuts with a whoosh or transition, the lands with a thump or tap, the appears with a pop or click, the moves with a swish; the heroes with a stack (sound "a+b") and stop. Search (query): the list says when each lands and how loud, the sheet shows each waveform and spectrogram: reject a clip with two events in it, a steady noise, clicks inside a whoosh, clean sine lines on a physical sound. Then place one (sound, with at or on)',
+    avoid: 'a hit, a click or a whoosh written as code when a recording exists; meme sounds; a sound on every element; two hits at the same instant; sounds louder than the voice. After placing, balance them (mix) and check',
   },
-  async run({ query, sound, at, on, layers, gain = prefs.peek().effectsDb, rate, vary = prefs.peek().varySounds, align }, ctx) {
+  async run({ query, sound, at, on, layers, gain = prefs.peek().effectsDb, rate, vary = prefs.peek().varySounds, align, weight, stop, build }, ctx) {
     const all = await soundLibrary();
     if (!sound) {
-      const found = searchSounds(all, query ?? '', { limit: 15 });
-      if (!found.length) return { text: `No sound for "${query}". Kinds in the library: ${[...new Set(all.map((e) => e.kind))].join(', ')}. Or write one with the synth tool, or have one made with generate-sound.`, notice: t('sound.nothingFound') };
+      const hits = searchSounds(all, query ?? '', { limit: 15 });
+      // recordings first for what code makes cheap, unless code is asked for
+      const found = /synth|code/i.test(query ?? '') ? hits : [...hits.filter((e) => !(e.code && RECORDED_FIRST.has(e.kind))), ...hits.filter((e) => e.code && RECORDED_FIRST.has(e.kind))];
+      if (!found.length) return { text: `No sound for "${query}". Kinds in the library: ${[...new Set(all.map((e) => e.kind))].join(', ')}. Or find recordings (sound-find), write one with the synth tool, or have one made with generate-sound.`, notice: t('sound.nothingFound') };
+      const sheet = await soundSheet(ctx, found.slice(0, 6)).catch(() => null);
       return {
-        text: [`Sounds for "${query ?? ''}" (${all.length} in the library):`, ...found.map((e) => line(e, all)), 'Place one: sfx with sound (its id) and at (times) or on (entrances, exits, markers, cuts, beats, bars, now). Its variants alternate on repeated moments.'].join('\n'),
+        text: [`Sounds for "${query ?? ''}" (${all.length} in the library):`, ...found.map((e) => line(e, all)), 'Place one: sfx with sound (its id, or ids joined with + for a stack) and at (times) or on (cues, heroes, cuts, moves, lands, appears, entrances, exits, markers, beats, bars, now). Its variants alternate on repeated moments.'].join('\n'),
+        ...(sheet ? { images: [{ url: sheet, caption: t('sound.sheet') }] } : {}),
         notice: t('sound.foundN', { n: found.length }),
       };
     }
-    const e = all.find((x) => x.id === sound);
-    if (!e) throw new Error(`no sound "${sound}" in the library: search first (query)`);
-    const times = await timesOf(ctx, { at, on, layers });
-    const pick = vary && times.length > 1 ? variantsOf(all, e) : [e];
-    const brought = [];
-    for (const x of pick.slice(0, Math.max(1, times.length))) brought.push({ ...(await bring(ctx, x)), title: x.title, kind: x.kind });
-    const placed = place(ctx, brought.map((b) => ({ asset: b.asset, title: b.title, figures: b.figures, kind: b.kind })), times, { gain, rate, align, vary });
+    const ids = sound.split('+').map((s) => s.trim()).filter(Boolean);
+    const entries = ids.map((id) => all.find((x) => x.id === id) ?? null);
+    const missing = ids.filter((_, i) => !entries[i]);
+    if (missing.length) throw new Error(`no sound ${missing.map((m) => `"${m}"`).join(', ')} in the library: search first (query)`);
+    const moments = await timesOf(ctx, { at, on, layers });
+    // one stack per variant: a single sound alternates its variants, a stack stays as asked
+    const picks: SoundEntry[][] = ids.length === 1 && vary && moments.length > 1 ? variantsOf(all, entries[0]!).slice(0, Math.max(1, moments.length)).map((e) => [e]) : [entries as SoundEntry[]];
+    const brought = new Map<string, ProjectSound>();
+    for (const e of picks.flat()) if (!brought.has(e.id)) brought.set(e.id, await bring(ctx, e));
+    const stacks = picks.map((stack) => stack.map((e) => ({ asset: brought.get(e.id)!.asset, title: e.title, figures: brought.get(e.id)!.figures, kind: e.kind })));
+    const placed = place(ctx, stacks, moments, { gain, rate, align, vary, weight });
+    // the bed makes room: on every moment asked for, or on the heroes among them
+    const room = moments.filter((m) => (weight ?? m.weight) === 'hero' || (weight === undefined && !m.weight)).map((m) => m.t);
+    const bed = [...(stop ? stopOps(ctx, room) : []), ...(build ? buildOps(ctx, room) : [])];
+    const title = entries.map((e) => e!.title).join(' + ');
     return {
-      ops: [...brought.flatMap((b) => b.ops), ...placed.ops], reload: brought.flatMap((b) => b.reload), label: `${e.title}`,
-      text: `${e.title}${brought.length > 1 ? ` (${brought.length} variants)` : ''}: ${placedText(placed, times)} Gain ${gain} dB.`,
-      notice: t('sound.placed', { name: e.title, n: placed.layers.length }),
+      ops: [...[...brought.values()].flatMap((b) => b.ops), ...placed.ops, ...bed], reload: [...brought.values()].flatMap((b) => b.reload), label: title,
+      text: `${title}${picks.length > 1 ? ` (${picks.length} variants)` : ''}: ${placedText(placed, moments)} Gain ${gain} dB.${bed.length ? ` The bed ${[stop && 'stops', build && 'builds'].filter(Boolean).join(' and ')} before ${room.length} moment(s).` : stop || build ? ' No music or ambience layer to stop or build.' : ''} Balance it against the bed with the mix tool.`,
+      notice: t('sound.placed', { name: title, n: placed.layers.length }),
     };
   },
 };
@@ -258,10 +390,10 @@ const synth: ToolType<{ name: string; code: string; duration: number; seed?: num
   },
   async run({ name, code, duration, seed = 1, at, on, layers, gain = prefs.peek().effectsDb, align }, ctx) {
     const buffer = await renderSynth(code, { duration, seed, signal: ctx.signal });
-    const figures = soundFigures(Array.from({ length: buffer.numberOfChannels }, (_, c) => buffer.getChannelData(c)), buffer.sampleRate);
+    const figures = soundFigures(channelsOf(buffer), buffer.sampleRate);
     const kept = await keepFile(ctx, name, wavBlob(buffer), name, figures, { code, duration, seed });
     const times = await timesOf(ctx, { at, on, layers });
-    const placed = place(ctx, [{ asset: kept.asset, title: name, figures, kind: 'synth' }], times, { gain, align, vary: false });
+    const placed = place(ctx, [[{ asset: kept.asset, title: name, figures, kind: 'synth' }]], times, { gain, align, vary: false });
     return {
       ops: [...kept.ops, ...placed.ops], reload: kept.reload, label: `Sound ${name}`,
       text: `Sound "${name}" saved as asset ${kept.asset}: ${figuresText(figures)}. ${placedText(placed, times)}`,
@@ -283,8 +415,8 @@ const generateSound: ToolType<{ kind: 'sfx' | 'music' | 'voice'; prompt: string;
       prompt: { type: 'string', title: 'Prompt', description: 'sfx and music: what it sounds like ("deep cinematic boom with a long tail", "calm lo-fi piano bed, 80 bpm"); voice: the text to say' },
       name: { type: 'string', title: 'Name', description: 'of the file, lower case' },
       duration: { type: 'number', minimum: 0.5, maximum: 600, title: 'Length (s)', description: 'sfx up to 30 s; music from 3 s' },
-      voice: { type: 'string', title: 'Voice', description: 'voice-over: a voice of the provider (Gemini: Kore, Puck, Charon…; OpenAI: alloy, coral, sage…)' },
-      style: { type: 'string', title: 'Style', description: 'voice-over: how it is said ("warm and calm", "energetic")' },
+      voice: { type: 'string', title: 'Voice', description: 'voice-over: a voice of the provider, as the voices tool lists it (ElevenLabs: its id; Gemini: Kore, Puck, Charon…; OpenAI: alloy, coral, sage…)' },
+      style: { type: 'string', title: 'Style', description: 'voice-over: how it is said ("warm and calm", "energetic"); with ElevenLabs v4 or v3 it becomes an audio tag, an accent included ("said warmly in a Beninese French accent", "whispers")' },
       provider: { enum: ['elevenlabs', 'openai', 'gemini'], title: 'Provider', description: 'voice-over: the one of the Sound settings by default; otherwise the first one the server has a key for' },
       ...PLACING,
       keep: { type: 'boolean', title: 'Keep in the library', description: 'also keep it in the library shared by the projects' },
@@ -302,17 +434,17 @@ const generateSound: ToolType<{ kind: 'sfx' | 'music' | 'voice'; prompt: string;
       provider ??= p.voiceProvider === 'auto' ? undefined : p.voiceProvider;
       voice ??= p.voice || undefined;
     }
-    // it costs money: the user says yes first (Sound settings)
-    if (p.confirmPaid && !await confirmWith(t('sound.paidTitle'), t('sound.paidText', { kind: KIND_LABEL[kind](), prompt: clip(prompt, 140) }), t('sound.paidYes'))) {
-      throw new Error('the user declined to have this sound made (it costs money): ask before trying again, or use the library or synth');
-    }
-    const made = await api.generate({ kind, prompt, duration, voice, style, provider }, ctx.signal);
+    // the ElevenLabs voice model of the settings (the newest by default); the others have one model
+    const model = kind === 'voice' && p.voiceModel ? p.voiceModel : undefined;
+    // it costs money: the user says yes first, or the turn's allowance does (Sound settings)
+    await payFor(t('sound.paidTitle'), t('sound.paidText', { kind: KIND_LABEL[kind](), prompt: clip(prompt, 140) }), t('sound.paidYes'), 'use the library or synth');
+    const made = await api.generate({ kind, prompt, duration, voice, style, model, provider }, ctx.signal);
     const { buffer, figures } = await measure(made.blob);
     const label = name ?? `${kind}-${prompt.toLowerCase().split(/\s+/).slice(0, 4).join('-')}`;
     const record = { kind, prompt, provider: made.provider, model: made.model, voice: made.voice, style, duration };
     const kept = await keepFile(ctx, label, made.blob, label, figures, record);
     const times = await timesOf(ctx, { at, on: on ?? (at === undefined ? 'now' : undefined), layers });
-    const placed = place(ctx, [{ asset: kept.asset, title: label, figures, kind: kind === 'sfx' ? 'sfx' : kind }], times, { gain: gain ?? (kind === 'music' ? p.musicDb : kind === 'voice' ? 0 : p.effectsDb), align, vary: false });
+    const placed = place(ctx, [[{ asset: kept.asset, title: label, figures, kind: kind === 'sfx' ? 'sfx' : kind }]], times, { gain: gain ?? (kind === 'music' ? p.musicDb : kind === 'voice' ? 0 : p.effectsDb), align, vary: false });
     if (keep) await keepInLibrary(label, made.blob, { kind: kind === 'sfx' ? 'sfx' : kind, title: label, tags: prompt.toLowerCase().split(/[^a-z0-9]+/).filter((w) => w.length > 2).slice(0, 8), figures, prompt, provider: made.provider });
     return {
       ops: [...kept.ops, ...placed.ops], reload: kept.reload, label: `Sound ${label}`,
@@ -324,16 +456,17 @@ const generateSound: ToolType<{ kind: 'sfx' | 'music' | 'voice'; prompt: string;
 };
 
 /** a sound kept in the library shared by the projects, with its description */
-async function keepInLibrary(title: string, data: Blob, d: { kind: string; title: string; tags: string[]; figures: SoundFigures; prompt?: string; provider?: string }) {
+async function keepInLibrary(title: string, data: Blob, d: { kind: string; title: string; tags: string[]; figures: SoundFigures; prompt?: string; provider?: string } & Pick<SoundEntry, 'license' | 'author' | 'url'>): Promise<SoundEntry> {
   const id = title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 56) || 'sound';
   const file = `${id}.${extOf(data.type)}`;
   const entry: SoundEntry = {
     id: `mine-${id}`, title: d.title, kind: d.kind, tags: d.tags, source: 'library', file,
     duration: d.figures.duration, peakAt: d.figures.peakAt, peakDb: d.figures.peakDb, loudDb: d.figures.loudDb,
     ...(d.prompt ? { prompt: d.prompt.slice(0, 400) } : {}), ...(d.provider ? { provider: d.provider } : {}),
+    ...(d.license ? { license: d.license } : {}), ...(d.author ? { author: d.author } : {}), ...(d.url ? { url: d.url } : {}),
   };
   await api.soundPut(file, data, entry);
-  return file;
+  return entry;
 }
 
 const soundKeep: ToolType<{ asset: string; title?: string; kind?: string; tags?: unknown }> = {
@@ -357,7 +490,7 @@ const soundKeep: ToolType<{ asset: string; title?: string; kind?: string; tags?:
     const blob = await r.blob(), typed = new Blob([blob], { type: TYPE[ext(a.src)] ?? blob.type });
     const { figures } = await measure(typed);
     const name = title ?? a.name ?? asset;
-    const file = await keepInLibrary(name, typed, { kind, title: name, tags: listOf(tags), figures });
+    const { file } = await keepInLibrary(name, typed, { kind, title: name, tags: listOf(tags), figures });
     return { text: `Sound ${asset} kept in the library as ${file} (${kind}); other projects find it with sfx.`, notice: t('sound.kept', { name }) };
   },
 };
@@ -426,37 +559,142 @@ const duck: ToolType<{ layers?: unknown; under?: string; depth?: number; attack?
   },
 };
 
-export const SOUND_TOOLS: ToolType[] = [sfx, synth, generateSound, duck, soundKeep];
-
-// ── the mix, checked ─────────────────────────────────────────
-/** what the sound checks say, English templates translated where shown (and listed for the catalogs) */
-export const SOUND_TEXTS = {
-  clips: 'The sound clips (peak {db} dBFS around {t} s): lower the loudest layers',
-  loud: 'The mix is very loud ({db} dBFS over its loudest 400 ms): lower the effects and the music',
-  quiet: 'The mix is very quiet ({db} dBFS over its loudest 400 ms)',
-  together: 'Two sounds start together at {t} s: keep one, or move one',
+const voices: ToolType<{ provider?: string; search?: string; language?: string; accent?: string; gender?: string; age?: string }> = {
+  name: 'voices', title: 'Voices', description: "lists the voices a voice-over can take: the account's and the shared library's for ElevenLabs (filtered by language, accent, gender, age), the fixed sets of OpenAI and Gemini",
+  input: {
+    type: 'object',
+    properties: {
+      provider: { enum: ['elevenlabs', 'openai', 'gemini'], title: 'Provider', description: 'the one of the Sound settings by default' },
+      search: { type: 'string', title: 'Search', description: 'words of its name or description: "narrator", "warm", "deep"' },
+      language: { type: 'string', title: 'Language', description: 'ISO code: fr, en, es…' },
+      accent: { type: 'string', title: 'Accent', description: '"african", "parisian", "british"…' },
+      gender: { enum: ['male', 'female', 'neutral'], title: 'Gender' },
+      age: { enum: ['young', 'middle_aged', 'old'], title: 'Age' },
+    },
+  },
+  ai: {
+    when: 'before a voice-over, to choose its voice yourself (language, accent, tone of the brief) rather than asking the user for an id; then pass its id as voice to generate-sound',
+    avoid: 'asking the user for a voice id: pick one that fits and say which',
+  },
+  async run({ provider, ...filters }, ctx) {
+    const p = prefs.peek();
+    provider ??= p.voiceProvider === 'auto' ? undefined : p.voiceProvider;
+    const list = await api.voices({ provider, ...filters }, ctx.signal);
+    if (!list.length) return { text: `No voice for ${JSON.stringify(filters)}: loosen the filters (accent first), or search other words.`, notice: t('sound.noVoice') };
+    const say = (v: (typeof list)[number]) => `- ${v.id}: ${v.name} [${v.source}]${[v.language, v.accent, v.gender, v.age].filter(Boolean).length ? ` ${[v.language, v.accent, v.gender, v.age].filter(Boolean).join(', ')}` : ''}${v.description ? ` — ${clip(v.description, 120)}` : ''}`;
+    return {
+      text: [`${list.length} voices of ${list[0].provider}:`, ...list.slice(0, 40).map(say), 'Pass the id as voice to generate-sound; with ElevenLabs v4 or v3, say the accent and tone in style too.'].join('\n'),
+      notice: t('sound.voicesN', { n: list.length }),
+    };
+  },
 };
 
-/**
- * What is wrong with the sound of a composition: a mix that clips, one far
- * too loud or too quiet, two sounds landing on the same instant. Read by the
- * check tool beside the picture's checks.
- */
-export async function soundIssues(ctx: ToolContext): Promise<QualityIssue[]> {
-  const clips = audioClips(ctx.doc, ctx.compId);
-  if (!clips.length) return [];
-  const mix = await mixComposition(ctx.doc, ctx.compId, ctx.assetUrl);
-  if (!mix) return [];
-  const f = soundFigures([mix.getChannelData(0), mix.getChannelData(1)], mix.sampleRate);
-  const issues: QualityIssue[] = [];
-  const say = (text: string, params: Record<string, string | number>) => ({ message: Object.entries(params).reduce((s, [k, v]) => s.replace(`{${k}}`, String(v)), text), say: { text, params } });
-  if (f.peakDb > -0.3) issues.push({ check: 'sound', severity: 'warning', t: f.peakAt, ...say(SOUND_TEXTS.clips, { db: f.peakDb, t: f.peakAt.toFixed(2) }) });
-  if (f.loudDb > -6) issues.push({ check: 'sound', severity: 'warning', ...say(SOUND_TEXTS.loud, { db: f.loudDb }) });
-  else if (f.loudDb < -30) issues.push({ check: 'sound', severity: 'info', ...say(SOUND_TEXTS.quiet, { db: f.loudDb }) });
-  // short sounds starting together
-  const short = clips.filter((c) => c.duration < 1.5).sort((a, b) => a.at - b.at);
-  for (let i = 1; i < short.length; i++) {
-    if (short[i].at - short[i - 1].at < 0.04) issues.push({ check: 'sound', severity: 'info', t: short[i].at, layers: [short[i - 1].layerId, short[i].layerId], ...say(SOUND_TEXTS.together, { t: short[i].at.toFixed(2) }) });
-  }
-  return issues;
-}
+/** what sounds right on each kind of cue: where a search starts */
+const FITS: Record<SoundVisual, string> = {
+  cut: 'whoosh or transition (or a reverse peaking on the cut)',
+  move: 'swish or short whoosh, on its fastest frame',
+  land: 'thump, tap or soft hit, as it comes to rest',
+  appear: 'pop, click or tap; a chime for a reveal',
+};
+
+const cues: ToolType<{ layers?: unknown }> = {
+  name: 'cues', title: 'Cues of the picture', description: 'reads the moments the sound lands on from the timing of the animation: cuts, moves at their fastest, landings, appearances, and the heroes among them (about one in four seconds)',
+  input: { type: 'object', properties: { layers: { type: ['array', 'string'], format: 'layer', title: 'Layers', description: 'only the cues these layers make' } } },
+  ai: {
+    when: 'first, before placing any effect: the sound follows the picture\'s own timing, never typed times. Sound the cues that matter (all the heroes, the cuts, a few lands and appears), then place with on: heroes, cuts, moves, lands, appears or cues (with layers to narrow)',
+    avoid: 'a sound on every cue: about one support sound a second at most, never two hits on the same frame',
+  },
+  async run({ layers }, ctx) {
+    const c = ctx.doc.compositions[ctx.compId], named = listOf(layers);
+    const list = cuesOf(ctx).filter((x) => !named.length || named.includes(x.layer));
+    if (!list.length) return { text: 'No cue: nothing moves, appears or cuts in the picture. Place sounds on times (at) or markers.', notice: t('sound.noCue') };
+    const heroes = list.filter((x) => x.weight === 'hero').length;
+    const name = (id: string) => (id && c.layers[id] ? c.layers[id].name ?? id : 'the frame');
+    return {
+      text: [
+        `${list.length} cues (${heroes} hero) over ${c.duration} s, read from the animation:`,
+        ...list.map((x) => `- ${x.t.toFixed(2)} s ${x.weight === 'hero' ? 'HERO ' : ''}${x.kind}: ${name(x.layer)} (strength ${x.strength})`),
+        'What fits: ' + (Object.entries(FITS) as [SoundVisual, string][]).map(([k, v]) => `${k}: ${v}`).join('; ') + '. A hero: a stack (sfx sound "boom+hit" hard, "thump+tap" soft) with stop, a riser or reverse peaking on the same frame.',
+      ].join('\n'),
+      notice: t('sound.cuesN', { n: list.length, heroes }),
+    };
+  },
+};
+
+/** the free recordings of Openverse (Freesound, CC0 only): found, judged, the good ones kept with their credit. Without a key it answers 20 results a page at most */
+const OPENVERSE = 'https://api.openverse.org/v1/audio/';
+
+const soundFind: ToolType<{ query: string; kind?: string; count?: number }> = {
+  name: 'sound-find', title: 'Find recordings', description: 'searches free recordings (CC0 from Freesound, through Openverse) for what the library lacks, judges each one (two events in one clip, a steady noise, clicks, a clipped take) and keeps the good ones in your library with their credit',
+  input: {
+    type: 'object',
+    properties: {
+      query: { type: 'string', title: 'Search', description: 'what it sounds like, as a sound designer would tag it: "wood tap", "paper swish", "deep boom"' },
+      kind: { type: 'string', title: 'Kind', description: 'impact, whoosh, riser, click, tap, pop, thump, boom, chime, ambience…: how it is judged and found later' },
+      count: { type: 'integer', minimum: 1, maximum: 8, title: 'How many', description: '4 by default' },
+    },
+    required: ['query'],
+  },
+  ai: {
+    when: 'when the library has no good recording for a cue (a material, a texture, a real whoosh): find some, look at the sheet, then place one with sfx (its id starts with mine-)',
+    avoid: 'writing a hit or a whoosh as code instead; meme sounds',
+  },
+  async run({ query, kind = 'sfx', count = 4 }, ctx) {
+    const r = await fetch(`${OPENVERSE}?${new URLSearchParams({ q: query, license: 'cc0', source: 'freesound', page_size: '20' })}`, { signal: ctx.signal });
+    if (!r.ok) throw new Error(`Openverse: HTTP ${r.status}`);
+    const found = ((await r.json()) as { results?: { id: string; title: string; url: string; duration?: number; creator?: string; foreign_landing_url?: string; tags?: { name: string }[] }[] }).results ?? [];
+    // short sounds only: a motion effect, not a recording session
+    const short = found.filter((x) => x.url && (x.duration ?? 0) > 0 && (x.duration ?? 0) <= 12000);
+    const kept: SoundEntry[] = [], refused: string[] = [];
+    for (const x of short) {
+      if (kept.length >= count) break;
+      ctx.progress?.(kept.length, count, x.title);
+      const res = await fetch(x.url, { signal: ctx.signal }).catch(() => null);
+      if (!res?.ok) continue;
+      const blob = await res.blob();
+      const sound = await measure(new Blob([blob], { type: blob.type || 'audio/mpeg' })).catch(() => null);
+      if (!sound) continue;
+      const flaws = soundFlaws(channelsOf(sound.buffer), sound.buffer.sampleRate, kind);
+      if (flaws.length) { refused.push(`${x.title} (${flaws.join(', ')})`); continue; }
+      const title = x.title.replace(/\.(wav|mp3|ogg|flac|m4a|aiff?)$/i, '').slice(0, 60);
+      const tags = [...new Set([...query.toLowerCase().split(/\s+/), ...(x.tags ?? []).map((g) => g.name.toLowerCase())])].slice(0, 12);
+      kept.push(await keepInLibrary(title, blob, { kind, title, tags, figures: sound.figures, license: 'CC0', author: x.creator, url: x.foreign_landing_url }));
+    }
+    if (!kept.length) return { text: `No clean recording for "${query}"${refused.length ? ` (refused: ${refused.slice(0, 6).join('; ')})` : ''}. Try other words, or have one made (generate-sound).`, notice: t('sound.nothingFound') };
+    const sheet = await soundSheet(ctx, kept).catch(() => null);
+    const all = await soundLibrary();
+    return {
+      text: [`Kept in your library (CC0, credited):`, ...kept.map((e) => line(e, all)), ...(refused.length ? [`Refused: ${refused.slice(0, 6).join('; ')}.`] : []), 'Place one with sfx (sound: its id).'].join('\n'),
+      ...(sheet ? { images: [{ url: sheet, caption: t('sound.sheet') }] } : {}),
+      notice: t('sound.keptN', { n: kept.length }),
+    };
+  },
+};
+
+const credits: ToolType<Record<string, never>> = {
+  name: 'credits', title: 'Sound credits', description: 'lists where each sound of the composition comes from and its license (assets/sounds/CREDITS.md), to ship with the video',
+  input: { type: 'object', properties: {} },
+  ai: { when: 'when the sound is done, before an export: the credits go with the video' },
+  async run(_, ctx) {
+    const c = ctx.doc.compositions[ctx.compId], all = await soundLibrary();
+    const assets = [...new Set(audioClips(ctx.doc, ctx.compId).map((x) => x.asset))];
+    const lines: string[] = [];
+    for (const id of assets) {
+      const a = ctx.doc.assets[id];
+      // what was kept beside the file when it came in: the library entry, or what made it
+      const side = await ctx.readText(a.src.replace(/\.[a-z0-9]+$/i, '.sound.json')).then((s) => (s ? JSON.parse(s) as Record<string, string> : null)).catch(() => null);
+      const e = side?.from ? all.find((x) => x.id === side.from) : all.find((x) => `sound-${x.id}`.slice(0, 64) === id);
+      const name = a.name ?? id;
+      if (side?.provider) lines.push(`- ${name}: made by ${side.provider}${side.model ? ` (${side.model})` : ''}`);
+      else if (side?.code || e?.code) lines.push(`- ${name}: written as code (tramme)`);
+      else if (e || side?.license) lines.push(`- ${name}: ${e?.title ?? side?.title ?? name}, ${side?.author ?? e?.author ?? 'unknown author'}, ${side?.license ?? e?.license ?? 'license unknown'}${side?.url ?? e?.url ? ` <${side?.url ?? e?.url}>` : ''}`);
+      else lines.push(`- ${name}: brought by the user (${a.src})`);
+    }
+    if (!lines.length) return { text: 'No sound in this composition.', notice: t('sound.noCredits') };
+    const text = `# Sound credits: ${c.name ?? ctx.compId}\n\n${lines.join('\n')}\n`;
+    await ctx.writeFile('assets/sounds/CREDITS.md', text);
+    return { text: `${text}\nWritten to assets/sounds/CREDITS.md.`, notice: t('sound.credits', { n: lines.length }) };
+  },
+};
+
+export const SOUND_TOOLS: ToolType[] = [cues, sfx, soundFind, synth, generateSound, voices, duck, soundKeep, credits];

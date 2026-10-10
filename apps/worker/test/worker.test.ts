@@ -281,6 +281,11 @@ describe('sounds made by a provider', () => {
       seen.push({ url, headers: new Headers(init?.headers), body: JSON.parse(String(init?.body ?? '{}')) });
       if (url.includes('generativelanguage')) return Response.json({ steps: [{ content: [{ type: 'audio', mime_type: 'audio/wav', data: btoa('RIFFwav') }] }] });
       if (url.includes('/sound-generation') && seen.at(-1)!.body.text === 'refused') return Response.json({ detail: { message: 'quota exceeded' } }, { status: 401 });
+      if (url.includes('/v2/voices')) return Response.json({ voices: [{ voice_id: 'own1', name: 'Mine', labels: { accent: 'african', language: 'fr', gender: 'male' } }, { voice_id: 'own2', name: 'Other', labels: { accent: 'british' } }] });
+      if (url.includes('/shared-voices')) return Response.json({ voices: [{ public_owner_id: 'owner', voice_id: 'lib1', name: 'Shared', accent: 'african', gender: 'female', age: 'young', preview_url: 'https://x/p.mp3' }] });
+      if (url.includes('/voices/add/')) return Response.json({ voice_id: 'added1' });
+      // a voice of the library is unknown until it is added to the account
+      if (url.includes('/text-to-speech/lib1')) return Response.json({ detail: { message: 'voice_not_found' } }, { status: 404 });
       return new Response(new Uint8Array([0xff, 0xfb, 1, 2]), { headers: { 'content-type': 'audio/mpeg' } });
     }) as typeof fetch;
     return { seen, restore: () => { globalThis.fetch = real; } };
@@ -317,6 +322,47 @@ describe('sounds made by a provider', () => {
       expect(p.seen[2].headers.get('x-goog-api-key')).toBe('g-key');
       expect(p.seen[2].body.generation_config.speech_config[0].voice).toBe('Puck');
       expect(p.seen[2].body.input[0].content[0]).toMatchObject({ text: 'Bonjour à tous', annotations: [{ style: 'warm' }] });
+    } finally { p.restore(); }
+  });
+
+  it('says a voice-over with Eleven v4 by default, its style as an audio tag, the model asked for otherwise', async () => {
+    const { call } = setup({ ELEVENLABS_API_KEY: 'el-key' });
+    const p = providers();
+    try {
+      const v4 = await call('/api/generate', ask({ kind: 'voice', prompt: 'Bonjour', style: 'said warmly in a Beninese French accent' }));
+      expect(v4.headers.get('x-tramme-model')).toBe('eleven_v4');
+      expect(p.seen[0].body).toEqual({ text: '[said warmly in a Beninese French accent] Bonjour', model_id: 'eleven_v4' });
+      await call('/api/generate', ask({ kind: 'voice', prompt: 'Bonjour', style: 'calm', model: 'eleven_multilingual_v2' }));
+      // v2 reads no tag: the style is left out
+      expect(p.seen[1].body).toEqual({ text: 'Bonjour', model_id: 'eleven_multilingual_v2' });
+      await call('/api/generate', ask({ kind: 'voice', prompt: 'Bonjour', model: 'eleven_v3' }));
+      expect(p.seen[2].body.model_id).toBe('eleven_v3');
+      await call('/api/generate', ask({ kind: 'music', prompt: 'calm piano bed' }));
+      expect(p.seen[3].body.model_id).toBe('music_v2_5');
+    } finally { p.restore(); }
+  });
+
+  it('adds a voice of the shared library to the account when the provider does not know it yet', async () => {
+    const { call } = setup({ ELEVENLABS_API_KEY: 'el-key' });
+    const p = providers();
+    try {
+      const res = await call('/api/generate', ask({ kind: 'voice', prompt: 'Bonjour', voice: 'owner/lib1' }));
+      expect(res.status).toBe(200);
+      expect(res.headers.get('x-tramme-voice')).toBe('added1');
+      expect(p.seen.map((s) => s.url.replace('https://api.elevenlabs.io', '').split('?')[0])).toEqual(['/v1/text-to-speech/lib1', '/v1/voices/add/owner/lib1', '/v1/text-to-speech/added1']);
+    } finally { p.restore(); }
+  });
+
+  it('lists the voices: the account\'s filtered here, the library\'s filtered by the provider, the fixed sets of the others', async () => {
+    const { call } = setup({ ELEVENLABS_API_KEY: 'el-key', GEMINI_API_KEY: 'g' });
+    const p = providers();
+    try {
+      const { voices } = await (await call('/api/voices?accent=african&language=fr')).json() as { voices: { id: string; source: string; accent?: string }[] };
+      expect(voices.map((v) => [v.id, v.source])).toEqual([['own1', 'account'], ['owner/lib1', 'library']]);
+      expect(p.seen[1].url).toContain('/v1/shared-voices?page_size=40&language=fr&accent=african');
+      expect(p.seen[0].headers.get('xi-api-key')).toBe('el-key');
+      const gemini = await (await call('/api/voices?provider=gemini&search=puc')).json() as { voices: { id: string }[] };
+      expect(gemini.voices.map((v) => v.id)).toEqual(['Puck']);
     } finally { p.restore(); }
   });
 

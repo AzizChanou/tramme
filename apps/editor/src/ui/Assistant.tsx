@@ -17,6 +17,7 @@ import { refreshLibrary } from '../library.ts';
 import { acceptProposal, comp, propose, rejectProposal, S, toast, uiTime } from '../state.ts';
 import { ago, clip, describeOp, layerName, timecode } from '../model.ts';
 import { away, notify } from '../notify.ts';
+import { answer, chatShown, question, turnBegins, turnEnds } from '../confirm.ts';
 import { Icon } from './icons.tsx';
 import { attachFiles, attaching, attachmentUrl, draft, pending, removePending, type Attachment } from '../attachments.ts';
 import { Popover, Seg, Select, Toggle } from './controls.tsx';
@@ -63,7 +64,9 @@ export async function send(text: string, command?: { cmd: Command; input?: Recor
   chat.value = [...chat.value, { id: uid(), role: 'user', text, context: ctx.text, ...(atts.length ? { attachments: atts.map(({ path, name, kind, asset }) => ({ path, name, kind, asset })) } : {}) }];
   const ds = [...decisions].map(([id, status]) => ({ id, status }));
   decisions.clear();
-  await consume((signal) => ask({ text, context: ctx.data, doc: S.doc.peek(), decisions: ds, attachments: atts, command: command?.cmd, commandInput: command?.input }, signal));
+  // changes applied without the user: the turn works on its own, nothing is asked
+  const auto = aiSettings.peek().apply !== 'off';
+  await consume((signal) => ask({ text, context: { ...ctx.data, autonomous: auto }, doc: S.doc.peek(), decisions: ds, attachments: atts, command: command?.cmd, commandInput: command?.input }, signal), auto);
 }
 
 /** a tool of the / menu run at once, without the assistant */
@@ -71,12 +74,13 @@ export async function runCommand(cmd: Command, input: Record<string, unknown>) {
   if (running.peek()) return;
   const line = inputLine(input);
   chat.value = [...chat.value, { id: uid(), role: 'user', text: `/${cmd.name}${line ? ` · ${line}` : ''}`, context: contextLine().text }];
-  await consume((signal) => runTool(cmd.name, input, signal));
+  await consume((signal) => runTool(cmd.name, input, signal), false);
 }
 
 /** shows the events of a turn (the assistant's, or a tool run alone) as they come, then saves the conversation */
-async function consume(start: (signal: AbortSignal) => AsyncGenerator<AiEvent>) {
+async function consume(start: (signal: AbortSignal) => AsyncGenerator<AiEvent>, auto: boolean) {
   running.value = true;
+  turnBegins(auto);
   turnStart.value = Date.now();
   streaming.value = null;
   controller = new AbortController();
@@ -108,6 +112,7 @@ async function consume(start: (signal: AbortSignal) => AsyncGenerator<AiEvent>) 
   } catch (e) {
     if ((e as Error).name !== 'AbortError') { error = (e as Error).message; chat.value = [...chat.value, { id: uid(), role: 'assistant', text: t('assistant.errorError', { error }) }]; }
   } finally {
+    turnEnds();
     running.value = false;
     streaming.value = null;
     controller = null;
@@ -216,6 +221,24 @@ function ProposalCard({ p }: { p: NonNullable<ChatItem['proposal']> }) {
           <button class="btn sm primary" onClick={() => decide(true)}><Icon name="check" />{t('common.apply')}</button>
         </div>
       )}
+    </div>
+  );
+}
+
+/** a question asked during the turn (a generation that costs money): answered here */
+function QuestionCard() {
+  const q = question.value;
+  useEffect(() => { chatShown.value++; return () => { chatShown.value--; }; }, []);
+  if (!q?.inChat) return null;
+  return (
+    <div class="proposal question">
+      <div class="proposal-head"><Icon name="alert" /><span class="ptitle">{q.title}</span></div>
+      <p class="question-text">{q.text}</p>
+      <div class="proposal-actions">
+        <span class="grow" />
+        <button class="btn sm" onClick={() => answer(false)}>{t('common.cancel')}</button>
+        <button class="btn sm primary" onClick={() => answer(true)}><Icon name="check" />{q.yes}</button>
+      </div>
     </div>
   );
 }
@@ -623,7 +646,8 @@ export function Assistant({ style }: { style?: Record<string, string | number> }
           )}
           {items.map((it) => <Item key={it.id} it={it} />)}
           {items.length > 0 && !available && !busy && <Access />}
-          {busy && !active(items.at(-1)) && <Working />}
+          <QuestionCard />
+          {busy && !active(items.at(-1)) && !question.value && <Working />}
         </div>
       </div>
       <div class="composer-wrap">

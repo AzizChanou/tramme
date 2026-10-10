@@ -4,20 +4,37 @@
 
 import { signal } from '@preact/signals';
 import { useLayoutEffect, useRef, useState } from 'preact/hooks';
-import { layerActive, pointer, type Composition, type Keyframe, type Op } from '@tramme/core';
-import { comp, commit, draft, cancelDraft, S, select, setTime, frameStep, uiTime, viewDoc } from '../state.ts';
-import { animatedProps, flatTree, keysOf, layerName, parentOf, parseTime, propPath, rawProp, rulerLabel, shiftLayerOps, snap, timecode, type TreeItem } from '../model.ts';
+import { layerActive, pointer, staticValue, type Composition, type Keyframe, type Layer, type Op } from '@tramme/core';
+import { clickSelect, comp, commit, draft, cancelDraft, S, select, setTime, frameStep, toggleFold, uiTime, viewDoc } from '../state.ts';
+import { animatedProps, flatTree, keysOf, layerName, parentOf, parseTime, propPath, rawProp, rulerLabel, shiftLayerOps, snap, subtree, timecode, topLayers, type TreeItem } from '../model.ts';
 import { openMenu, useSize } from './controls.tsx';
 import { Icon, kindColor, kindIcon } from './icons.tsx';
 import { preview } from '../preview.ts';
 import { GraphEditor } from './GraphEditor.tsx';
+import { FoldButtons } from './LeftPanel.tsx';
+import { peaksOf, wavePath, wavesReady } from '../waveforms.ts';
 import { m, t, tr } from '../i18n/index.ts';
 
 export const pps = signal(0);              // pixels per second (0: fit)
 const expanded = signal<Set<string>>(new Set());
-const collapsedTl = signal<Set<string>>(new Set());
 
 const TRACK_PAD = 12;
+/** how close (px) an edge comes to a target before it snaps on it */
+const SNAP_PX = 8;
+
+/** where moved edges snap: the start and end, the playhead, the markers, the edges of the clips not moving */
+function snapTargets(c: Composition, moving: Set<string>): number[] {
+  const ts = [0, c.duration, S.time.peek(), ...(c.markers ?? []).map((m) => m.t)];
+  for (const [id, l] of Object.entries(c.layers)) if (!moving.has(id)) ts.push(l.in ?? 0, l.out ?? c.duration);
+  return ts;
+}
+
+/** the shift putting the nearest edge on a target within `tol` seconds, and that target (null when none is close) */
+function snapShift(edges: number[], targets: number[], tol: number): { d: number; at: number | null } {
+  let best = tol, d = 0, at: number | null = null;
+  for (const e of edges) for (const x of targets) if (Math.abs(x - e) < best) { best = Math.abs(x - e); d = x - e; at = x; }
+  return { d, at };
+}
 
 // ── transport ────────────────────────────────────────────────
 export function Transport() {
@@ -100,12 +117,15 @@ export function Timeline() {
   const total = X(c.duration) + TRACK_PAD;
 
   const rows: AnyRow[] = [];
-  for (const item of flatTree(c, collapsedTl.value)) {
+  for (const item of flatTree(c, S.collapsed.value)) {
     rows.push({ kind: 'layer', item });
     if (expanded.value.has(item.id)) for (const [name, keys] of animatedProps(item.layer)) rows.push({ kind: 'prop', item, name, keys });
   }
   const sel = S.selection.value, keySel = S.keys.value;
   const fps = c.fps;
+  const order = rows.flatMap((r) => (r.kind === 'layer' ? [r.item.id] : []));
+  const [snapAt, setSnapAt] = useState<number | null>(null);
+  const [band, setBand] = useState<{ x: number; y: number; w: number; h: number } | null>(null);
 
   // ── interactions ───────────────────────────────────────────
   const scrubFrom = (e: PointerEvent) => {
@@ -118,18 +138,60 @@ export function Timeline() {
     addEventListener('pointermove', move); addEventListener('pointerup', up);
   };
 
+  /** a click in an empty part of the tracks sets the time; a drag draws a band selecting the clips and keyframes it touches (Shift or Ctrl: added to the selection) */
+  const emptyDown = (e: PointerEvent) => {
+    if (e.button !== 0) return;
+    const el = tracks.current!, r = el.getBoundingClientRect();
+    const x0 = e.clientX, y0 = e.clientY, adding = e.shiftKey || e.ctrlKey || e.metaKey;
+    const baseLayers = adding ? S.selection.peek() : [], baseKeys = adding ? S.keys.peek() : [];
+    let banding = false;
+    const move = (ev: PointerEvent) => {
+      if (!banding && Math.hypot(ev.clientX - x0, ev.clientY - y0) < 4) return;
+      banding = true;
+      const a = { l: Math.min(x0, ev.clientX), r: Math.max(x0, ev.clientX), t: Math.min(y0, ev.clientY), b: Math.max(y0, ev.clientY) };
+      setBand({ x: a.l - r.left + el.scrollLeft, y: a.t - r.top + el.scrollTop, w: a.r - a.l, h: a.b - a.t });
+      const touched = (query: string, attr: string) => [...el.querySelectorAll<HTMLElement>(query)].filter((n) => {
+        const b = n.getBoundingClientRect();
+        return b.right >= a.l && b.left <= a.r && b.bottom >= a.t && b.top <= a.b;
+      }).map((n) => n.getAttribute(attr)!);
+      select([...new Set([...baseLayers, ...touched('.clip[data-layer]', 'data-layer')])]);
+      S.keys.value = [...new Set([...baseKeys, ...touched('.kf[data-key]', 'data-key')])];
+    };
+    const up = (ev: PointerEvent) => {
+      removeEventListener('pointermove', move); removeEventListener('pointerup', up);
+      setBand(null);
+      if (banding) return;
+      S.keys.value = [];
+      S.playing.value = false;
+      setTime(snap(T(ev.clientX - r.left + el.scrollLeft), fps));
+    };
+    addEventListener('pointermove', move); addEventListener('pointerup', up);
+  };
+
+  /** moves the clip, with the other selected ones, or trims it; its edges snap (Shift held: free) */
   const dragClip = (e: PointerEvent, id: string, mode: 'move' | 'in' | 'out') => {
     e.stopPropagation();
     if (e.button !== 0) return;
+    if (e.shiftKey || e.ctrlKey || e.metaKey) { clickSelect(e, id, order); return; }
     if (!sel.includes(id)) select([id]);
-    const x0 = e.clientX, d0 = S.doc.peek(), l = d0.compositions[compId].layers[id];
+    const x0 = e.clientX, d0 = S.doc.peek(), c0 = d0.compositions[compId], l = c0.layers[id];
+    // a layer inside a selected group goes with it
+    const moving = mode === 'move' && sel.includes(id) ? topLayers(c0, sel) : [id];
+    const targets = snapTargets(c0, new Set(moving.flatMap((x) => subtree(c0, x))));
+    const tin = l.in ?? 0, tout = l.out ?? c0.duration;
+    const edges = mode === 'move' ? moving.flatMap((x) => [c0.layers[x].in ?? 0, c0.layers[x].out ?? c0.duration]) : [mode === 'in' ? tin : tout];
+    const earliest = Math.min(...moving.map((x) => c0.layers[x].in ?? 0));
     let ops: Op[] = [];
     const move = (ev: PointerEvent) => {
-      const dt = snap((ev.clientX - x0) / k, fps);
-      if (mode === 'move') ops = dt ? shiftLayerOps(d0, compId, id, Math.max(dt, -(l.in ?? 0))) : [];
-      else {
+      let dt = (ev.clientX - x0) / k;
+      const s = ev.shiftKey ? { d: 0, at: null } : snapShift(edges.map((x) => x + dt), targets, SNAP_PX / k);
+      dt = s.at === null ? snap(dt, fps) : dt + s.d;
+      setSnapAt(s.at);
+      if (mode === 'move') {
+        dt = Math.max(dt, -earliest);
+        ops = dt ? moving.flatMap((x) => shiftLayerOps(d0, compId, x, dt)) : [];
+      } else {
         const lp = pointer('compositions', compId, 'layers', id);
-        const tin = l.in ?? 0, tout = l.out ?? c.duration;
         if (mode === 'in') ops = [{ op: 'add', path: `${lp}/in`, value: +Math.min(tout - 1 / fps, Math.max(0, tin + dt)).toFixed(4) }];
         else ops = [{ op: 'add', path: `${lp}/out`, value: +Math.max(tin + 1 / fps, tout + dt).toFixed(4) }];
       }
@@ -137,7 +199,10 @@ export function Timeline() {
     };
     const up = () => {
       removeEventListener('pointermove', move); removeEventListener('pointerup', up);
-      if (ops.length) commit(mode === 'move' ? t('timeline.moveInTime') : mode === 'in' ? t('common.inPoint') : t('common.outPoint'), ops); else cancelDraft();
+      setSnapAt(null);
+      if (!ops.length) { cancelDraft(); return; }
+      const label = mode === 'in' ? t('common.inPoint') : mode === 'out' ? t('common.outPoint') : moving.length > 1 ? t('timeline.moveNClips', { n: moving.length }) : t('timeline.moveInTime');
+      commit(label, ops);
     };
     addEventListener('pointermove', move); addEventListener('pointerup', up);
   };
@@ -204,7 +269,7 @@ export function Timeline() {
 
   return (
     <div class="timeline" data-tour="timeline" style={{ '--names': `${namesW}px` }} onWheel={onWheel}>
-      <div class="tl-corner"><Icon name="layers" size={13} />{t('timeline.nLayers', { n: Object.keys(c.layers).length })}</div>
+      <div class="tl-corner"><Icon name="layers" size={13} />{t('timeline.nLayers', { n: Object.keys(c.layers).length })}<span class="grow" /><FoldButtons /></div>
       <div class="tl-ruler" onPointerDown={scrubFrom}>
         <div style={{ position: 'absolute', inset: 0, transform: `translateX(${-scroll}px)` }}>
           {ticks.map((tk) => (
@@ -221,14 +286,15 @@ export function Timeline() {
       </div>
       <div class="tl-names" ref={names} style={{ position: 'relative' }}>
         {rows.map((r) => r.kind === 'layer' ? (
-          <div key={r.item.id} class={`tl-name${sel.includes(r.item.id) ? ' selected' : ''}`} style={{ paddingLeft: 6 + r.item.depth * 12 }} onClick={(e) => select(e.shiftKey ? [...sel, r.item.id] : [r.item.id])}>
+          <div key={r.item.id} class={`tl-name${sel.includes(r.item.id) ? ' selected' : ''}`} style={{ paddingLeft: 6 + r.item.depth * 12 }} onClick={(e) => clickSelect(e, r.item.id, order)}>
             {r.item.layer.children
-              ? <button class={`twist${collapsedTl.value.has(r.item.id) ? '' : ' open'}`} onClick={(e) => { e.stopPropagation(); toggle(collapsedTl, r.item.id); }}><Icon name="chevron" /></button>
+              ? <button class={`twist${S.collapsed.value.has(r.item.id) ? '' : ' open'}`} title={t('panel.foldHint')} onClick={(e) => { e.stopPropagation(); toggleFold(r.item.id, e.altKey); }}><Icon name="chevron" /></button>
               : animatedProps(r.item.layer).length
                 ? <button class={`twist${expanded.value.has(r.item.id) ? ' open' : ''}`} title={t('timeline.animatedProperties')} onClick={(e) => { e.stopPropagation(); toggle(expanded, r.item.id); }}><Icon name="chevron" /></button>
                 : <span style={{ width: 16, flex: 'none' }} />}
             <span style={{ color: kindColor(r.item.layer.type), display: 'grid' }}><Icon name={kindIcon(r.item.layer.type)} size={12} /></span>
             <span class="name">{layerName(r.item.id, r.item.layer)}</span>
+            {r.item.layer.type === 'audio' && <SoloButton id={r.item.id} />}
           </div>
         ) : (
           <div key={`${r.item.id}.${r.name}`} class="tl-name sub" style={{ paddingLeft: 30 + r.item.depth * 12 }}>
@@ -240,8 +306,8 @@ export function Timeline() {
       </div>
       <div class="tl-tracks" ref={tracks}
         onScroll={(e) => { const el = e.currentTarget as HTMLDivElement; setScroll(el.scrollLeft); if (names.current) names.current.scrollTop = el.scrollTop; }}
-        onPointerDown={(e) => { if (e.target === e.currentTarget || (e.target as HTMLElement).classList.contains('tl-row')) { S.keys.value = []; scrubFrom(e); } }}>
-        <div style={{ position: 'relative', width: total, minHeight: '100%' }}>
+        onPointerDown={(e) => { const el = e.target as HTMLElement; if (el === e.currentTarget || el.classList.contains('tl-row') || el.classList.contains('tl-content')) emptyDown(e); }}>
+        <div class="tl-content" style={{ position: 'relative', width: total, minHeight: '100%' }}>
           {rows.map((r) => {
             if (r.kind === 'layer') {
               const l = r.item.layer, id = r.item.id;
@@ -252,8 +318,9 @@ export function Timeline() {
               const keysAll = animatedProps(l).flatMap(([, ks]) => ks.map((kf) => kf.t));
               return (
                 <div key={id} class="tl-row">
-                  <div class={`clip${sel.includes(id) ? ' selected' : ''}`} style={{ left: X(a), width: Math.max(2, (b - a) * k), '--c': kindColor(l.type), opacity: l.visible === false ? 0.45 : layerActive(l, c, now) ? 1 : 0.8 }}
+                  <div data-layer={id} class={`clip${sel.includes(id) ? ' selected' : ''}`} style={{ left: X(a), width: Math.max(2, (b - a) * k), '--c': kindColor(l.type), opacity: l.visible === false ? 0.45 : layerActive(l, c, now) ? 1 : 0.8 }}
                     onPointerDown={(e) => dragClip(e, id, 'move')} onDblClick={() => setTime(a)}>
+                    {l.type === 'audio' && <ClipWave layer={l} from={a} seconds={b - a} width={(b - a) * k} />}
                     {(b - a) * k > 60 && <span class="label">{layerName(id, l)}</span>}
                     <span class="edge l" onPointerDown={(e) => dragClip(e, id, 'in')} />
                     <span class="edge r" onPointerDown={(e) => dragClip(e, id, 'out')} />
@@ -268,7 +335,7 @@ export function Timeline() {
                 {keys.slice(1).map((kf, i) => keys[i].ease !== 'hold' && <span key={`s${i}`} class="kf-span" style={{ left: X(keys[i].t), width: (kf.t - keys[i].t) * k }} />)}
                 {keys.map((kf, i) => {
                   const kid = keyId(item.id, name, i);
-                  return <span key={i} class={`kf${kf.ease === 'hold' ? ' hold' : ''}${keySel.includes(kid) ? ' selected' : ''}`} style={{ left: X(kf.t) }}
+                  return <span key={i} data-key={kid} class={`kf${kf.ease === 'hold' ? ' hold' : ''}${keySel.includes(kid) ? ' selected' : ''}`} style={{ left: X(kf.t) }}
                     title={`${timecode(kf.t, fps)} · ${JSON.stringify(kf.v)}${kf.ease ? ` · ${JSON.stringify(kf.ease)}` : ''}`}
                     onPointerDown={(e) => dragKey(e, item.id, name, i)} onDblClick={() => setTime(kf.t)} onContextMenu={(e) => keyMenu(e, item.id, name, i)} />;
                 })}
@@ -276,10 +343,34 @@ export function Timeline() {
             );
           })}
           <div class="tl-out" style={{ left: X(c.duration), width: TRACK_PAD }} />
+          {snapAt !== null && <div class="tl-snap" style={{ left: X(snapAt) }} />}
+          {band && <div class="tl-band" style={{ left: band.x, top: band.y, width: band.w, height: band.h }} />}
           <Playhead x={X} />
         </div>
       </div>
     </div>
+  );
+}
+
+/** the waveform of an audio clip, its file read once in the background */
+function ClipWave({ layer, from, seconds, width }: { layer: Layer; from: number; seconds: number; width: number }) {
+  void wavesReady.value;
+  const asset = staticValue(layer.props?.audio), r = preview.renderer;
+  if (typeof asset !== 'string' || !r || width < 8) return null;
+  let url: string;
+  try { url = r.assets.url(asset); } catch { return null; }
+  const p = peaksOf(url);
+  if (!p) return null;
+  const rate = Number(staticValue(layer.props?.rate) ?? 1) || 1, offset = Number(staticValue(layer.props?.start) ?? 0) + (from - (layer.in ?? 0)) * rate;
+  return <svg class="wave" viewBox={`0 0 ${width} 100`} preserveAspectRatio="none" aria-hidden="true"><path d={wavePath(p, offset, seconds, rate, width)} /></svg>;
+}
+
+/** plays a sound layer alone in the preview, or with the others again */
+function SoloButton({ id }: { id: string }) {
+  const on = S.solo.value.has(id);
+  return (
+    <button class={`solo${on ? ' on' : ''}`} title={on ? t('timeline.soloOff') : t('timeline.solo')}
+      onClick={(e) => { e.stopPropagation(); const s = new Set(S.solo.value); on ? s.delete(id) : s.add(id); S.solo.value = s; }}>S</button>
   );
 }
 

@@ -41,6 +41,18 @@ export function subtree(comp: Composition, id: string): string[] {
   return out;
 }
 
+/** the name of the group the sounds are kept in */
+export const SOUND_GROUP = 'Sound';
+
+/** the group the sounds are kept in, at the root: named Sound, or holding sounds only */
+export const soundGroupOf = (comp: Composition): string | undefined => comp.order.find((id) => {
+  const l = comp.layers[id];
+  return l?.type === 'group' && (l.name === SOUND_GROUP || (!!l.children?.length && l.children.every((k) => comp.layers[k]?.type === 'audio')));
+});
+
+/** the layers of a set not inside another one of the set: those that carry the others along */
+export const topLayers = (comp: Composition, ids: string[]) => ids.filter((id) => comp.layers[id] && !ids.some((o) => o !== id && subtree(comp, o).includes(id)));
+
 export const layerName = (id: string, l: Layer) => l.name || id;
 
 /** a text cut to at most max characters, an ellipsis marking the cut */

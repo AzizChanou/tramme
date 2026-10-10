@@ -11,7 +11,7 @@ import { trackId, trackReader, type TrackReader } from './track.ts';
 import { compileExpr, type ExprScope } from './expr.ts';
 import { modifierParams, seedOf, type ModifierContext } from './modifiers.ts';
 import { asExpr, asKeyframed, asLink, easeFn, modsOf, propKind, resolveTokens, sampleKeyframes, staticValue, tokenValue } from './props.ts';
-import { CAMERA_SCHEMA, MOTION_BLUR_SCHEMA, TRANSFORM_SCHEMA, type NodeType, type PropDef, type Registry } from './registry.ts';
+import { CAMERA_SCHEMA, MOTION_BLUR_SCHEMA, SOUND_MIX_SCHEMA, TRANSFORM_SCHEMA, type NodeType, type PropDef, type Registry } from './registry.ts';
 import type { Composition, TrammeDoc, Layer, Marker, Prop, Vec2 } from './types.ts';
 
 export interface EvaluatedTransform {
@@ -228,6 +228,9 @@ export class Evaluator {
       }
       if (parts[1] === 'camera' && CAMERA_SCHEMA[parts[2]]) {
         return { prop: (ctx.comp.camera as any)?.[parts[2]], def: CAMERA_SCHEMA[parts[2]] };
+      }
+      if (parts[1] === 'sound' && SOUND_MIX_SCHEMA[parts[2]]) {
+        return { prop: (ctx.comp.sound as any)?.[parts[2]] ?? undefined, def: SOUND_MIX_SCHEMA[parts[2]] };
       }
       if (parts[1] === 'effects') {
         const fx = (ctx.comp.effects || []).find((e) => e.id === parts[2]);

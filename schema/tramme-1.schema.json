@@ -233,6 +233,14 @@
               "additionalProperties": false
             }
           },
+          "sound": {
+            "type": "object",
+            "properties": {
+              "loudness": {},
+              "room": {}
+            },
+            "additionalProperties": false
+          },
           "layers": {
             "type": "object",
             "propertyNames": {

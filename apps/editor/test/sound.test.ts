@@ -12,6 +12,8 @@ const ROOT = path.resolve(__dirname, '../../..');
 const catalog = JSON.parse(fs.readFileSync(path.join(ROOT, 'sounds/catalog.json'), 'utf8')).sounds as SoundEntry[];
 const library = [...catalog, ...SOUND_PRESETS];
 const tool = (name: string) => SOUND_TOOLS.find((x) => x.name === name)!;
+/** the audio layers a tool adds */
+const audioLayers = (ops: any[]) => ops.filter((o) => o.op === 'add' && /^\/compositions\/main\/layers\/[^/]+$/.test(o.path) && o.value.type === 'audio').map((o) => o.value);
 
 describe('the sound library', () => {
   it('holds every file it lists, once, measured and described', () => {
@@ -91,16 +93,31 @@ afterEach(() => { vi.unstubAllGlobals(); });
 describe('moments of a video', () => {
   it('names them from the document: entrances, exits, markers, cuts, beats and bars where the music plays, now', async () => {
     const { ctx } = context();
-    expect(await momentsOf(ctx, undefined, 'entrances', undefined)).toEqual([1, 2.5, 3]);
-    expect(await momentsOf(ctx, undefined, 'entrances', ['title'])).toEqual([1]);
-    expect(await momentsOf(ctx, undefined, 'exits', undefined)).toEqual([3, 4, 8]);
-    expect(await momentsOf(ctx, undefined, 'markers, now', undefined)).toEqual([5.5, 6]);
-    expect(await momentsOf(ctx, undefined, 'cuts', undefined)).toEqual([3]);
+    const times = async (on: unknown, layers?: unknown, at?: unknown) => (await momentsOf(ctx, at, on, layers)).map((m) => m.t);
+    expect(await times('entrances')).toEqual([1, 2.5, 3]);
+    expect(await times('entrances', ['title'])).toEqual([1]);
+    expect(await times('exits')).toEqual([3, 4, 8]);
+    expect(await times('markers, now')).toEqual([5.5, 6]);
+    expect(await times('cuts')).toEqual([3]);
     // the music starts 2 s into its file: its beats fall 2 s earlier in the composition
-    expect(await momentsOf(ctx, undefined, 'bars', undefined)).toEqual([0, 2, 4]);
-    expect(await momentsOf(ctx, [1.01, '2'], undefined, undefined)).toEqual([1, 2]);
-    expect(await momentsOf(ctx, '7.5, 99', undefined, undefined)).toEqual([7.5]);
+    expect(await times('bars')).toEqual([0, 2, 4]);
+    expect(await times(undefined, undefined, [1.01, '2'])).toEqual([1, 2]);
+    expect(await times(undefined, undefined, '7.5, 99')).toEqual([7.5]);
     await expect(momentsOf(ctx, undefined, 'sometimes', undefined)).rejects.toThrow('unknown moment');
+  });
+
+  it('reads the cues of the picture: what each one underlines and its weight', async () => {
+    const doc = project();
+    const main = doc.compositions.main;
+    main.layers.card = { type: 'shape.rect', transform: { position: { $k: [{ t: 1, v: [200, 540], ease: [0.4, 0, 0.2, 1] }, { t: 1.6, v: [1600, 540] }] } }, props: { size: [400, 400], fill: '#fff' } };
+    const { ctx } = context(doc);
+    const moves = await momentsOf(ctx, undefined, 'moves', ['card']);
+    expect(moves).toHaveLength(1);
+    expect(moves[0]).toMatchObject({ visual: 'move' });
+    expect(moves[0].t).toBeGreaterThan(1.1);
+    expect(moves[0].t).toBeLessThan(1.5);
+    const lands = await momentsOf(ctx, undefined, 'lands', ['card']);
+    expect(lands[0].visual).toBe('land');
   });
 });
 
@@ -117,20 +134,25 @@ describe('the sfx tool', () => {
     const { ctx, written } = context();
     const out = await tool('sfx').run({ sound: 'impact-impact-metal-heavy-000', on: 'entrances', gain: -10 }, ctx) as { ops: any[] };
     const metal = variantsOf(catalog, catalog.find((e) => e.id === 'impact-impact-metal-heavy-000')!);
-    const layers = out.ops.filter((o) => o.op === 'add' && /\/layers\//.test(o.path)).map((o) => o.value);
+    const layers = audioLayers(out.ops);
     expect(layers.map((l) => l.props.audio)).toEqual(metal.slice(0, 3).map((e) => `sound-${e.id}`));
     layers.forEach((l, i) => {
       expect(l.in + metal[i].peakAt).toBeCloseTo([1, 2.5, 3][i], 3);
       expect(l.props.gain).toBe(-10);
     });
-    expect(out.ops.filter((o) => o.path === '/compositions/main/order/-')).toHaveLength(3);
-    expect(Object.keys(written)).toEqual(metal.slice(0, 3).map((e) => `assets/sounds/${e.id}.ogg`));
+    // in the Sound group, made at the bottom of the stack
+    expect(out.ops.find((o) => o.path === '/compositions/main/layers/sound')?.value).toMatchObject({ type: 'group', name: 'Sound' });
+    expect(out.ops.find((o) => o.path === '/compositions/main/order/0')?.value).toBe('sound');
+    expect(out.ops.filter((o) => o.path === '/compositions/main/layers/sound/children/-')).toHaveLength(3);
+    // each file with where it comes from and its license beside it, for the credits
+    expect(Object.keys(written)).toEqual(metal.slice(0, 3).flatMap((e) => [`assets/sounds/${e.id}.ogg`, `assets/sounds/${e.id}.sound.json`]));
+    expect(JSON.parse(written[`assets/sounds/${metal[0].id}.sound.json`] as string)).toMatchObject({ from: metal[0].id, license: 'CC0', author: 'Kenney (www.kenney.nl)' });
   });
 
   it('starts music and jingles on the moment, and a sound repeated alone varies its speed a little', async () => {
     const { ctx } = context();
     const out = await tool('sfx').run({ sound: 'jingle-hit00', at: [2, 6], vary: false }, ctx) as { ops: any[] };
-    const layers = out.ops.filter((o) => /\/layers\//.test(o.path)).map((o) => o.value);
+    const layers = audioLayers(out.ops);
     expect(layers.map((l) => l.in)).toEqual([2, 6]);
     expect(layers.every((l) => l.props.rate === undefined)).toBe(true);
     const lone = { ...catalog.find((e) => e.id === 'interface-tick-001')!, family: undefined };
@@ -139,7 +161,7 @@ describe('the sfx tool', () => {
     vi.resetModules();
     const fresh = await import('../src/sound.ts');
     const again = await fresh.SOUND_TOOLS.find((x) => x.name === 'sfx')!.run({ sound: lone.id, at: [1, 2, 3] }, context().ctx) as { ops: any[] };
-    const rates = again.ops.filter((o) => /\/layers\//.test(o.path)).map((o) => o.value.props.rate ?? 1);
+    const rates = audioLayers(again.ops).map((l) => l.props.rate ?? 1);
     expect(new Set(rates).size).toBe(3);
     expect(rates.every((r) => r > 0.95 && r < 1.05)).toBe(true);
   });
@@ -149,11 +171,34 @@ describe('the sfx tool', () => {
     try {
       const { ctx } = context();
       const out = await tool('sfx').run({ sound: 'impact-impact-metal-heavy-000', on: 'entrances' }, ctx) as { ops: any[] };
-      const layers = out.ops.filter((o) => /\/layers\//.test(o.path)).map((o) => o.value);
+      const layers = audioLayers(out.ops);
       expect(layers.map((l) => l.props.gain)).toEqual([-14, -14, -14]);
       expect(new Set(layers.map((l) => l.props.audio)).size).toBe(1);
       expect(prefs.peek().effectsDb).toBe(-14);
     } finally { setPrefs({ effectsDb: DEFAULT_PREFERENCES.effectsDb, varySounds: DEFAULT_PREFERENCES.varySounds }); }
+  });
+
+  it('stacks a hero, peaks together and each 4 dB under, the bed stopping and thinning out before it', async () => {
+    const { ctx } = context();
+    const ids = ['impact-impact-soft-heavy-000', 'impact-impact-metal-heavy-000'];
+    const out = await tool('sfx').run({ sound: ids.join('+'), at: [6], weight: 'hero', stop: true, build: true, gain: -6 }, ctx) as { ops: any[] };
+    const layers = audioLayers(out.ops);
+    expect(layers.map((l) => l.props.gain)).toEqual([-6, -10]);
+    expect(layers.every((l) => l.props.weight === 'hero')).toBe(true);
+    layers.forEach((l, i) => expect(l.in + catalog.find((e) => e.id === ids[i])!.peakAt).toBeCloseTo(6, 3));
+    // the music (a long sound: the bed) falls 24 dB before the hit and comes back after it
+    const gain = out.ops.find((o) => o.path === '/compositions/main/layers/bed/props/gain');
+    expect(gain.value.$k).toEqual([{ t: 5.6, v: -6 }, { t: 5.95, v: -30 }, { t: 6, v: -30 }, { t: 6.35, v: -6 }]);
+    const cut = out.ops.find((o) => o.path === '/compositions/main/layers/bed/props/lowCut');
+    expect(cut.value.$k).toEqual([{ t: 4, v: 0 }, { t: 4.01, v: 40 }, { t: 5.99, v: 300 }, { t: 6.05, v: 0 }]);
+  });
+
+  it('gives a sound placed on a cue what it underlines', async () => {
+    const doc = project();
+    doc.compositions.main.layers.card = { type: 'shape.rect', in: 2.5, transform: { position: [960, 540] }, props: { size: [400, 400], fill: '#fff' } };
+    const { ctx } = context(doc);
+    const out = await tool('sfx').run({ sound: 'impact-impact-soft-heavy-000', on: 'appears', layers: ['card'], vary: false }, ctx) as { ops: any[] };
+    expect(audioLayers(out.ops).map((l) => l.props.visual)).toEqual(['appear']);
   });
 
   it('says where to place when nothing tells it', async () => {

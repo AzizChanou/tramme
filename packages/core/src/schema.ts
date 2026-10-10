@@ -72,6 +72,7 @@ const composition = z.strictObject({
   camera: z.strictObject({ pan: prop.optional(), zoom: prop.optional(), perspective: prop.optional(), focus: prop.optional(), blur: prop.optional() }).optional(),
   markers: z.array(marker).optional(),
   effects: z.array(effect).optional(),
+  sound: z.strictObject({ loudness: prop.optional(), room: prop.optional() }).optional(),
   layers: z.record(id, layer),
   order: z.array(id),
 });

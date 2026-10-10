@@ -28,7 +28,7 @@ describe('the / menu', () => {
   const list = listCommands(reg);
 
   it('lists the editor\'s tools and workflows with the plugins\' ones', () => {
-    expect(list.filter((c) => c.kind === 'tool').map((c) => c.name)).toEqual(['captions', 'title', 'keyword', 'lower-third', 'kinetic-title', 'bar-chart', 'stat', 'transition', 'kit', 'pointer', 'terrain', 'keys', 'riffle', 'events', 'event-counter', 'event-tags', 'event-receipt', 'beats', 'shots', 'subjects', 'palette', 'track', 'callout', 'cutout', 'check', 'motion', 'sfx', 'synth', 'generate-sound', 'duck', 'sound-keep', 'generate-image', 'shorts', 'sources', 'block-add', 'block-use', 'brief', 'library-add', 'library-use', 'demo.stars']);
+    expect(list.filter((c) => c.kind === 'tool').map((c) => c.name)).toEqual(['captions', 'title', 'keyword', 'lower-third', 'kinetic-title', 'bar-chart', 'stat', 'transition', 'kit', 'pointer', 'terrain', 'keys', 'riffle', 'events', 'event-counter', 'event-tags', 'event-receipt', 'beats', 'shots', 'subjects', 'palette', 'track', 'callout', 'cutout', 'check', 'motion', 'cues', 'sfx', 'sound-find', 'synth', 'generate-sound', 'voices', 'duck', 'sound-keep', 'credits', 'mix', 'generate-image', 'shorts', 'sources', 'block-add', 'block-use', 'brief', 'library-add', 'library-use', 'demo.stars']);
     expect(list.filter((c) => c.kind === 'prompt').map((c) => `${c.name}:${c.from}`)).toEqual(['analyze:tramme', 'dress:tramme', 'review:tramme', 'polish:tramme', 'sound-design:tramme', 'shorts:tramme', 'night:sky']);
   });
 

@@ -111,8 +111,9 @@ function place(doc: TrammeDoc, comp: Composition, t: number, layers: EvaluatedLa
 /** the composition every `step` seconds, its layers placed */
 export function sampleComposition(evaluator: Evaluator, compId: string, step = 0.25): Sample[] {
   const comp = evaluator.comp(compId), out: Sample[] = [];
-  for (let t = 0; t < comp.duration - 1e-6; t += step) {
-    const f = evaluator.frame(t, compId), layers: PlacedLayer[] = [];
+  // times counted, not added up: a step of 1/30 lands on its frames
+  for (let i = 0; i * step < comp.duration - 1e-6; i++) {
+    const t = +(i * step).toFixed(6), f = evaluator.frame(t, compId), layers: PlacedLayer[] = [];
     place(evaluator.doc, comp, t, f.layers, [1, 0, 0, 1, 0, 0], 1, layers);
     out.push({ t: +t.toFixed(4), layers });
   }

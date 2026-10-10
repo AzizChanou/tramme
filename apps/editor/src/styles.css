@@ -416,6 +416,10 @@ input[type=text].plain, input.plain { background: transparent; border: 0; outlin
 
 /* ── layer tree ────────────────────────────────────────────── */
 .tree { padding: 4px 0; }
+/* the words the tree is narrowed to, kept in view while it scrolls */
+.tree-filter { position: sticky; top: -4px; z-index: 2; display: flex; align-items: center; gap: 6px; height: 28px; margin: -4px 0 2px; padding: 0 6px 0 10px; background: var(--panel); border-bottom: 1px solid var(--line-soft); color: var(--text-3); }
+.tree-filter input { flex: 1; min-width: 0; height: 22px; border: 0; background: none; color: var(--text); outline: none; font-size: 12px; }
+.tree-none { padding: 8px 12px; font-size: 12px; }
 .tree-row {
   position: relative; display: flex; align-items: center; gap: 4px; height: var(--row); padding-right: 6px;
   color: var(--text-2); cursor: default; border-radius: 0;
@@ -438,7 +442,9 @@ input[type=text].plain, input.plain { background: transparent; border: 0; outlin
 .tree-row.drop-before { box-shadow: inset 0 2px 0 var(--accent); }
 .tree-row.drop-after { box-shadow: inset 0 -2px 0 var(--accent); }
 .tree-row.drop-inside { background: var(--accent-soft); }
-.tree-row .badge { font-size: 10px; color: var(--text-3); font-family: var(--mono); }
+/* the icons at the end of a row keep their columns: the clip badge, then the eye */
+.tree-row .badge { width: 16px; height: 16px; display: grid; place-items: center; flex: none; color: var(--text-3); }
+.tree-row .row-actions .icon-btn { width: 20px; height: 20px; }
 
 .list-row { display: flex; align-items: center; gap: 8px; min-height: 30px; padding: 4px 10px; color: var(--text-2); }
 .list-row:hover { background: var(--hover-soft); color: var(--text); }
@@ -529,7 +535,8 @@ input[type=text].plain, input.plain { background: transparent; border: 0; outlin
 /* ── timeline ──────────────────────────────────────────────── */
 .bottom { display: flex; flex-direction: column; min-height: 0; background: var(--panel); container-type: inline-size; }
 .timeline { flex: 1; min-height: 0; display: grid; grid-template-columns: var(--names, 220px) 1fr; grid-template-rows: 28px 1fr; position: relative; }
-.tl-corner { border-right: 1px solid var(--line); border-bottom: 1px solid var(--line); display: flex; align-items: center; padding: 0 8px; gap: 6px; color: var(--text-3); font-size: 11px; }
+.tl-corner { border-right: 1px solid var(--line); border-bottom: 1px solid var(--line); display: flex; align-items: center; padding: 0 4px 0 8px; gap: 6px; color: var(--text-3); font-size: 11px; }
+.tl-corner .grow { flex: 1; }
 .tl-ruler { position: relative; border-bottom: 1px solid var(--line); overflow: hidden; cursor: ew-resize; background: var(--panel-2); }
 .tl-ruler .tick { position: absolute; top: 0; bottom: 0; border-left: 1px solid var(--line-strong); }
 .tl-ruler .tick.minor { top: 20px; border-color: var(--line); }
@@ -562,6 +569,16 @@ input[type=text].plain, input.plain { background: transparent; border: 0; outlin
 .clip .edge { position: absolute; top: 0; bottom: 0; width: 6px; cursor: ew-resize; }
 .clip .edge.l { left: 0; } .clip .edge.r { right: 0; }
 .clip .edge:hover { background: var(--edge-hover); }
+/* the waveform of a sound clip, under its label */
+.clip .wave { position: absolute; left: 0; top: 2px; width: 100%; height: calc(100% - 4px); pointer-events: none; }
+.clip .wave path { fill: var(--c, var(--t-audio)); opacity: .55; }
+/* play a sound alone in the preview */
+.tl-name .solo { flex: none; width: 18px; height: 16px; margin-left: auto; padding: 0; border: 1px solid var(--line); border-radius: 3px; background: none; color: var(--text-3); font: 600 9.5px var(--mono); }
+.tl-name .solo:hover { color: var(--text); border-color: var(--line-strong); }
+.tl-name .solo.on { background: var(--key); border-color: var(--key); color: #111; }
+/* where a moved edge snaps, and the band drawn to select */
+.tl-snap { position: absolute; top: 0; bottom: 0; width: 1px; background: var(--key); pointer-events: none; z-index: 3; }
+.tl-band { position: absolute; border: 1px solid var(--accent); background: var(--accent-soft); pointer-events: none; z-index: 3; }
 .kf { position: absolute; top: 50%; width: 9px; height: 9px; margin: -4.5px 0 0 -4.5px; transform: rotate(45deg); border-radius: 1.5px; background: var(--key); box-shadow: 0 0 0 1px rgba(0,0,0,.6); cursor: pointer; z-index: 1; }
 .kf.hold { border-radius: 0; background: #d98f2b; }
 .kf.summary { width: 7px; height: 7px; margin: -3.5px 0 0 -3.5px; background: color-mix(in srgb, var(--key) 80%, #000); pointer-events: none; }
@@ -700,6 +717,9 @@ svg.i.flip { transform: rotate(180deg); }
 .proposal li .what { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .proposal-actions { display: flex; gap: 6px; padding: 8px 10px 10px; border-top: 1px solid var(--line); align-items: center; }
 .proposal-actions .grow { flex: 1; }
+.proposal.question { box-shadow: 0 0 0 1px var(--key); }
+.proposal.question .proposal-head svg.i { color: var(--key); }
+.question-text { margin: 0; padding: 0 12px 10px; font-size: 12px; color: var(--text-2); }
 .composer-wrap { position: relative; padding: 8px 10px 10px; border-top: 1px solid var(--line); flex: none; }
 /* the / menu: tools and workflows, above the message box */
 .command-menu { position: absolute; left: 10px; right: 10px; bottom: calc(100% - 2px); z-index: 20; display: flex; flex-direction: column; max-height: min(340px, 55vh); border-radius: 10px; background: var(--raised); box-shadow: var(--shadow); overflow: hidden; animation: pop .12s var(--ease); }
@@ -927,6 +947,8 @@ html.vault:not(.compact) .set-row:not(.stack) .set-control { justify-content: fl
 .set-list li:hover { background: var(--field-hover); border-radius: var(--radius-sm); }
 .set-list-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .set-list .faint { font-size: 11px; white-space: nowrap; }
+.set-list li.on { background: var(--accent-soft); border-radius: var(--radius-sm); }
+.set-pair > .btn { flex: none; }
 .set-control .seg { height: 28px; }
 .set-control .seg button { flex: none; padding: 0 10px; white-space: nowrap; }
 .menu .menu-icon-space { width: 14px; flex: none; }

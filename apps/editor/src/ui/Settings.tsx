@@ -10,7 +10,8 @@
 import type { FunctionComponent } from 'preact';
 import { useContext, useEffect, useRef, useState } from 'preact/hooks';
 import type { SoundEntry } from '@tramme/core';
-import { api } from '../api.ts';
+import { ELEVEN_VOICE_MODELS } from '@tramme/api';
+import { api, type Voice } from '../api.ts';
 import { EffortPicker, ModelPicker } from './ModelPicker.tsx';
 import { aiSettings, aiStatus, connectProvider, disconnectProvider, ensureStatus, providersChanged, refreshStatus, removeCustomProvider, saveCustomProvider, serverName, setAiSettings, statusLabels } from '../ai/index.ts';
 import { allowNotifications, notificationState } from '../notify.ts';
@@ -132,25 +133,34 @@ function Level({ value, min, max, step = 1, unit = 'dB', onChange }: { value: nu
   return <div class="set-number"><NumberField value={value} min={min} max={max} step={step} unit={unit} onCommit={onChange} /></div>;
 }
 
-/** the sounds kept in the library shared by the projects: listened to, deleted */
-function SoundLibrary() {
-  const [list, setList] = useState<{ name: string; entry?: unknown }[] | null>(null);
+/** one sound listened to at a time: play(key, url) starts it, or stops it when it is the one playing */
+function useListen() {
   const [playing, setPlaying] = useState<string | null>(null);
-  const [doomed, setDoomed] = useState<string | null>(null);
   const audio = useRef<HTMLAudioElement | null>(null);
-  const load = () => api.sounds().then(setList).catch(() => setList([]));
-  useEffect(() => { load(); return () => audio.current?.pause(); }, []);
-  const play = (name: string) => {
+  useEffect(() => () => audio.current?.pause(), []);
+  const stop = () => { audio.current?.pause(); setPlaying(null); };
+  const play = (key: string, url: string) => {
     audio.current?.pause();
-    if (playing === name) { setPlaying(null); return; }
-    const a = new Audio(api.soundUrl(name));
+    if (playing === key) { setPlaying(null); return; }
+    const a = new Audio(url);
     a.onended = () => setPlaying(null);
     a.play().catch(() => setPlaying(null));
     audio.current = a;
-    setPlaying(name);
+    setPlaying(key);
   };
+  return { playing, play, stop };
+}
+
+/** the sounds kept in the library shared by the projects: listened to, deleted */
+function SoundLibrary() {
+  const [list, setList] = useState<{ name: string; entry?: unknown }[] | null>(null);
+  const [doomed, setDoomed] = useState<string | null>(null);
+  const { playing, play: listen, stop } = useListen();
+  const load = () => api.sounds().then(setList).catch(() => setList([]));
+  useEffect(() => { load(); }, []);
+  const play = (name: string) => listen(name, api.soundUrl(name));
   const remove = async (name: string) => {
-    if (playing === name) { audio.current?.pause(); setPlaying(null); }
+    if (playing === name) stop();
     await api.soundDelete(name).catch((e) => toast((e as Error).message, 'error'));
     setDoomed(null);
     load();
@@ -173,6 +183,48 @@ function SoundLibrary() {
         </ul>
       )}>
       <button class="btn sm" onClick={load}><Icon name="loop" />{t('settings.refresh')}</button>
+    </Row>
+  );
+}
+
+/** the voices of the provider chosen, searched by words, language and accent, listened to, one taken for the voice-overs */
+function VoicePicker() {
+  const p = prefs.value;
+  const provider = p.voiceProvider === 'auto' ? undefined : p.voiceProvider;
+  const [q, setQ] = useState({ search: '', language: '', accent: '' });
+  const [list, setList] = useState<Voice[] | null>(null);
+  const [busy, setBusy] = useState(false);
+  const { playing, play } = useListen();
+  const find = () => {
+    setBusy(true);
+    api.voices({ provider, ...q }).then(setList, (e) => { toast((e as Error).message, 'error'); setList([]); }).finally(() => setBusy(false));
+  };
+  const field = (k: keyof typeof q, placeholder: string) => (
+    <div class="field"><input value={q[k]} placeholder={placeholder} onInput={(e) => setQ({ ...q, [k]: (e.target as HTMLInputElement).value })} onKeyDown={(e) => { if (e.key === 'Enter') find(); }} /></div>
+  );
+  return (
+    <Row label={t('settings.voicePicker')} hint={t('settings.voicePickerHint')} stack
+      below={list !== null && (
+        <ul class="set-list">
+          {!list.length && <li class="faint">{t('sound.noVoice')}</li>}
+          {list.map((v) => (
+            <li key={v.id} class={p.voice === v.id ? 'on' : ''}>
+              <button class="icon-btn sm" disabled={!v.preview} title={playing === v.id ? t('settings.stopListening') : t('settings.listen')} onClick={() => v.preview && play(v.id, v.preview)}><Icon name={playing === v.id ? 'stop' : 'play'} /></button>
+              <span class="set-list-name" title={v.description}>{v.name}</span>
+              <span class="faint">{[v.language, v.accent, v.gender, v.source === 'library' ? t('settings.voiceLibrary') : null].filter(Boolean).join(' · ')}</span>
+              {p.voice === v.id
+                ? <span class="set-badge">{t('settings.voiceChosen')}</span>
+                : <button class="btn sm" onClick={() => setPrefs({ voice: v.id, voiceProvider: v.provider as Preferences['voiceProvider'] })}>{t('settings.voiceUse')}</button>}
+            </li>
+          ))}
+        </ul>
+      )}>
+      <div class="set-pair">
+        {field('search', t('settings.voiceSearch'))}
+        {field('language', t('settings.voiceLanguage'))}
+        {field('accent', t('settings.voiceAccent'))}
+        <button class="btn sm" disabled={busy} onClick={find}><Icon name={busy ? 'spinner' : 'search'} />{t('settings.voiceFind')}</button>
+      </div>
     </Row>
   );
 }
@@ -202,12 +254,21 @@ function Sound() {
       <Row label={t('settings.confirmPaid')} hint={t('settings.confirmPaidHint')}>
         <Toggle on={p.confirmPaid} onChange={(v) => setPrefs({ confirmPaid: v })} />
       </Row>
+      <Row label={t('settings.paidPerTurn')} hint={t('settings.paidPerTurnHint')}>
+        <Level value={p.paidPerTurn} min={0} max={100} unit="" onChange={(v) => setPrefs({ paidPerTurn: Math.round(v) })} />
+      </Row>
       <Row label={t('settings.voiceOver')} hint={t('settings.voiceOverHint')}>
         <div class="set-pair">
           <Select value={p.voiceProvider} options={[['auto', t('common.automatic')], ['elevenlabs', 'ElevenLabs'], ['openai', 'OpenAI'], ['gemini', 'Gemini']]} onChange={(v) => setPrefs({ voiceProvider: v as Preferences['voiceProvider'] })} />
           <div class="field"><input value={p.voice} placeholder={t('settings.voicePlaceholder')} onChange={(e) => setPrefs({ voice: (e.target as HTMLInputElement).value.trim() })} /></div>
         </div>
       </Row>
+      {(p.voiceProvider === 'auto' || p.voiceProvider === 'elevenlabs') && (
+        <Row label={t('settings.voiceModel')} hint={t('settings.voiceModelHint')}>
+          <Select value={p.voiceModel} options={Object.entries(ELEVEN_VOICE_MODELS).map(([id, name], i) => [i ? id : '', i ? name : t('settings.voiceModelDefault', { name })])} onChange={(v) => setPrefs({ voiceModel: v })} />
+        </Row>
+      )}
+      <VoicePicker />
       <SoundLibrary />
     </Section>
   );

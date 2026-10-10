@@ -7,10 +7,9 @@
 
 import { pointer, type Op, type ToolContext, type ToolType } from '@tramme/core';
 import { api } from './api.ts';
-import { confirmWith } from './confirm.ts';
+import { payFor } from './confirm.ts';
 import { clip, freshId } from './model.ts';
 import { jpegOf } from './perception.ts';
-import { prefs } from './settings.ts';
 import { t } from './i18n/index.ts';
 
 const EXT: Record<string, string> = { 'image/png': 'png', 'image/jpeg': 'jpg', 'image/webp': 'webp', 'image/gif': 'gif' };
@@ -86,10 +85,8 @@ const generateImage: ToolType<{ prompt: string; name?: string; ratio?: Ratio | '
     example: { prompt: 'flat vector illustration of a coastal road at dusk, muted blues and warm sand, large quiet sky over the sea, no text', name: 'road-dusk', background: true },
   },
   async run({ prompt, name, ratio = 'auto', quality, provider, fit = 'cover', at = 0, duration, background = false }, ctx) {
-    // it costs money: the user says yes first (as for the sounds)
-    if (prefs.peek().confirmPaid && !await confirmWith(t('image.paidTitle'), t('image.paidText', { prompt: clip(prompt, 140) }), t('image.paidYes'))) {
-      throw new Error('the user declined to have this picture made (it costs money): ask before trying again, or ask for an asset instead');
-    }
+    // it costs money: the user says yes first, or the turn's allowance does (as for the sounds)
+    await payFor(t('image.paidTitle'), t('image.paidText', { prompt: clip(prompt, 140) }), t('image.paidYes'), 'ask the user for a picture instead');
     const c = ctx.doc.compositions[ctx.compId];
     const r = ratio === 'auto' ? ratioOf(c.width, c.height) : ratio;
     const made = await api.generateImage({ prompt, ratio: r, quality, provider }, ctx.signal);

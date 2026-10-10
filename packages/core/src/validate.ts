@@ -7,7 +7,7 @@ import { parseColor } from './color.ts';
 import { compileExpr } from './expr.ts';
 import { pointer } from './ops.ts';
 import { asExpr, asKeyframed, asLink, propKind, staticValue } from './props.ts';
-import { CAMERA_SCHEMA, MOTION_BLUR_SCHEMA, TRANSFORM_SCHEMA, type PropDef, type PropSchema, type Registry } from './registry.ts';
+import { CAMERA_SCHEMA, MOTION_BLUR_SCHEMA, SOUND_MIX_SCHEMA, TRANSFORM_SCHEMA, type PropDef, type PropSchema, type Registry } from './registry.ts';
 import { DocSchema } from './schema.ts';
 import type { Composition, TrammeDoc } from './types.ts';
 
@@ -123,6 +123,7 @@ class Checker {
       this.prop(cid, pointer(...base, 'background'), { type: 'color', default: null, nullable: true }, comp.background);
     }
     if (comp.motionBlur) this.props(cid, pointer(...base, 'motionBlur'), MOTION_BLUR_SCHEMA, comp.motionBlur);
+    if (comp.sound) this.props(cid, pointer(...base, 'sound'), SOUND_MIX_SCHEMA, comp.sound);
     if (comp.camera) this.props(cid, pointer(...base, 'camera'), CAMERA_SCHEMA, comp.camera);
     this.effects(cid, pointer(...base, 'effects'), comp.effects, 'finish');
 

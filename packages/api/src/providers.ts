@@ -7,13 +7,15 @@
 //   POST   /api/claude/v1/messages              Messages API with the Anthropic key
 //   POST   /api/llm/:provider/chat/completions  OpenAI, Gemini, OpenRouter, Z.AI, custom providers with their keys
 //   GET    /api/models                          the models of those providers
-//   POST   /api/generate                        {kind: sfx|music|voice, prompt, duration?, voice?, style?, provider?} -> audio
+//   POST   /api/generate                        {kind: sfx|music|voice, prompt, duration?, voice?, style?, model?, provider?} -> audio
+//   GET    /api/voices                          ?provider=&search=&language=&accent=&gender= -> the voices of a voice-over
 //   POST   /api/generate-image                  {prompt, ratio?, quality?, provider?} -> the picture file
 //   POST   /api/transcribe                      {audio: WAV base64, language?} -> words with their timing (OpenAI)
 
 import { claude, claudeConfig } from './claude.ts';
-import { generate, soundConfig } from './generate.ts';
+import { generate, soundConfig, voices } from './generate.ts';
 import { failure, json } from './http.ts';
+export { ELEVEN_VOICE_MODELS, type Voice } from './generate.ts';
 import { generateImage, imageConfig } from './images.ts';
 import type { Keys } from './keys.ts';
 import { llm, llmConfig, models } from './llm.ts';
@@ -26,7 +28,7 @@ export interface Reach {
 }
 
 /** the routes of providers, under /api/ */
-export const PROVIDER_ROUTES = ['claude', 'llm', 'models', 'generate', 'generate-image', 'transcribe'];
+export const PROVIDER_ROUTES = ['claude', 'llm', 'models', 'generate', 'voices', 'generate-image', 'transcribe'];
 
 /** what is connected, as /api/config tells it */
 export const providersConfig = (keys: Keys) => ({ claude: claudeConfig(keys), llm: llmConfig(keys), keys: keys.status(), sound: soundConfig(keys), images: imageConfig(keys), transcribe: transcribeConfig(keys) });
@@ -38,6 +40,7 @@ export async function providerRoute(req: Request, reach: Reach, parts: string[])
   if (parts[0] === 'llm' && parts[1]) return llm(req, reach, decodeURIComponent(parts[1]), parts.slice(2).join('/'));
   if (parts[0] === 'models' && m === 'GET') return models(reach);
   if (parts[0] === 'generate' && m === 'POST') return generate(req, reach);
+  if (parts[0] === 'voices' && m === 'GET') return voices(req, reach);
   if (parts[0] === 'generate-image' && m === 'POST') return generateImage(req, reach);
   if (parts[0] === 'transcribe' && m === 'POST') return transcribe(req, reach);
   return null;

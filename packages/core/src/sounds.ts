@@ -30,6 +30,8 @@ export interface SoundEntry {
   loudDb?: number;
   license?: string;
   author?: string;
+  /** where it comes from (its page), for the credits */
+  url?: string;
   /** a sound made by a provider: what it was asked */
   prompt?: string;
   provider?: string;

@@ -8,6 +8,24 @@ Until 1.0.0, the document format and the APIs may still change between minor ver
 
 ## [Unreleased]
 
+### Added
+
+- Sound that follows the picture: cues read from the animation's own timing (cuts, moves at their fastest, landings, appearances, about one hero in four seconds), placed on with `on: heroes, cuts, moves, lands, appears`; a hero stacked from several sounds (`sound: "a+b"`) with the music stopping before it and thinning out into it; `sound-find` brings CC0 recordings from Freesound (through Openverse), judged automatically, into your library with their credit; `mix` balances each effect against the music and voice band by band; `credits` writes where each sound comes from. The sounds placed go in a `Sound` group.
+- Every export is mastered: a composition's `sound` settings bring it to a loudness (-14 LUFS by default, BS.1770) with its true peak under -1 dBTP, and give its effects one shared room. Audio layers say their `role` (effect, music, voice, ambience), `weight` (support, hero) and what they underline. The preview plays the same master.
+- The check measures the mix: the master's loudness and peak, each effect on its cue and heard over the bed, the music under the voice, unplanned dips and silences; it shows a picture of the mix and lists moments to check by ear.
+- ElevenLabs voice-overs with Eleven v4 by default, and v4 Turbo, v3, Multilingual v2 or Flash in the Sound settings; the style of a voice-over (an accent included) becomes an audio tag on v4 and v3. Music with `music_v2_5`. A voice picker in the Sound settings and a `voices` tool list the account's voices and the shared library's, filtered by language and accent.
+- Fold or unfold every group at once (layers and timeline, one state for both; Alt+click folds a whole branch), and find a layer by its name.
+- Several clips selected in the timeline (Ctrl+click, Shift+click, a band drawn in an empty part, Ctrl+A) move together; moved edges snap to the playhead, the markers and the other clips (Shift held: free).
+- Waveforms in the sound clips of the timeline, and a solo button that plays one sound alone in the preview.
+
+### Changed
+
+- When the assistant applies its changes by itself, it no longer stops on a question: paid generations count against an allowance per turn (Sound settings), and it decides what a sensible choice answers instead of asking. A question asked during a turn shows in the conversation, and the user is told when away.
+
+### Fixed
+
+- The eye of a hidden layer and the clip badge keep their columns in the layer tree.
+
 ## [0.3.0] - 2026-10-10
 
 ### Added

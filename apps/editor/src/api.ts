@@ -7,7 +7,8 @@
 
 import type { TrammeDoc, Op } from '@tramme/core';
 import { isMedia, LIMITS, type Manifest } from '@tramme/project';
-import type { KeyedProvider, KeyStatus } from '@tramme/api';
+import type { KeyedProvider, KeyStatus, Voice } from '@tramme/api';
+export type { Voice };
 import { vaultOrigin } from './mode.ts';
 import { desktopFetch, tauri } from './tauri.ts';
 import { vaultFetch } from './vault/link.ts';
@@ -84,14 +85,16 @@ const away = vaultOrigin ? vaultFetch : tauri ? desktopFetch : undefined;
 /** a route that reaches a provider with the user's key: the server adds it, or the key vault, or the desktop app */
 export const reach = (path: string, init?: RequestInit): Promise<Response> => (away ?? fetch)(path, init);
 
+/** the answer when it is a success; what the server said wrong otherwise, as an ApiError */
+async function answered(r: Response): Promise<Response> {
+  if (r.ok) return r;
+  let body: { error?: string; issues?: { path: string; message: string }[] } = {};
+  try { body = await r.json(); } catch { /* not JSON */ }
+  throw new ApiError(r.status, body.error ?? `HTTP ${r.status}`, body.issues);
+}
+
 async function call<T>(path: string, init?: RequestInit, go: typeof reach = fetch): Promise<T> {
-  const r = await go(path, init);
-  if (!r.ok) {
-    let body: { error?: string; issues?: { path: string; message: string }[] } = {};
-    try { body = await r.json(); } catch { /* not JSON */ }
-    throw new ApiError(r.status, body.error ?? `HTTP ${r.status}`, body.issues);
-  }
-  return r.json() as Promise<T>;
+  return (await answered(await go(path, init))).json() as Promise<T>;
 }
 
 const jsonInit = (method: string, body: unknown): RequestInit => ({ method, headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
@@ -137,23 +140,18 @@ export const api = {
   soundDelete: (name: string) => call<{ deleted: string }>(api.soundUrl(name), { method: 'DELETE' }),
   soundPut: (name: string, data: Blob, entry: unknown) => call<{ name: string; size: number }>(api.soundUrl(name), { method: 'PUT', headers: { 'content-type': data.type || 'application/octet-stream', 'x-tramme-entry': JSON.stringify(entry) }, body: data }),
   /** a sound effect, a music bed or a voice-over made by a provider with the user's key */
-  async generate(ask: { kind: 'sfx' | 'music' | 'voice'; prompt: string; duration?: number; voice?: string; style?: string; provider?: string }, signal?: AbortSignal): Promise<MadeSound> {
-    const r = await reach('/api/generate', { ...jsonInit('POST', ask), signal });
-    if (!r.ok) {
-      let message = `HTTP ${r.status}`;
-      try { message = (await r.json()).error ?? message; } catch { /* not JSON */ }
-      throw new ApiError(r.status, message);
-    }
+  async generate(ask: { kind: 'sfx' | 'music' | 'voice'; prompt: string; duration?: number; voice?: string; style?: string; model?: string; provider?: string }, signal?: AbortSignal): Promise<MadeSound> {
+    const r = await answered(await reach('/api/generate', { ...jsonInit('POST', ask), signal }));
     return { blob: await r.blob(), provider: r.headers.get('x-tramme-provider') ?? '', model: r.headers.get('x-tramme-model') ?? '', voice: r.headers.get('x-tramme-voice') ?? undefined };
+  },
+  /** the voices a voice-over can take, filtered (search, language, accent, gender, age) */
+  async voices(q: { provider?: string; search?: string; language?: string; accent?: string; gender?: string; age?: string }, signal?: AbortSignal): Promise<Voice[]> {
+    const params = new URLSearchParams(Object.entries(q).filter(([, v]) => v) as [string, string][]);
+    return (await call<{ voices: Voice[] }>(`/api/voices?${params}`, { signal }, reach)).voices;
   },
   /** a picture made by a provider with the user's key */
   async generateImage(ask: { prompt: string; ratio?: string; quality?: 'low' | 'medium' | 'high'; provider?: string }, signal?: AbortSignal): Promise<MadeImage> {
-    const r = await reach('/api/generate-image', { ...jsonInit('POST', ask), signal });
-    if (!r.ok) {
-      let message = `HTTP ${r.status}`;
-      try { message = (await r.json()).error ?? message; } catch { /* not JSON */ }
-      throw new ApiError(r.status, message);
-    }
+    const r = await answered(await reach('/api/generate-image', { ...jsonInit('POST', ask), signal }));
     return { blob: await r.blob(), provider: r.headers.get('x-tramme-provider') ?? '', model: r.headers.get('x-tramme-model') ?? '' };
   },
   remove: (id: string) => call<{ deleted: string }>(P(id), { method: 'DELETE' }),

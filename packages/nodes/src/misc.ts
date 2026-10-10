@@ -1,7 +1,7 @@
 // Structure and escape hatches: groups, free code, audio.
 
 import type { Host, NodeType } from '@tramme/core';
-import { RATE_PROP, SOUND_PROPS } from './sound.ts';
+import { MIX_PROPS, RATE_PROP, SOUND_PROPS } from './sound.ts';
 
 export const group: NodeType = {
   type: 'group', title: 'Group', category: 'Structure', container: true,
@@ -52,6 +52,7 @@ export const audio: NodeType = {
     start: { type: 'number', default: 0, label: 'Start in the file', min: 0, unit: 's', animatable: false },
     ...SOUND_PROPS,
     ...RATE_PROP,
+    ...MIX_PROPS,
   },
   render: {},
 };

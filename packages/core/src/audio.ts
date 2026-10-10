@@ -6,10 +6,22 @@
 // mix the same clips with one mixer (@tramme/render, audio.ts).
 
 import { propKind, sampleKeyframes, staticValue } from './props.ts';
-import type { Keyframe, TrammeDoc } from './types.ts';
+import type { Composition, Keyframe, TrammeDoc } from './types.ts';
+
+/** what a sound is in the mix: effects share the room, music and ambience are the bed, the voice leads */
+export type SoundRole = 'effect' | 'music' | 'voice' | 'ambience';
+export const SOUND_ROLES: SoundRole[] = ['effect', 'music', 'voice', 'ambience'];
+/** what an effect underlines in the picture: a cut, a move at its fastest, a landing, an appearance */
+export type SoundVisual = 'cut' | 'move' | 'land' | 'appear';
+export const SOUND_VISUALS: SoundVisual[] = ['cut', 'move', 'land', 'appear'];
 
 export interface AudioClip {
   layerId: string;
+  role: SoundRole;
+  /** a hero sound is one of the few moments the film is built around (a logo, a reveal); the others support */
+  weight: 'hero' | 'support';
+  /** what it underlines in the picture, when it says so */
+  visual?: SoundVisual;
   /** asset id of the file */
   asset: string;
   /** composition time (s) where the clip starts */
@@ -29,10 +41,15 @@ export interface AudioClip {
   rate: number;
   /** filters (Hz): sound under lowCut and over highCut removed, 0 for none */
   lowCut: number;
+  /** the low cut over time when it is animated (a build thinning the music out): [composition time, Hz] */
+  lowCutCurve: [number, number][] | null;
   highCut: number;
   /** share of reverb, 0 (dry) to 1 */
   reverb: number;
 }
+
+/** what a sound's names say it is, when its layer does not say its role (a layer's length says nothing: an effect often runs to the end) */
+const NAMED: [RegExp, SoundRole][] = [[/voice|narrat|speech|dialog|\bvo\b/i, 'voice'], [/ambien|room.?tone|atmos/i, 'ambience'], [/music|song|score|\bbed\b/i, 'music']];
 
 /** samples a second of an animated gain: enough for fades and ducking, light for every mixer */
 const ENVELOPE_RATE = 50;
@@ -55,25 +72,40 @@ export function audioClips(doc: TrammeDoc, compId: string): AudioClip[] {
   const comp = doc.compositions[compId];
   if (!comp) return [];
   const clips: AudioClip[] = [];
+  const parent = new Map<string, string>();
+  for (const [id, l] of Object.entries(comp.layers)) for (const k of l.children ?? []) parent.set(k, id);
   for (const [layerId, layer] of Object.entries(comp.layers)) {
     if (layer.visible === false || (layer.type !== 'audio' && layer.type !== 'video')) continue;
     const props = layer.props ?? {};
     if (layer.type === 'video' && staticValue(props.muted) === true) continue;
     const asset = staticValue(layer.type === 'audio' ? props.audio : props.video);
     if (typeof asset !== 'string' || !doc.assets[asset]) continue;
-    const at = layer.in ?? 0, end = Math.min(layer.out ?? comp.duration, comp.duration);
-    if (end <= at) continue;
-    const duration = end - at;
-    const envelope = envelopeOf(props.gain, at, end, doc);
+    // it plays where its groups let it, as the timeline shows it; a hidden group silences it
+    let at = layer.in ?? 0, end = Math.min(layer.out ?? comp.duration, comp.duration), hidden = false;
+    for (let p = parent.get(layerId); p; p = parent.get(p)) {
+      const g = comp.layers[p];
+      hidden ||= g.visible === false;
+      at = Math.max(at, g.in ?? 0); end = Math.min(end, g.out ?? comp.duration);
+    }
+    if (hidden || end <= at) continue;
+    const duration = end - at, rate = layer.type === 'audio' ? clamp(num(staticValue(props.rate), 1), 0.25, 4) : 1;
+    const envelope = envelopeOf(props.gain, at, end, doc), lowCutCurve = envelopeOf(props.lowCut, at, end, doc);
+    const role = staticValue(props.role), visual = staticValue(props.visual);
     clips.push({
       layerId, asset, at, duration,
-      offset: Math.max(0, num(staticValue(props.start), 0)),
+      // unsaid: a video's sound is someone speaking; a sound is what its names say, an effect otherwise
+      role: SOUND_ROLES.includes(role as SoundRole) ? role as SoundRole : layer.type === 'video' ? 'voice' : NAMED.find(([re]) => re.test(`${layerId} ${layer.name ?? ''} ${asset} ${doc.assets[asset].name ?? ''}`))?.[1] ?? 'effect',
+      weight: staticValue(props.weight) === 'hero' ? 'hero' : 'support',
+      ...(SOUND_VISUALS.includes(visual as SoundVisual) ? { visual: visual as SoundVisual } : {}),
+      // a group starting after the layer skips the beginning of its file
+      offset: Math.max(0, num(staticValue(props.start), 0)) + (at - (layer.in ?? 0)) * rate,
       gainDb: envelope ? envelope[0][1] : num(staticValue(props.gain), 0),
       envelope,
       fadeIn: clamp(num(staticValue(props.fadeIn), 0), 0, duration),
       fadeOut: clamp(num(staticValue(props.fadeOut), 0), 0, duration),
-      rate: layer.type === 'audio' ? clamp(num(staticValue(props.rate), 1), 0.25, 4) : 1,
-      lowCut: Math.max(0, num(staticValue(props.lowCut), 0)),
+      rate,
+      lowCut: Math.max(0, lowCutCurve ? lowCutCurve[0][1] : num(staticValue(props.lowCut), 0)),
+      lowCutCurve,
       highCut: Math.max(0, num(staticValue(props.highCut), 0)),
       reverb: clamp(num(staticValue(props.reverb), 0), 0, 1),
     });
@@ -81,16 +113,28 @@ export function audioClips(doc: TrammeDoc, compId: string): AudioClip[] {
   return clips.sort((a, b) => a.at - b.at);
 }
 
+/** how a composition's sound is finished (its `sound` settings): the loudness of the master, null as mixed; the share of the room the effects have in common */
+export interface SoundMix { loudness: number | null; room: number }
+export const DEFAULT_LOUDNESS = -14;
+export const DEFAULT_ROOM = 0.15;
+
+export function soundMix(comp: Composition): SoundMix {
+  const s = comp.sound;
+  const loudness = s?.loudness === null ? null : num(staticValue(s?.loudness), DEFAULT_LOUDNESS);
+  return { loudness: loudness === null ? null : clamp(loudness, -31, -6), room: clamp(num(staticValue(s?.room), DEFAULT_ROOM), 0, 1) };
+}
+
+/** a sampled curve's value at t, straight between its points, held past its ends */
+export function curveAt(e: [number, number][], t: number): number {
+  let i = 0;
+  while (i < e.length - 2 && e[i + 1][0] <= t) i++;
+  const [t0, v0] = e[i], [t1, v1] = e[Math.min(i + 1, e.length - 1)];
+  return t <= t0 ? v0 : t >= t1 ? v1 : v0 + ((v1 - v0) * (t - t0)) / (t1 - t0);
+}
+
 /** the clip's gain (linear, 1 = as recorded) at composition time t: its curve or its level, times its fades */
 export function gainAt(c: AudioClip, t: number): number {
-  let dB = c.gainDb;
-  const e = c.envelope;
-  if (e) {
-    let i = 0;
-    while (i < e.length - 2 && e[i + 1][0] <= t) i++;
-    const [t0, v0] = e[i], [t1, v1] = e[Math.min(i + 1, e.length - 1)];
-    dB = t <= t0 ? v0 : t >= t1 ? v1 : v0 + ((v1 - v0) * (t - t0)) / (t1 - t0);
-  }
+  const dB = c.envelope ? curveAt(c.envelope, t) : c.gainDb;
   const end = c.at + c.duration;
   const fade = Math.min(1, c.fadeIn > 0 ? (t - c.at) / c.fadeIn : 1, c.fadeOut > 0 ? (end - t) / c.fadeOut : 1);
   return Math.pow(10, dB / 20) * Math.max(0, fade);
