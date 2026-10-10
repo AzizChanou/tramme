@@ -1,6 +1,6 @@
 [package]
 name = "tramme-desktop"
-version = "0.3.0"
+version = "0.4.0"
 description = "the tramme editor as a native app"
 edition = "2021"
 default-run = "tramme-desktop"

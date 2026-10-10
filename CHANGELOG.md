@@ -8,6 +8,8 @@ Until 1.0.0, the document format and the APIs may still change between minor ver
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-10-10
+
 ### Added
 
 - Sound that follows the picture: cues read from the animation's own timing (cuts, moves at their fastest, landings, appearances, about one hero in four seconds), placed on with `on: heroes, cuts, moves, lands, appears`; a hero stacked from several sounds (`sound: "a+b"`) with the music stopping before it and thinning out into it; `sound-find` brings CC0 recordings from Freesound (through Openverse), judged automatically, into your library with their credit; `mix` balances each effect against the music and voice band by band; `credits` writes where each sound comes from. The sounds placed go in a `Sound` group.
@@ -164,7 +166,8 @@ First public release.
 
 - Cloudflare Worker serving the editor and the API, projects stored in R2, access protected by Cloudflare Access.
 
-[Unreleased]: ../../compare/v0.3.0...HEAD
+[Unreleased]: ../../compare/v0.4.0...HEAD
+[0.4.0]: ../../compare/v0.3.0...v0.4.0
 [0.3.0]: ../../compare/v0.2.0...v0.3.0
 [0.2.0]: ../../compare/v0.1.0...v0.2.0
 [0.1.0]: ../../releases/tag/v0.1.0
